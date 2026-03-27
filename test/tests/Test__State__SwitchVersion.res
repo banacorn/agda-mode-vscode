@@ -799,6 +799,8 @@ describe("State__SwitchVersion", () => {
     let createTestStateWithPlatform = (platform: Platform.t) =>
       createTestStateWithPlatformAndStorage(platform, VSCode.Uri.file(NodeJs.Os.tmpdir()))
     let createTestState = () => createTestStateWithPlatform(makeMockPlatform())
+    let makePickerItem = (state: State.t, itemData: State__SwitchVersion.ItemData.t) =>
+      State__SwitchVersion.Item.fromItemData(itemData, state.extensionUri)
 
     Async.it(
       "should not show native download option on web platform",
@@ -1282,9 +1284,10 @@ describe("State__SwitchVersion", () => {
           }
         )
 
-        let selectedItem: VSCode.QuickPickItem.t = {
-          label: State__SwitchVersion.Constants.checkingAvailability,
-        }
+        let selectedItem = makePickerItem(
+          state,
+          DownloadAction(false, State__SwitchVersion.Constants.checkingAvailability, "native"),
+        )
 
         State__SwitchVersion.Handler.onSelection(
           state,
@@ -1305,14 +1308,9 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should not treat unknown quickpick item labels as endpoint selection",
+      "should not treat non-endpoint picker items as endpoint selection",
       async () => {
         let state = createTestState()
-        let selectedPath = mockAgda.contents
-        let discoveredEndpoints = Dict.make()
-        discoveredEndpoints->Dict.set(selectedPath, Memento.Endpoints.Agda(None))
-        await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
-
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
 
@@ -1324,11 +1322,7 @@ describe("State__SwitchVersion", () => {
           }
         )
 
-        let selectedItem: VSCode.QuickPickItem.t = {
-          label: "__unexpected_item__",
-          description: "",
-          detail: selectedPath,
-        }
+        let selectedItem = makePickerItem(state, Separator("__unexpected_item__"))
 
         State__SwitchVersion.Handler.onSelection(
           state,
@@ -1364,7 +1358,7 @@ describe("State__SwitchVersion", () => {
           }
         )
 
-        let selectedItem: VSCode.QuickPickItem.t = %raw(`({ label: "$(tag)  Select other channels" })`)
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
 
         State__SwitchVersion.Handler.onSelection(
           state,
@@ -1417,7 +1411,7 @@ describe("State__SwitchVersion", () => {
           }
         )
 
-        let selectedItem: VSCode.QuickPickItem.t = %raw(`({ label: "$(tag)  Select other channels" })`)
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
 
         State__SwitchVersion.Handler.onSelection(
           state,
@@ -1471,7 +1465,7 @@ describe("State__SwitchVersion", () => {
         }`)
         mockShowQuickPick()
 
-        let selectedItem: VSCode.QuickPickItem.t = %raw(`({ label: "$(tag)  Select other channels" })`)
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
 
         State__SwitchVersion.Handler.onSelection(
           state,
@@ -1539,7 +1533,7 @@ describe("State__SwitchVersion", () => {
         }`)
         mockShowQuickPick()
 
-        let selectedItem: VSCode.QuickPickItem.t = %raw(`({ label: "$(tag)  Select other channels" })`)
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
 
         State__SwitchVersion.Handler.onSelection(
           state,
@@ -1608,7 +1602,7 @@ describe("State__SwitchVersion", () => {
         }`)
         mockShowQuickPick()
 
-        let selectedItem: VSCode.QuickPickItem.t = %raw(`({ label: "$(tag)  Select other channels" })`)
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
 
         State__SwitchVersion.Handler.onSelection(
           state,
@@ -1859,23 +1853,14 @@ describe("State__SwitchVersion", () => {
           discoveredEndpoints->Dict.set("als", Memento.Endpoints.ALS(None))
           await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
 
-          let selectedItemLabel = switch Memento.Endpoints.get(state.memento, selectedPath) {
-          | Some(entry) =>
-            let (label, _description) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
+          let selectedItem = makePickerItem(
+            state,
+            Endpoint(
               selectedPath,
-              entry,
-            )
-            label
-          | None =>
-            Assert.fail("Expected discovered endpoint to exist in memento")
-            ""
-          }
-
-          let selectedItem: VSCode.QuickPickItem.t = {
-            label: selectedItemLabel,
-            description: "",
-            detail: selectedPath,
-          }
+              Memento.Endpoints.get(state.memento, selectedPath)->Option.getExn,
+              false,
+            ),
+          )
 
           State__SwitchVersion.Handler.onSelection(
             state,
@@ -1998,23 +1983,14 @@ describe("State__SwitchVersion", () => {
           }
         )
 
-        let selectedItemLabel = switch Memento.Endpoints.get(state.memento, fsPath) {
-        | Some(entry) =>
-          let (label, _description) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
+        let selectedItem = makePickerItem(
+          state,
+          Endpoint(
             fsPath,
-            entry,
-          )
-          label
-        | None =>
-          Assert.fail("Expected fsPath endpoint to exist in memento")
-          ""
-        }
-
-        let selectedItem: VSCode.QuickPickItem.t = {
-          label: selectedItemLabel,
-          description: "",
-          detail: fsPath,
-        }
+            Memento.Endpoints.get(state.memento, fsPath)->Option.getExn,
+            false,
+          ),
+        )
 
         State__SwitchVersion.Handler.onSelection(
           state,
@@ -2037,7 +2013,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should resolve alias-equivalent endpoint selection to the stored endpoint key",
+      "should use the selected endpoint candidate from the typed picker item payload",
       async () => {
         let state = createTestState()
         let view = State__SwitchVersion.View.make(state.channels.log)
@@ -2062,23 +2038,14 @@ describe("State__SwitchVersion", () => {
             },
         )
 
-        let selectedItemLabel = switch Memento.Endpoints.get(state.memento, uriPath) {
-        | Some(entry) =>
-          let (label, _description) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
-            uriPath,
-            entry,
-          )
-          label
-        | None =>
-          Assert.fail("Expected uriPath endpoint to exist in memento")
-          ""
-        }
-
-        let selectedItem: VSCode.QuickPickItem.t = {
-          label: selectedItemLabel,
-          description: "",
-          detail: fsPath,
-        }
+        let selectedItem = makePickerItem(
+          state,
+          Endpoint(
+            fsPath,
+            Memento.Endpoints.get(state.memento, uriPath)->Option.getExn,
+            false,
+          ),
+        )
 
         State__SwitchVersion.Handler.onSelection(
           state,
@@ -2094,7 +2061,7 @@ describe("State__SwitchVersion", () => {
         await onSelectionCompleted
         view->State__SwitchVersion.View.destroy
 
-        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(uriPath))
+        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(fsPath))
         Assert.ok(Memento.Endpoints.get(state.memento, uriPath)->Option.isSome)
       },
     )
@@ -2130,11 +2097,7 @@ describe("State__SwitchVersion", () => {
         )
         await Memento.PickedConnection.set(state.memento, Some(downloadedLatest))
 
-        let selectedItem: VSCode.QuickPickItem.t = {
-          label: State__SwitchVersion.Constants.deleteDownloads,
-          description: "",
-          detail: "",
-        }
+        let selectedItem = makePickerItem(state, DeleteDownloads)
 
         let onSelectionCompleted = Log.on(
           state.channels.log,
@@ -2194,11 +2157,7 @@ describe("State__SwitchVersion", () => {
 
         await Config.Connection.setAgdaPaths(state.channels.log, [keepPath, unescapedWasmUri])
 
-        let selectedItem: VSCode.QuickPickItem.t = {
-          label: State__SwitchVersion.Constants.deleteDownloads,
-          description: "",
-          detail: "",
-        }
+        let selectedItem = makePickerItem(state, DeleteDownloads)
 
         let onSelectionCompleted = Log.on(
           state.channels.log,
@@ -2249,11 +2208,7 @@ describe("State__SwitchVersion", () => {
         await Config.Connection.setAgdaPaths(state.channels.log, [keepPath, downloadedLatest])
         await Memento.PickedConnection.set(state.memento, Some(keepPath))
 
-        let selectedItem: VSCode.QuickPickItem.t = {
-          label: State__SwitchVersion.Constants.deleteDownloads,
-          description: "",
-          detail: "",
-        }
+        let selectedItem = makePickerItem(state, DeleteDownloads)
 
         let onSelectionCompleted = Log.on(
           state.channels.log,
@@ -2499,11 +2454,14 @@ describe("State__SwitchVersion", () => {
               queue: Promise.resolve(),
             })
 
-          let selectedItem: VSCode.QuickPickItem.t = {
-            label,
-            description: "",
-            detail: "",
-          }
+          let selectedItem = makePickerItem(
+            state,
+            DownloadAction(
+              false,
+              "ALS v1.0.0",
+              State__SwitchVersion.Download.variantToTag(selectedVariant),
+            ),
+          )
 
           let sawSelectedEndpoint = ref(false)
           let _ = state.channels.log->Chan.on(logEvent =>
@@ -3007,11 +2965,7 @@ describe("State__SwitchVersion", () => {
           Some(downloadedPath),
         )
 
-        let selectedItem: VSCode.QuickPickItem.t = {
-          label: State__SwitchVersion.Constants.deleteDownloads,
-          description: "",
-          detail: "",
-        }
+        let selectedItem = makePickerItem(state, DeleteDownloads)
 
         await Config.Connection.setAgdaPaths(
           state.channels.log,
@@ -3084,11 +3038,7 @@ describe("State__SwitchVersion", () => {
           [userPath, downloadedPath],
         )
 
-        let selectedItem: VSCode.QuickPickItem.t = {
-          label: State__SwitchVersion.Constants.deleteDownloads,
-          description: "",
-          detail: "",
-        }
+        let selectedItem = makePickerItem(state, DeleteDownloads)
 
         let onSelectionCompleted = Log.on(
           state.channels.log,

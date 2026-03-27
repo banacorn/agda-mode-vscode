@@ -468,7 +468,6 @@ describe("Config.Connection paths", () => {
       let simulatePathSelection = async (
         initialConfig: array<string>,
         selectedPath: string,
-        ~description: string="",
       ) => {
         let (listener, mockState) = await setupUITest(initialConfig)
 
@@ -477,12 +476,18 @@ describe("Config.Connection paths", () => {
         discoveredEndpoints->Dict.set(selectedPath, Memento.Endpoints.Agda(Some("2.7.0.1")))
         await Memento.Endpoints.syncWithPaths(mockState.memento, discoveredEndpoints)
 
-        // Create mock QuickPickItem representing the path selection
-        let mockSelectedItem: VSCode.QuickPickItem.t = {
-          label: "Agda 2.7.0.1",
-          description,
-          detail: selectedPath,
-        }
+        let mockSelectedItem = State__SwitchVersion.Item.fromItemData(
+          State__SwitchVersion.ItemData.Endpoint(
+            selectedPath,
+            {
+              endpoint: Memento.Endpoints.Agda(Some("2.7.0.1")),
+              timestamp: Date.make(),
+              error: None,
+            },
+            false,
+          ),
+          mockState.extensionUri,
+        )
 
         await executeUITest(mockState, platformWithDiscovery, mockSelectedItem)
         let logs = listener(~filter=Log.isConfig)
@@ -497,13 +502,23 @@ describe("Config.Connection paths", () => {
         ~isAlreadyDownloaded: bool=false,
       ) => {
         let (listener, mockState) = await setupUITest(initialConfig)
-
-        // Create mock QuickPickItem representing download action
-        let mockSelectedItem: VSCode.QuickPickItem.t = {
-          label: State__SwitchVersion.Constants.downloadNativeALS,
-          description: isAlreadyDownloaded ? "Downloaded and installed" : "",
-          detail: "ALS v0.2.10, Agda v2.7.0.1",
+        let expectedDownloadedPath = if isAlreadyDownloaded {
+          State__SwitchVersion.Download.expectedPathForVariant(
+            mockState.globalStorageUri,
+            State__SwitchVersion.Download.Native,
+          )
+        } else {
+          downloadedALS.contents
         }
+
+        let mockSelectedItem = State__SwitchVersion.Item.fromItemData(
+          State__SwitchVersion.ItemData.DownloadAction(
+            isAlreadyDownloaded,
+            "ALS v0.2.10, Agda v2.7.0.1",
+            "native",
+          ),
+          mockState.extensionUri,
+        )
 
         await executeUITest(
           mockState,
@@ -513,7 +528,7 @@ describe("Config.Connection paths", () => {
         let logs = listener(~filter=Log.isConfig)
         let finalConfig = Config.Connection.getAgdaPaths()
         let pickedConnection = Memento.PickedConnection.get(mockState.memento)
-        (logs, finalConfig, pickedConnection)
+        (logs, finalConfig, pickedConnection, expectedDownloadedPath)
       }
 
       // Simulate empty selection (user cancels)
@@ -568,7 +583,6 @@ describe("Config.Connection paths", () => {
             let (logs, finalConfig, pickedConnection) = await UITestBuilders.simulatePathSelection(
               initialConfig,
               selectedPath,
-              ~description="",
             )
 
             // Should not modify config
@@ -588,7 +602,6 @@ describe("Config.Connection paths", () => {
             let (logs, finalConfig, pickedConnection) = await UITestBuilders.simulatePathSelection(
               initialConfig,
               selectedPath,
-              ~description="Selected",
             )
 
             // Should not modify config since path already exists
@@ -608,7 +621,6 @@ describe("Config.Connection paths", () => {
             let (logs, finalConfig, pickedConnection) = await UITestBuilders.simulatePathSelection(
               initialConfig,
               selectedPath,
-              ~description="",
             )
 
             // Should not modify config
@@ -628,7 +640,6 @@ describe("Config.Connection paths", () => {
             let (logs, finalConfig, pickedConnection) = await UITestBuilders.simulatePathSelection(
               initialConfig,
               selectedPath,
-              ~description="Selected",
             )
 
             Assert.deepStrictEqual(logs, [])
@@ -646,7 +657,6 @@ describe("Config.Connection paths", () => {
             let (logs, finalConfig, pickedConnection) = await UITestBuilders.simulatePathSelection(
               initialConfig,
               selectedPath,
-              ~description="Selected",
             )
 
             Assert.deepStrictEqual(logs, [])
@@ -665,17 +675,17 @@ describe("Config.Connection paths", () => {
           async () => {
             let initialConfig = [userAgda.contents]
 
-            let (logs, finalConfig, pickedConnection) = await UITestBuilders.simulateDownloadAction(
+            let (logs, finalConfig, pickedConnection, expectedDownloadedPath) = await UITestBuilders.simulateDownloadAction(
               initialConfig,
               ~isAlreadyDownloaded=false,
             )
 
             // Should add the downloaded ALS path to config
-            let expectedConfig = Array.concat(initialConfig, [downloadedALS.contents])
+            let expectedConfig = Array.concat(initialConfig, [expectedDownloadedPath])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
             Assert.deepStrictEqual(finalConfig, expectedConfig)
             // Manual UI download should set PreferredCandidate
-            Assert.deepStrictEqual(pickedConnection, Some(downloadedALS.contents))
+            Assert.deepStrictEqual(pickedConnection, Some(expectedDownloadedPath))
           },
         )
 
@@ -684,17 +694,17 @@ describe("Config.Connection paths", () => {
           async () => {
             let initialConfig = [userAgda.contents]
 
-            let (logs, finalConfig, pickedConnection) = await UITestBuilders.simulateDownloadAction(
+            let (logs, finalConfig, pickedConnection, expectedDownloadedPath) = await UITestBuilders.simulateDownloadAction(
               initialConfig,
               ~isAlreadyDownloaded=true,
             )
 
             // Should add the already downloaded ALS path to config
-            let expectedConfig = Array.concat(initialConfig, [downloadedALS.contents])
+            let expectedConfig = Array.concat(initialConfig, [expectedDownloadedPath])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
             Assert.deepStrictEqual(finalConfig, expectedConfig)
             // Manual UI download should set PreferredCandidate
-            Assert.deepStrictEqual(pickedConnection, Some(downloadedALS.contents))
+            Assert.deepStrictEqual(pickedConnection, Some(expectedDownloadedPath))
           },
         )
       },

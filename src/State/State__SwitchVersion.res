@@ -131,22 +131,32 @@ module ItemData = {
 }
 
 module Item = {
-  // Helper function to create QuickPickItem from label, description, and detail
+  type t = {
+    label: string,
+    description?: string,
+    detail?: string,
+    iconPath?: VSCode.IconPath.t,
+    kind?: VSCode.QuickPickItemKind.t,
+    data: ItemData.t,
+  }
+
+  // Helper function to create typed QuickPick item from label, description, detail, and payload
   let createQuickPickItem = (
     label: string,
     description: option<string>,
     detail: option<string>,
-  ): VSCode.QuickPickItem.t => {
+    data: ItemData.t,
+  ): t => {
     switch (description, detail) {
-    | (Some(desc), Some(det)) => {label, description: desc, detail: det}
-    | (Some(desc), None) => {label, description: desc}
-    | (None, Some(det)) => {label, detail: det}
-    | (None, None) => {label: label}
+    | (Some(desc), Some(det)) => {label, description: desc, detail: det, data}
+    | (Some(desc), None) => {label, description: desc, data}
+    | (None, Some(det)) => {label, detail: det, data}
+    | (None, None) => {label, data}
     }
   }
 
-  // Convert item data to VSCode QuickPick item
-  let fromItemData = (itemData: ItemData.t, extensionUri: VSCode.Uri.t): VSCode.QuickPickItem.t => {
+  // Convert item data to typed QuickPick item
+  let fromItemData = (itemData: ItemData.t, extensionUri: VSCode.Uri.t): t => {
     // Convert item data to UI display information
     let (label, description, detail): (string, option<string>, option<string>) = {
       switch itemData {
@@ -185,12 +195,13 @@ module Item = {
     }
 
     switch itemData {
-    | Separator(_) => {
+      | Separator(_) => {
         label,
         kind: VSCode.QuickPickItemKind.Separator,
+        data: itemData,
       }
     | Endpoint(_, entry, _) => {
-        let baseItem = createQuickPickItem(label, description, detail)
+        let baseItem = createQuickPickItem(label, description, detail, itemData)
         if ItemData.shouldEndpointHaveIcon(entry.endpoint) {
           {
             ...baseItem,
@@ -203,14 +214,12 @@ module Item = {
           baseItem
         }
       }
-    | _ => createQuickPickItem(label, description, detail)
+    | _ => createQuickPickItem(label, description, detail, itemData)
     }
   }
 
-  // Convert array of item data to VSCode QuickPick items
-  let fromItemDataArray = (itemDataArray: array<ItemData.t>, extensionUri: VSCode.Uri.t): array<
-    VSCode.QuickPickItem.t,
-  > => {
+  // Convert array of item data to typed QuickPick items
+  let fromItemDataArray = (itemDataArray: array<ItemData.t>, extensionUri: VSCode.Uri.t): array<t> => {
     itemDataArray->Array.map(itemData => fromItemData(itemData, extensionUri))
   }
 }
@@ -218,25 +227,28 @@ module Item = {
 module View = {
   type t = {
     log: Chan.t<Log.t>,
-    quickPick: VSCode.QuickPick.t<VSCode.QuickPickItem.t>,
+    quickPick: VSCode.QuickPick.t<Item.t>,
     subscriptions: array<VSCode.Disposable.t>,
-    mutable items: array<VSCode.QuickPickItem.t>,
+    mutable items: array<Item.t>,
     mutable suppressHide: bool,
   }
 
   let make = (log): t => {
-    log,
-    quickPick: VSCode.Window.createQuickPick(),
-    subscriptions: [],
-    items: [],
-    suppressHide: false,
+    let quickPick: VSCode.QuickPick.t<Item.t> = VSCode.Window.createQuickPick()
+    {
+      log,
+      quickPick,
+      subscriptions: [],
+      items: [],
+      suppressHide: false,
+    }
   }
 
   let setPlaceholder = (self: t, placeholder: string): unit => {
     self.quickPick->VSCode.QuickPick.setPlaceholder(placeholder)
   }
 
-  let updateItems = (self: t, items: array<VSCode.QuickPickItem.t>): unit => {
+  let updateItems = (self: t, items: array<Item.t>): unit => {
     self.items = items
     self.quickPick->VSCode.QuickPick.setItems(items)
   }
@@ -245,7 +257,7 @@ module View = {
     self.quickPick->VSCode.QuickPick.show
   }
 
-  let onSelection = (self: t, handler: array<VSCode.QuickPickItem.t> => unit): unit => {
+  let onSelection = (self: t, handler: array<Item.t> => unit): unit => {
     self.quickPick
     ->VSCode.QuickPick.onDidChangeSelection(handler)
     ->Util.Disposable.add(self.subscriptions)
@@ -758,27 +770,6 @@ module Handler = {
       Candidate.isUnderDirectory(Candidate.make(candidate), dirUri)
     })
 
-  let isKnownEndpointSelection = (
-    manager: SwitchVersionManager.t,
-    selectedItem: VSCode.QuickPickItem.t,
-  ): option<string> =>
-    switch selectedItem.detail {
-    | Some(selectedPath) =>
-      let matchesItemLabel = ((path, entry): (string, Memento.Endpoints.entry)) => {
-        let (expectedLabel, _expectedErrorDescription) = ItemData.getEndpointDisplayInfo(
-          path,
-          entry,
-        )
-        selectedItem.label == expectedLabel
-      }
-
-      switch Memento.Endpoints.lookupCandidate(manager.memento, selectedPath) {
-      | Some((path, entry)) when matchesItemLabel((path, entry)) => Some(path)
-      | _ => None
-      }
-    | None => None
-    }
-
   // Unified function to handle hardcoded variant downloads (native / WASM)
   // Register endpoint only if missing or unknown (preserve known version metadata)
   let ensureEndpointRegistered = async (state: State.t, path: string) =>
@@ -881,21 +872,22 @@ module Handler = {
     selectedChannel: ref<Connection__Download.Channel.t>,
     updateUI,
     view: View.t,
-    selectedItems: array<VSCode.QuickPickItem.t>,
+    selectedItems: array<Item.t>,
   ) => {
     let _ = (
       async () => {
         switch selectedItems[0] {
         | Some(selectedItem) =>
           Util.log("[ debug ] user selected item: " ++ selectedItem.label, "")
-          if selectedItem.label == Constants.checkingAvailability {
+          switch selectedItem.data {
+          | DownloadAction(_, versionString, _) when versionString == Constants.checkingAvailability =>
             ()
-          } else if selectedItem.label == Constants.selectOtherChannels {
+          | SelectOtherChannels =>
             let channelLabels = availableChannels.contents->Array.map(Download.channelToLabel)
             view.suppressHide = true
             try {
-              let channelResult = await VSCode.Window.showQuickPick(
-                Promise.resolve(channelLabels),
+              let channelResult = await VSCode.Window.showQuickPickWithStringItems(
+                VSCode.PromiseOr.make(Others(channelLabels)),
                 {
                   placeHolder: "Select download channel",
                   canPickMany: false,
@@ -904,16 +896,8 @@ module Handler = {
               )
               view.suppressHide = false
               switch channelResult {
-              | Some(selection) =>
-                // showQuickPick with canPickMany:false returns a single string at runtime,
-                // not an array, despite the rescript-vscode binding type.
-                // Handle both shapes so this survives an upstream binding fix.
-                let label: option<string> = if Js.Array2.isArray(selection) {
-                  selection[0]
-                } else {
-                  Some(Obj.magic(selection))
-                }
-                switch label->Option.flatMap(Download.channelFromLabel) {
+              | Some(label) =>
+                switch Download.channelFromLabel(label) {
                 | Some(channel) =>
                   await handleChannelSwitch(
                     state, platformDeps, manager, selectedChannel, channel, updateUI,
@@ -933,7 +917,7 @@ module Handler = {
               Util.log("[ debug ] channel picker failed", msg)
               view->View.show
             }
-          } else if selectedItem.label == Constants.deleteDownloads {
+          | DeleteDownloads =>
             Util.log("[ debug ] user clicked: Delete Downloads", "")
             view->View.destroy
             // Delete download directories recursively
@@ -961,83 +945,52 @@ module Handler = {
               "All downloads and cache deleted",
               [],
             )->Promise.done
-          } else if (
-            selectedItem.label == Constants.downloadNativeALS ||
-              selectedItem.label == Constants.downloadWasmALS
-          ) {
+          | DownloadAction(downloaded, versionString, variantTag) =>
             Util.log("[ debug ] user clicked: download button = " ++ selectedItem.label, "")
             view->View.destroy
-            let selectedVariant = if selectedItem.label == Constants.downloadNativeALS {
-              Download.Native
-            } else {
-              Download.WASM
-            }
+            let selectedVariant =
+              Download.variantFromTag(variantTag)->Option.getOr(Download.Native)
 
             let currentChannel = selectedChannel.contents
-            let downloadItems = await Download.getAllAvailableDownloads(state, platformDeps, ~channel=currentChannel)
-            let selectedDownload =
-              downloadItems->Array.find(((_, _, variantTag)) =>
-                variantTag == Download.variantToTag(selectedVariant)
-              )
-
-            switch selectedDownload {
-            | Some((downloaded, versionString, _)) =>
-              await handleDownload(
-                state,
-                platformDeps,
-                selectedVariant,
-                downloaded,
-                versionString,
-                ~channel=currentChannel,
-                ~refreshUI=Some(
-                  async () => {
-                    let newDownloadItems = await Download.getAllAvailableDownloads(
-                      state,
-                      platformDeps,
-                      ~channel=currentChannel,
-                    )
-                    let _ = SwitchVersionManager.refreshFromMemento(manager)
-                    await updateUI(newDownloadItems)
-                  },
-                ),
-              )
-            | None =>
-              let _ = await VSCode.Window.showErrorMessage(
-                "Download not available for this platform",
-                [],
-              )
-              state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-            }
-          } else {
-            switch isKnownEndpointSelection(manager, selectedItem) {
-            | Some(selectedPath) =>
-              Util.log("[ debug ] user selected endpoint: " ++ selectedPath, "")
-              view->View.destroy
-              // Regular endpoint selection - check if selection changed
-              let changed = switch Memento.PickedConnection.get(manager.memento) {
-              | Some(path) => !Candidate.equal(Candidate.make(selectedPath), Candidate.make(path))
-              | None => true // If no previous selection, treat as changed
-              }
-              if changed {
-                // Log the endpoint selection before processing it
-                switch manager.entries->Dict.get(selectedPath) {
-                | Some(entry) =>
-                  state.channels.log->Chan.emit(
-                    Log.SwitchVersionUI(SelectedEndpoint(selectedPath, entry, true)),
+            await handleDownload(
+              state,
+              platformDeps,
+              selectedVariant,
+              downloaded,
+              versionString,
+              ~channel=currentChannel,
+              ~refreshUI=Some(
+                async () => {
+                  let newDownloadItems = await Download.getAllAvailableDownloads(
+                    state,
+                    platformDeps,
+                    ~channel=currentChannel,
                   )
-                | None => ()
-                }
-
-                await switchAgdaVersion(state, selectedPath)
-                state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-              } else {
-                // No change in selection - still emit completion
-                state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-              }
-            | None =>
-              // Unknown item - ignore without falling through to endpoint switching.
+                  let _ = SwitchVersionManager.refreshFromMemento(manager)
+                  await updateUI(newDownloadItems)
+                },
+              ),
+            )
+          | Endpoint(selectedPath, entry, _) =>
+            Util.log("[ debug ] user selected endpoint: " ++ selectedPath, "")
+            view->View.destroy
+            // Regular endpoint selection - check if selection changed
+            let changed = switch Memento.PickedConnection.get(manager.memento) {
+            | Some(path) => !Candidate.equal(Candidate.make(selectedPath), Candidate.make(path))
+            | None => true // If no previous selection, treat as changed
+            }
+            if changed {
+              state.channels.log->Chan.emit(
+                Log.SwitchVersionUI(SelectedEndpoint(selectedPath, entry, true)),
+              )
+              await switchAgdaVersion(state, selectedPath)
+              state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
+            } else {
+              // No change in selection - still emit completion
               state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
             }
+          | NoInstallations | Separator(_) =>
+            state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
           }
         | None =>
           view->View.destroy
