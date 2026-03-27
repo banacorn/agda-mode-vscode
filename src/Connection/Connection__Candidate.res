@@ -1,5 +1,8 @@
 module Resolved = {
-  type t = VSCode.Uri.t
+  type t = {
+    original: Candidate.t,
+    resource: VSCode.Uri.t,
+  }
 }
 
 type t =
@@ -72,10 +75,10 @@ let resolve = async (platformDeps: Platform.t, candidate: t): result<
     switch await PlatformOps.findCommand(command) {
     | Ok(path) =>
       switch Connection__URI.parse(path) {
-      | FileURI(_, uri) => Ok(uri)
+      | FileURI(_, uri) => Ok({original: candidate, resource: uri})
       }
     | Error(error) => Error(error)
     }
-  | Resource(uri) => Ok(uri)
+  | Resource(uri) => Ok({original: candidate, resource: uri})
   }
 }

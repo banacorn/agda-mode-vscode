@@ -80,10 +80,11 @@ describe("Connection__Candidate", () => {
 
       let platformDeps: Platform.t = module(MockPlatform)
       switch await Candidate.resolve(platformDeps, Candidate.make("agda")) {
-      | Ok(uri) =>
+      | Ok({original: Command("agda"), resource}) =>
         let expected = VSCode.Uri.file("/resolved/bin/agda")->VSCode.Uri.toString
-        Assert.deepStrictEqual(uri->VSCode.Uri.toString, expected)
+        Assert.deepStrictEqual(resource->VSCode.Uri.toString, expected)
       | Error(_) => Assert.fail("Expected command resolution to succeed")
+      | _ => Assert.fail("Expected resolved command to preserve original candidate")
       }
     })
 
@@ -103,8 +104,9 @@ describe("Connection__Candidate", () => {
       let platformDeps: Platform.t = module(MockPlatform)
       let candidate = Candidate.make("file:///usr/bin/agda")
       switch (candidate, await Candidate.resolve(platformDeps, candidate)) {
-      | (Resource(expected), Ok(actual)) =>
-        Assert.deepStrictEqual(actual->VSCode.Uri.toString, expected->VSCode.Uri.toString)
+      | (Resource(expected), Ok({original: Resource(original), resource})) =>
+        Assert.deepStrictEqual(resource->VSCode.Uri.toString, expected->VSCode.Uri.toString)
+        Assert.deepStrictEqual(original->VSCode.Uri.toString, expected->VSCode.Uri.toString)
       | _ => Assert.fail("Expected Resource candidate to resolve without lookup")
       }
     })
