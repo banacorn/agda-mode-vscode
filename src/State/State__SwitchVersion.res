@@ -1013,7 +1013,7 @@ module Handler = {
               view->View.destroy
               // Regular endpoint selection - check if selection changed
               let changed = switch Memento.PickedConnection.get(manager.memento) {
-              | Some(path) => selectedPath !== path
+              | Some(path) => !Candidate.equal(Candidate.make(selectedPath), Candidate.make(path))
               | None => true // If no previous selection, treat as changed
               }
               if changed {
