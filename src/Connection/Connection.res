@@ -138,6 +138,13 @@ module Module: Module = {
     | IsALS(string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // ALS version, Agda version, LSP options
     | IsALSWASM(VSCode.Uri.t) // ALS WASM file
 
+  let resolvedPathForErrors = (resolved: Candidate.Resolved.t): string =>
+    if VSCode.Uri.scheme(resolved.resource) == "file" {
+      VSCode.Uri.fsPath(resolved.resource)
+    } else {
+      VSCode.Uri.toString(resolved.resource)
+    }
+
   let resolvedFromRawResource = raw => {
     let resource = switch URI.parse(raw) {
     | FileURI(_, resource) => resource
@@ -210,7 +217,7 @@ module Module: Module = {
       | Ok(_, probeResult) => Ok((resolved, probeResult))
       | Error(error) =>
         Error(
-          Error.Establish.fromProbeError(Candidate.Resolved.toString(resolved), error, source),
+          Error.Establish.fromProbeError(resolvedPathForErrors(resolved), error, source),
         )
       }
     | Error(commandError) =>
@@ -225,7 +232,7 @@ module Module: Module = {
   let makeResolved = async (
     resolved: Candidate.Resolved.t,
     source: Error.Establish.pathSource,
-    ~pathForErrors: string=resolved.resource->VSCode.Uri.toString,
+    ~pathForErrors: string=resolvedPathForErrors(resolved),
   ): result<
     t,
     Error.Establish.t,

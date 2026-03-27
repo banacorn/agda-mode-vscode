@@ -24,10 +24,11 @@ let isCommand = raw => {
   if command == "" {
     false
   } else {
-    let hasWhitespace = switch String.match(command, %re("/\\s/")) {
-    | Some(_) => true
-    | None => false
-    }
+    let hasWhitespace = command != (command->String.trim)
+      || String.includes(command, " ")
+      || String.includes(command, "\t")
+      || String.includes(command, "\n")
+      || String.includes(command, "\r")
     let hasScheme = switch String.match(command, %re("/^[a-zA-Z][a-zA-Z0-9+.-]*:/")) {
     | Some(_) => true
     | None => false

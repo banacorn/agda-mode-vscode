@@ -1469,6 +1469,7 @@ describe("State__SwitchVersion", () => {
          */
         let state = createTestState()
         let loggedEvents = []
+        let previousPaths = Config.Connection.getAgdaPaths()
 
         // Subscribe to log channel to capture UpdateEndpoints events
         let _ = state.channels.log->Chan.on(
@@ -1483,6 +1484,7 @@ describe("State__SwitchVersion", () => {
 
         // SIMULATE: Fresh install - ensure no picked connection in memento
         await Memento.PickedConnection.set(state.memento, None)
+        await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/bin/agda"])
 
         // SIMULATE: Discovered endpoints (as if filesystem sync already found them)
         let discoveredEndpoints = Dict.make()
@@ -1507,6 +1509,7 @@ describe("State__SwitchVersion", () => {
         let allEndpointsFromLogs = loggedEvents->Array.flat
         let anyEndpointSelected =
           allEndpointsFromLogs->Array.some(((_, _, _, isSelected)) => isSelected)
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
 
         // VERIFY: Assert that the fix works (endpoint marked as selected)
         Assert.ok(anyEndpointSelected) // Expected: Active connection endpoint should be marked as selected
@@ -1529,6 +1532,7 @@ describe("State__SwitchVersion", () => {
          */
         let state = createTestState()
         let loggedEvents = []
+        let previousPaths = Config.Connection.getAgdaPaths()
 
         // Subscribe to log channel to capture UpdateEndpoints events
         let _ = state.channels.log->Chan.on(
@@ -1549,6 +1553,10 @@ describe("State__SwitchVersion", () => {
           Memento.Endpoints.Agda(Some("2.6.3")),
         )
         await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          ["/usr/bin/agda", "/opt/homebrew/bin/agda"],
+        )
 
         // SIMULATE: User explicitly selected one endpoint (stored in memento)
         await Memento.PickedConnection.set(state.memento, Some("/usr/bin/agda"))
@@ -1572,6 +1580,7 @@ describe("State__SwitchVersion", () => {
         // Find the selected endpoint
         let selectedEndpoint =
           allEndpointsFromLogs->Array.find(((_, _, _, isSelected)) => isSelected)
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
 
         // VERIFY: The explicitly selected endpoint (from memento) should be marked as selected
         // NOT the active connection endpoint
@@ -2052,6 +2061,7 @@ describe("State__SwitchVersion", () => {
          */
         let state = createTestState()
         let loggedEvents = []
+        let previousPaths = Config.Connection.getAgdaPaths()
 
         // Subscribe to log channel to capture UpdateEndpoints events
         let _ = state.channels.log->Chan.on(
@@ -2068,6 +2078,7 @@ describe("State__SwitchVersion", () => {
         let discoveredEndpoints = Dict.make()
         discoveredEndpoints->Dict.set("/usr/bin/agda", Memento.Endpoints.Agda(Some("2.6.4")))
         await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
+        await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/bin/agda"])
 
         // SIMULATE: No picked connection (fresh state)
         await Memento.PickedConnection.set(state.memento, None)
@@ -2095,6 +2106,7 @@ describe("State__SwitchVersion", () => {
         // VERIFY: Endpoint selection still works correctly even with download items present
         let selectedEndpoints =
           allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => isSelected)
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
         Assert.deepStrictEqual(Array.length(selectedEndpoints), 1) // One endpoint should be selected
 
         // Find the selected endpoint
@@ -2421,6 +2433,7 @@ describe("State__SwitchVersion", () => {
       async () => {
         let state = createTestState()
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
 
         let fsPath = "/tmp/hardcoded-als/als.wasm"
         let uriPath = "file:///tmp/hardcoded-als/als.wasm"
@@ -2439,6 +2452,7 @@ describe("State__SwitchVersion", () => {
 
         // Set PickedConnection to the URI form
         await Memento.PickedConnection.set(state.memento, Some(uriPath))
+        await Config.Connection.setAgdaPaths(state.channels.log, [fsPath])
 
         let _ = manager->State__SwitchVersion.SwitchVersionManager.refreshFromMemento
 
@@ -2454,6 +2468,7 @@ describe("State__SwitchVersion", () => {
             | _ => None
             }
           )
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
 
         // Exactly one endpoint MUST be marked selected, not both
         Assert.deepStrictEqual(selectedEndpoints, [true])
@@ -2478,6 +2493,7 @@ describe("State__SwitchVersion", () => {
          */
         let state = createTestState()
         let loggedEvents = []
+        let previousPaths = Config.Connection.getAgdaPaths()
 
         // Subscribe to log channel to capture UpdatedEndpoints events
         let _ = state.channels.log->Chan.on(
@@ -2503,6 +2519,10 @@ describe("State__SwitchVersion", () => {
           Memento.Endpoints.ALS(Some(("4.0.0", "2.6.4", None))),
         )
         await Memento.Endpoints.syncWithPaths(state.memento, discoveredEndpoints)
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          ["/usr/bin/agda", "/opt/homebrew/bin/agda", "/usr/local/bin/agda", "/usr/bin/als"],
+        )
 
         // SIMULATE: User has explicitly selected one specific endpoint
         await Memento.PickedConnection.set(state.memento, Some("/opt/homebrew/bin/agda"))
@@ -2522,6 +2542,7 @@ describe("State__SwitchVersion", () => {
 
         // ANALYZE: Check selection marking across all endpoints
         let allEndpointsFromLogs = loggedEvents->Array.flat
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
 
         // VERIFY: Exactly one endpoint should be selected
         let selectedEndpoints =
