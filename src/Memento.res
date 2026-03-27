@@ -113,8 +113,8 @@ module Module: {
   module Endpoints = {
     module Candidate = Connection__Candidate
 
-    type filepath = string // raw file path provided by the user or found in the system
-    // what kind of endpoint the file path leads to?
+    type candidateKey = string // raw candidate string provided by the user or discovered at runtime
+    // what kind of endpoint the candidate leads to?
     type endpoint =
       | Agda(option<string>) // Agda version
       | ALS(
@@ -153,21 +153,24 @@ module Module: {
         }
       }
 
-    let get = (memento: t, filepath: filepath): option<entry> => {
+    let get = (memento: t, candidateKey: candidateKey): option<entry> => {
       let cache = memento->getWithDefault(key, Dict.make())
-      cache->Dict.get(filepath)
+      cache->Dict.get(candidateKey)
     }
 
-    let findMatchingInCache = (cache: Dict.t<entry>, filepath: filepath): option<(filepath, entry)> => {
-      switch cache->Dict.get(filepath) {
-      | Some(entry) => Some((filepath, entry))
+    let lookupCandidateInCache = (
+      cache: Dict.t<entry>,
+      candidateKey: candidateKey,
+    ): option<(candidateKey, entry)> => {
+      switch cache->Dict.get(candidateKey) {
+      | Some(entry) => Some((candidateKey, entry))
       | None =>
-        let candidate = Candidate.make(filepath)
+        let candidate = Candidate.make(candidateKey)
         cache
         ->Dict.toArray
-        ->Array.findMap(((existingPath, entry)) =>
-          if Candidate.equal(Candidate.make(existingPath), candidate) {
-            Some((existingPath, entry))
+        ->Array.findMap(((existingKey, entry)) =>
+          if Candidate.equal(Candidate.make(existingKey), candidate) {
+            Some((existingKey, entry))
           } else {
             None
           }
@@ -175,49 +178,71 @@ module Module: {
       }
     }
 
-    let findMatching = (memento: t, filepath: filepath): option<(filepath, entry)> => {
+    let lookupCandidate = (
+      memento: t,
+      candidateKey: candidateKey,
+    ): option<(candidateKey, entry)> => {
       let cache = memento->getWithDefault(key, Dict.make())
-      findMatchingInCache(cache, filepath)
+      lookupCandidateInCache(cache, candidateKey)
     }
 
-    let setVersion = async (memento: t, filepath: filepath, endpoint: endpoint): unit => {
+    let setVersion = async (memento: t, candidateKey: candidateKey, endpoint: endpoint): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
       let entry = {endpoint, timestamp: Date.make(), error: None}
-      cache->Dict.set(filepath, entry)
+      cache->Dict.set(candidateKey, entry)
       await memento->set(key, cache)
     }
 
-    let setVersionMatching = async (memento: t, filepath: filepath, endpoint: endpoint): unit => {
+    let setError = async (memento: t, candidateKey: candidateKey, error: string): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
-      let keyToUpdate = switch findMatchingInCache(cache, filepath) {
-      | Some((existingPath, _)) => existingPath
-      | None => filepath
-      }
-      let entry = {endpoint, timestamp: Date.make(), error: None}
-      cache->Dict.set(keyToUpdate, entry)
-      await memento->set(key, cache)
-    }
-
-    let setError = async (memento: t, filepath: filepath, error: string): unit => {
-      let cache = memento->getWithDefault(key, Dict.make())
-      let existingEndpoint = switch cache->Dict.get(filepath) {
+      let existingEndpoint = switch cache->Dict.get(candidateKey) {
       | Some(existingEntry) => existingEntry.endpoint
       | None => Unknown
       }
       let entry = {endpoint: existingEndpoint, timestamp: Date.make(), error: Some(error)}
-      cache->Dict.set(filepath, entry)
+      cache->Dict.set(candidateKey, entry)
       await memento->set(key, cache)
     }
 
-    let setErrorMatching = async (memento: t, filepath: filepath, error: string): unit => {
+    let updateCandidate = async (
+      memento: t,
+      candidateKey: candidateKey,
+      makeEntry: option<entry> => entry,
+    ): unit => {
       let cache = memento->getWithDefault(key, Dict.make())
-      let (keyToUpdate, existingEndpoint) = switch findMatchingInCache(cache, filepath) {
-      | Some((existingPath, existingEntry)) => (existingPath, existingEntry.endpoint)
-      | None => (filepath, Unknown)
+      let (keyToUpdate, existingEntry) = switch lookupCandidateInCache(cache, candidateKey) {
+      | Some((existingKey, existingEntry)) => (existingKey, Some(existingEntry))
+      | None => (candidateKey, None)
       }
-      let entry = {endpoint: existingEndpoint, timestamp: Date.make(), error: Some(error)}
+      let entry = makeEntry(existingEntry)
       cache->Dict.set(keyToUpdate, entry)
       await memento->set(key, cache)
+    }
+
+    let setVersionForCandidate = async (
+      memento: t,
+      candidateKey: candidateKey,
+      endpoint: endpoint,
+    ): unit => {
+      await updateCandidate(memento, candidateKey, _existingEntry => {
+        endpoint,
+        timestamp: Date.make(),
+        error: None,
+      })
+    }
+
+    let setErrorForCandidate = async (
+      memento: t,
+      candidateKey: candidateKey,
+      error: string,
+    ): unit => {
+      await updateCandidate(memento, candidateKey, existingEntry => {
+        let endpoint = switch existingEntry {
+        | Some(existingEntry) => existingEntry.endpoint
+        | None => Unknown
+        }
+        {endpoint, timestamp: Date.make(), error: Some(error)}
+      })
     }
 
     let syncWithPaths = async (memento: t, discoveredEndpoints: Dict.t<endpoint>): unit => {
