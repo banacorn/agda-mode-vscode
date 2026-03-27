@@ -114,6 +114,37 @@ describe("Connection__Candidate", () => {
     })
   })
 
+  describe("isUnderDirectory", () => {
+    it("should return false for Command candidates", () => {
+      let directory = VSCode.Uri.file("/tmp/hardcoded-als")
+      Assert.deepStrictEqual(Candidate.isUnderDirectory(Candidate.make("agda"), directory), false)
+    })
+
+    it("should recognize file resources under a file directory", () => {
+      let directory = VSCode.Uri.file("/tmp/hardcoded-als")
+      let candidate = Candidate.make("/tmp/hardcoded-als/als")
+      Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+    })
+
+    it("should recognize unescaped file:// resources under a file directory", () => {
+      let directory = VSCode.Uri.file("/tmp/agda switch/hardcoded-als")
+      let candidate = Candidate.make("file:///tmp/agda switch/hardcoded-als/als.wasm")
+      Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+    })
+
+    it("should recognize vscode-userdata resources under a vscode-userdata directory", () => {
+      let directory = VSCode.Uri.parse("vscode-userdata:/global/hardcoded-als")
+      let candidate = Candidate.make("vscode-userdata:/global/hardcoded-als/als.wasm")
+      Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+    })
+
+    it("should return false for resources outside the directory", () => {
+      let directory = VSCode.Uri.file("/tmp/hardcoded-als")
+      let candidate = Candidate.make("/tmp/latest-als/als")
+      Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), false)
+    })
+  })
+
   describe("resolve", () => {
     Async.it("should resolve Command through Platform.findCommand", async () => {
       module MockPlatform = {

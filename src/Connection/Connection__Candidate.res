@@ -65,6 +65,30 @@ let deduplicate = candidates => {
   })
 }
 
+let isUnderPrefix = (path: string, prefix: string, separator: string): bool =>
+  path == prefix || String.startsWith(path, prefix ++ separator)
+
+let isUnderDirectory = (candidate: t, directory: VSCode.Uri.t): bool =>
+  switch candidate {
+  | Command(_) => false
+  | Resource(resource) =>
+    if
+      VSCode.Uri.scheme(resource) != VSCode.Uri.scheme(directory) ||
+        VSCode.Uri.authority(resource) != VSCode.Uri.authority(directory)
+    {
+      false
+    } else if VSCode.Uri.scheme(resource) == "file" {
+      let resourceFsPath = VSCode.Uri.fsPath(resource)
+      let directoryFsPath = VSCode.Uri.fsPath(directory)
+      isUnderPrefix(resourceFsPath, directoryFsPath, NodeJs.Path.sep) ||
+      isUnderPrefix(resourceFsPath, directoryFsPath, "/")
+    } else {
+      let resourcePath = VSCode.Uri.path(resource)
+      let directoryPath = VSCode.Uri.path(directory)
+      isUnderPrefix(resourcePath, directoryPath, "/")
+    }
+  }
+
 let resolve = async (platformDeps: Platform.t, candidate: t): result<
   Resolved.t,
   Connection__Command.Error.t,

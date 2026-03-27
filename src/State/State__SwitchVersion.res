@@ -723,37 +723,10 @@ module Download = {
 module Handler = {
   let downloadDirectoryNames = ["hardcoded-als", "latest-als", "dev-als", "dev-wasm-als"]
 
-  let isUnderPrefix = (path: string, prefix: string, separator: string): bool =>
-    path == prefix || String.startsWith(path, prefix ++ separator)
-
   let isPathUnderDownloadDirectory = (globalStorageUri: VSCode.Uri.t, path: string): bool =>
     downloadDirectoryNames->Array.some(dirName => {
       let dirUri = VSCode.Uri.joinPath(globalStorageUri, [dirName])
-      let dirFsPath = VSCode.Uri.fsPath(dirUri)
-      let dirUriPath = VSCode.Uri.toString(dirUri)
-      let dirUnescapedUriPath = "file://" ++ dirFsPath
-
-      let pathCandidates = if String.startsWith(path, "file://") {
-        try {
-          let parsedFsPath = VSCode.Uri.parse(path)->VSCode.Uri.fsPath
-          if parsedFsPath == path {
-            [path]
-          } else {
-            [path, parsedFsPath]
-          }
-        } catch {
-        | _ => [path]
-        }
-      } else {
-        [path]
-      }
-
-      pathCandidates->Array.some(candidate =>
-        isUnderPrefix(candidate, dirFsPath, NodeJs.Path.sep) ||
-        isUnderPrefix(candidate, dirFsPath, "/") ||
-        isUnderPrefix(candidate, dirUriPath, "/") ||
-        isUnderPrefix(candidate, dirUnescapedUriPath, "/")
-      )
+      Candidate.isUnderDirectory(Candidate.make(path), dirUri)
     })
 
   let isKnownEndpointSelection = (
