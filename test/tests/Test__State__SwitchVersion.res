@@ -112,6 +112,20 @@ describe("State__SwitchVersion", () => {
             Assert.deepStrictEqual(errorDescription, Some("Unknown executable"))
           },
         )
+
+        it(
+          "should derive display filename from resource URI",
+          () => {
+            let entry = TestData.createMockEntry(Unknown, ())
+            let (label, errorDescription) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
+              "vscode-userdata:/global/als.wasm",
+              entry,
+            )
+
+            Assert.deepStrictEqual(label, "$(question) als.wasm")
+            Assert.deepStrictEqual(errorDescription, Some("Unknown executable"))
+          },
+        )
       },
     )
 
@@ -1526,7 +1540,7 @@ describe("State__SwitchVersion", () => {
           let selectedItemLabel = switch Memento.Endpoints.get(state.memento, selectedPath) {
           | Some(entry) =>
             let (label, _description) = State__SwitchVersion.ItemData.getEndpointDisplayInfo(
-              NodeJs.Path.basename(selectedPath),
+              selectedPath,
               entry,
             )
             label

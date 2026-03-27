@@ -55,10 +55,14 @@ module ItemData = {
     }
   }
 
-  let getEndpointDisplayInfo = (filename: string, entry: Memento.Endpoints.entry): (
+  let getEndpointDisplayInfo = (raw: string, entry: Memento.Endpoints.entry): (
     string,
     option<string>,
   ) => {
+    let filename = switch Candidate.make(raw) {
+    | Candidate.Command(command) => command
+    | Candidate.Resource(uri) => VSCode.Uri.path(uri)->NodeJs.Path.basename
+    }
     switch (entry.endpoint, entry.error) {
     | (Agda(Some(version)), _) => (Constants.agdaVersionPrefix ++ version, None)
     | (Agda(None), _) => ("Agda (version unknown)", None)
@@ -165,8 +169,7 @@ module Item = {
     let (label, description, detail): (string, option<string>, option<string>) = {
       switch itemData {
       | Endpoint(path, entry, isSelected) => {
-          let filename = NodeJs.Path.basename(path)
-          let (label, errorDescription) = ItemData.getEndpointDisplayInfo(filename, entry)
+          let (label, errorDescription) = ItemData.getEndpointDisplayInfo(path, entry)
           let description = switch (isSelected, errorDescription) {
           | (true, None) => "Selected"
           | (false, None) => ""
@@ -761,9 +764,8 @@ module Handler = {
     | Some(selectedPath) =>
       switch Memento.Endpoints.get(manager.memento, selectedPath) {
       | Some(entry) =>
-        let filename = NodeJs.Path.basename(selectedPath)
         let (expectedLabel, _expectedErrorDescription) = ItemData.getEndpointDisplayInfo(
-          filename,
+          selectedPath,
           entry,
         )
         if selectedItem.label == expectedLabel {
