@@ -1,3 +1,5 @@
+module Candidate = Connection__Candidate
+
 // Constants for reused UI strings
 module Constants = {
   let agdaVersionPrefix = "Agda v"
@@ -86,21 +88,14 @@ module ItemData = {
     let entriesArray = entries->Dict.toArray
     let hasEndpoints = Array.length(entriesArray) > 0
 
-    // Normalize file:// URIs to fsPath for comparison
-    let toFsPath = (s: string): string =>
-      if String.startsWith(s, "file://") {
-        VSCode.Uri.parse(s)->VSCode.Uri.fsPath
-      } else {
-        s
-      }
-
-    // Build endpoint items with selection check (URI-aware, at most one selected)
+    // Build endpoint items with selection check (candidate-aware, at most one selected)
     let endpointItems = switch pickedPath {
     | Some(picked) =>
-      let normalizedPicked = toFsPath(picked)
+      let pickedCandidate = Candidate.make(picked)
       let matched = ref(false)
       entriesArray->Array.map(((path, entry)) => {
-        let isSelected = !matched.contents && normalizedPicked == toFsPath(path)
+        let isSelected =
+          !matched.contents && Candidate.equal(pickedCandidate, Candidate.make(path))
         if isSelected {
           matched := true
         }
@@ -570,25 +565,11 @@ module Download = {
     }
   }
 
-  let pathAliases = (path: string): array<string> => {
-    if String.startsWith(path, "file://") {
-      let uri = VSCode.Uri.parse(path)
-      [path, VSCode.Uri.fsPath(uri)]
-    } else if NodeJs.Path.isAbsolute(path) {
-      [path, VSCode.Uri.file(path)->VSCode.Uri.toString]
-    } else {
-      [path]
-    }
-  }
-
   let configContainsExpectedPath = (configPaths: array<string>, expectedPath: string): bool => {
-    let expectedAliases = pathAliases(expectedPath)
-    configPaths->Array.some(configPath => {
-      let configAliases = pathAliases(configPath)
-      configAliases->Array.some(configAlias =>
-        expectedAliases->Array.some(expectedAlias => expectedAlias == configAlias)
-      )
-    })
+    let expectedCandidate = Candidate.make(expectedPath)
+    configPaths->Array.some(configPath =>
+      Candidate.equal(Candidate.make(configPath), expectedCandidate)
+    )
   }
 
   let suppressManagedVariants = (
