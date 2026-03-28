@@ -168,7 +168,7 @@ let activateExtension = async (candidate): State.channels => {
     let extensionUri = Path.extensionUri
     let globalStorageUri = Path.globalStorageUri
     let memento = Memento.make(None)
-    await memento->Memento.PickedConnection.set(candidate)
+    await memento->Memento.PreferredCandidate.set(candidate)
     let channels = Main.activateWithoutContext(
       platformDeps,
       disposables,

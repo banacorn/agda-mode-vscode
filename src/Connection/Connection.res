@@ -563,7 +563,7 @@ module Module: Module = {
   //  2. Download fallback
   //
   // Config modification: download fallback prepends the downloaded path (lowest priority).
-  // PickedConnection is never modified here — only explicit user actions may set it.
+  // PreferredCandidate is never modified here — only explicit user actions may set it.
 
   let makeWithFallback = async (
     platformDeps: Platform.t,
@@ -587,17 +587,17 @@ module Module: Module = {
       }
     }
 
-    let pickedConnection = Memento.PickedConnection.get(memento)
+    let preferredCandidate = Memento.PreferredCandidate.get(memento)
 
-    // Step 0: picked connection, if present.
-    let pickedEntries = switch pickedConnection {
+    // Step 0: preferred candidate, if present.
+    let preferredEntries = switch preferredCandidate {
     | Some(path) => [(path, Error.Establish.FromConfig)]
     | None => []
     }
 
     // Step 1: remaining config entries in reverse order (last entry = highest priority).
-    let remainingPaths = switch pickedConnection {
-    | Some(pickedPath) => paths->Array.filter(path => path !== pickedPath)
+    let remainingPaths = switch preferredCandidate {
+    | Some(preferredPath) => paths->Array.filter(path => path !== preferredPath)
     | None => paths
     }
     let pathsWithSource =
@@ -605,9 +605,9 @@ module Module: Module = {
       ->Array.toReversed
       ->Array.map(path => (path, Error.Establish.FromConfig))
 
-    // Try step 0 (picked) -> step 1 (config paths) -> download fallback.
+    // Try step 0 (preferred candidate) -> step 1 (config paths) -> download fallback.
     // Command probes are not part of the resolution chain.
-    switch await fromPathsOrCommands(platformDeps, pickedEntries) {
+    switch await fromPathsOrCommands(platformDeps, preferredEntries) {
     | Ok(connection) =>
       logConnection(connection)
       Ok(connection)
@@ -621,7 +621,7 @@ module Module: Module = {
       switch await fromDownloads(platformDeps, memento, globalStorageUri) {
       | Ok(connection) =>
         logConnection(connection)
-        // Automatic fallback: prepend (lowest priority), do NOT set PickedConnection
+        // Automatic fallback: prepend (lowest priority), do NOT set PreferredCandidate
         let downloadedPath = getPath(connection)
         if !(paths->Array.includes(downloadedPath)) {
           await Config.Connection.setAgdaPaths(

@@ -331,7 +331,7 @@ module SwitchVersionManager = {
     ~platformDeps: option<Platform.t>=None,
   ): array<ItemData.t> => {
     // Always check current connection to ensure UI reflects actual state
-    let storedPath = Memento.PickedConnection.get(self.memento)
+    let storedPath = Memento.PreferredCandidate.get(self.memento)
 
     let pickedPath = switch storedPath {
     | Some(path) => Some(path)
@@ -475,7 +475,7 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
     await Registry__Connection.shutdown()
 
     // Persist explicit user selection; active connection is managed by Registry__Connection.
-    await Memento.PickedConnection.set(state.memento, Some(selectedPath))
+    await Memento.PreferredCandidate.set(state.memento, Some(selectedPath))
 
     // update displayed connection status
     await State__View.Panel.displayConnectionStatus(state, Some(conn))
@@ -770,7 +770,7 @@ module Handler = {
     if downloaded {
       let downloadedPath = Download.expectedPathForVariant(state.globalStorageUri, variant, ~channel)
       await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
-      await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
+      await Memento.PreferredCandidate.set(state.memento, Some(downloadedPath))
       VSCode.Window.showInformationMessage(
         versionString ++ " is already downloaded",
         [],
@@ -794,7 +794,7 @@ module Handler = {
         )->Promise.done
       | Ok(downloadedPath) =>
         await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
-        await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
+        await Memento.PreferredCandidate.set(state.memento, Some(downloadedPath))
 
         // Optional UI refresh after successful download
         switch refreshUI {
@@ -1048,7 +1048,7 @@ module Handler = {
             Util.log("[ debug ] user selected kind: " ++ selectedPath, "")
             view->View.destroy
             // Regular candidate selection - check if selection changed
-            let changed = switch Memento.PickedConnection.get(manager.memento) {
+            let changed = switch Memento.PreferredCandidate.get(manager.memento) {
             | Some(path) => !Candidate.equal(Candidate.make(selectedPath), Candidate.make(path))
             | None => true // If no previous selection, treat as changed
             }

@@ -8,14 +8,14 @@ let makeResolved = (raw: string, resource: VSCode.Uri.t): Candidate.Resolved.t =
 }
 
 describe("Memento", () => {
-  describe("PickedConnection", () => {
+  describe("PreferredCandidate", () => {
     Async.it("should round-trip set/get", async () => {
       let memento = Memento.make(None)
 
-      await Memento.PickedConnection.set(memento, Some("/usr/local/bin/agda"))
+      await Memento.PreferredCandidate.set(memento, Some("/usr/local/bin/agda"))
 
       Assert.deepStrictEqual(
-        Memento.PickedConnection.get(memento),
+        Memento.PreferredCandidate.get(memento),
         Some("/usr/local/bin/agda"),
       )
     })
@@ -23,10 +23,10 @@ describe("Memento", () => {
     Async.it("should clear stored value", async () => {
       let memento = Memento.make(None)
 
-      await Memento.PickedConnection.set(memento, Some("/usr/local/bin/agda"))
-      await Memento.PickedConnection.clear(memento)
+      await Memento.PreferredCandidate.set(memento, Some("/usr/local/bin/agda"))
+      await Memento.PreferredCandidate.clear(memento)
 
-      Assert.deepStrictEqual(Memento.PickedConnection.get(memento), None)
+      Assert.deepStrictEqual(Memento.PreferredCandidate.get(memento), None)
     })
   })
 

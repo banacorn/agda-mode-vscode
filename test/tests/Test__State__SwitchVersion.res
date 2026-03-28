@@ -828,13 +828,13 @@ describe("State__SwitchVersion", () => {
          * 4. Only after manually switching connection does one show as "Selected"
          * 
          * ROOT CAUSE:
-         * - Command.Load establishes connection without setting Memento.PickedConnection
-         * - Memento.PickedConnection.get() returns None on fresh installs
+         * - Command.Load establishes connection without setting Memento.PreferredCandidate
+         * - Memento.PreferredCandidate.get() returns None on fresh installs
          * - UI selection logic requires explicit memento entry to mark candidate as "Selected"
          * - No mechanism exists to infer selection from active connection state
          * 
          * REPRODUCTION:
-         * This test simulates fresh install by ensuring Memento.PickedConnection = None,
+         * This test simulates fresh install by ensuring Memento.PreferredCandidate = None,
          * then invokes onActivate and observes the logged UpdateEndpoints events.
          */
         let state = createTestState()
@@ -852,8 +852,8 @@ describe("State__SwitchVersion", () => {
           },
         )
 
-        // SIMULATE: Fresh install - ensure no picked connection in memento
-        await Memento.PickedConnection.set(state.memento, None)
+        // SIMULATE: Fresh install - ensure no preferred candidate in memento
+        await Memento.PreferredCandidate.set(state.memento, None)
         await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/bin/agda"])
 
         // SIMULATE: Active connection (Command.Load established connection)
@@ -916,7 +916,7 @@ describe("State__SwitchVersion", () => {
         )
 
         // SIMULATE: User explicitly selected one candidate (stored in memento)
-        await Memento.PickedConnection.set(state.memento, Some("/usr/bin/agda"))
+        await Memento.PreferredCandidate.set(state.memento, Some("/usr/bin/agda"))
 
         // SIMULATE: But different candidate is currently active
         let mockConnection = TestData.makeMockConnection("/opt/homebrew/bin/agda", "2.6.3")
@@ -954,7 +954,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should preserve raw bare commands in PickedConnection after candidate selection",
+      "should preserve raw bare commands in PreferredCandidate after candidate selection",
       async () => {
         let platform = makeMockPlatformWithBareCommands()
         let runSelectionAndAssert = async (selectedPath: string) => {
@@ -1000,7 +1000,7 @@ describe("State__SwitchVersion", () => {
           await onOperationComplete
           view->State__SwitchVersion.View.destroy
 
-          Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(selectedPath))
+          Assert.deepStrictEqual(Memento.PreferredCandidate.get(state.memento), Some(selectedPath))
         }
 
         await runSelectionAndAssert("agda")
@@ -1060,7 +1060,7 @@ describe("State__SwitchVersion", () => {
         | Error(_) => raise(Failure("Expected bare command selection to resolve"))
         }
 
-        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some("agda"))
+        Assert.deepStrictEqual(Memento.PreferredCandidate.get(state.memento), Some("agda"))
         Assert.deepStrictEqual(
           Memento.ResolvedMetadata.get(state.memento, resolved)->Option.map(entry => entry.kind),
           Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
@@ -1079,7 +1079,7 @@ describe("State__SwitchVersion", () => {
         let fsPath = "/tmp/hardcoded-als/als.wasm"
         let uriPath = "file:///tmp/hardcoded-als/als.wasm"
 
-        await Memento.PickedConnection.set(state.memento, Some(uriPath))
+        await Memento.PreferredCandidate.set(state.memento, Some(uriPath))
 
         let sawSelectedCandidate = ref(false)
         let sawSelectionCompleted = ref(false)
@@ -1117,7 +1117,7 @@ describe("State__SwitchVersion", () => {
 
         Assert.deepStrictEqual(sawSelectedCandidate.contents, false)
         Assert.deepStrictEqual(sawSelectionCompleted.contents, true)
-        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(uriPath))
+        Assert.deepStrictEqual(Memento.PreferredCandidate.get(state.memento), Some(uriPath))
       },
     )
 
@@ -1128,7 +1128,7 @@ describe("State__SwitchVersion", () => {
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
         let fsPath = mockAgda.contents
-        await Memento.PickedConnection.set(state.memento, None)
+        await Memento.PreferredCandidate.set(state.memento, None)
 
         let onSelectionCompleted = Log.on(
           state.channels.log,
@@ -1167,12 +1167,12 @@ describe("State__SwitchVersion", () => {
         await onSelectionCompleted
         view->State__SwitchVersion.View.destroy
 
-        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(fsPath))
+        Assert.deepStrictEqual(Memento.PreferredCandidate.get(state.memento), Some(fsPath))
       },
     )
 
     Async.it(
-      "should set picked connection to downloaded path when user clicks download action",
+      "should set preferred candidate to downloaded path when user clicks download action",
       async () => {
         let cases = [
           State__SwitchVersion.Constants.downloadNativeALS,
@@ -1196,7 +1196,7 @@ describe("State__SwitchVersion", () => {
             State__SwitchVersion.Download.expectedPathForVariant(state.globalStorageUri, selectedVariant)
 
           let previouslyPicked = Some("/usr/bin/agda")
-          await Memento.PickedConnection.set(state.memento, previouslyPicked)
+          await Memento.PreferredCandidate.set(state.memento, previouslyPicked)
           let activePath = "/opt/homebrew/bin/agda"
           Registry__Connection.status :=
             Active({
@@ -1247,7 +1247,7 @@ describe("State__SwitchVersion", () => {
 
           // Manual UI download should set PreferredCandidate
           Assert.deepStrictEqual(
-            Memento.PickedConnection.get(state.memento),
+            Memento.PreferredCandidate.get(state.memento),
             Some(expectedDownloadPath),
           )
 
@@ -1289,8 +1289,8 @@ describe("State__SwitchVersion", () => {
         let fsPath = "/tmp/hardcoded-als/als.wasm"
         let uriPath = "file:///tmp/hardcoded-als/als.wasm"
 
-        // Set PickedConnection to the URI form
-        await Memento.PickedConnection.set(state.memento, Some(uriPath))
+        // Set PreferredCandidate to the URI form
+        await Memento.PreferredCandidate.set(state.memento, Some(uriPath))
         await Config.Connection.setAgdaPaths(state.channels.log, [fsPath])
 
         let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
@@ -1349,7 +1349,7 @@ describe("State__SwitchVersion", () => {
         )
 
         // SIMULATE: User has explicitly selected one specific candidate
-        await Memento.PickedConnection.set(state.memento, Some("/opt/homebrew/bin/agda"))
+        await Memento.PreferredCandidate.set(state.memento, Some("/opt/homebrew/bin/agda"))
 
         // SIMULATE: But different candidate is currently active (should be overridden by memento)
         let mockConnection = TestData.makeMockConnection("/usr/bin/agda", "2.6.4")

@@ -3520,9 +3520,9 @@ describe("State__SwitchVersion", () => {
 
       describe("memento", () => {
       Async.it(
-        "should preserve PickedConnection when Delete Downloads removes managed paths",
+        "should preserve PreferredCandidate when Delete Downloads removes managed paths",
         async () => {
-          // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PickedConnection
+          // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PreferredCandidate
 
           let storagePath = NodeJs.Path.join([
             NodeJs.Os.tmpdir(),
@@ -3537,14 +3537,14 @@ describe("State__SwitchVersion", () => {
           let view = State__SwitchVersion.View.make(state.channels.log)
           let manager = State__SwitchVersion.SwitchVersionManager.make(state)
 
-          // Set PickedConnection to a path under download directory
+          // Set PreferredCandidate to a path under download directory
           let downloadedPath =
             VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
-          await Memento.PickedConnection.set(state.memento, Some(downloadedPath))
+          await Memento.PreferredCandidate.set(state.memento, Some(downloadedPath))
 
-          // Precondition: PickedConnection is set to a download path
+          // Precondition: PreferredCandidate is set to a download path
           Assert.deepStrictEqual(
-            Memento.PickedConnection.get(state.memento),
+            Memento.PreferredCandidate.get(state.memento),
             Some(downloadedPath),
           )
 
@@ -3577,8 +3577,8 @@ describe("State__SwitchVersion", () => {
 
           await onSelectionCompleted
 
-          // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PickedConnection
-          Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(downloadedPath))
+          // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PreferredCandidate
+          Assert.deepStrictEqual(Memento.PreferredCandidate.get(state.memento), Some(downloadedPath))
           Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/bin/agda"])
 
           let _ = await FS.deleteRecursive(storageUri)
@@ -3587,9 +3587,9 @@ describe("State__SwitchVersion", () => {
       )
 
       Async.it(
-        "should preserve user-managed PickedConnection when Delete Downloads runs",
+        "should preserve user-managed PreferredCandidate when Delete Downloads runs",
         async () => {
-          // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PickedConnection
+          // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PreferredCandidate
 
           let storagePath = NodeJs.Path.join([
             NodeJs.Os.tmpdir(),
@@ -3604,13 +3604,13 @@ describe("State__SwitchVersion", () => {
           let view = State__SwitchVersion.View.make(state.channels.log)
           let manager = State__SwitchVersion.SwitchVersionManager.make(state)
 
-          // Set PickedConnection to a user-managed path (NOT under download directory)
+          // Set PreferredCandidate to a user-managed path (NOT under download directory)
           let userPath = "/usr/local/bin/agda"
-          await Memento.PickedConnection.set(state.memento, Some(userPath))
+          await Memento.PreferredCandidate.set(state.memento, Some(userPath))
 
-          // Precondition: PickedConnection is set to a user path
+          // Precondition: PreferredCandidate is set to a user path
           Assert.deepStrictEqual(
-            Memento.PickedConnection.get(state.memento),
+            Memento.PreferredCandidate.get(state.memento),
             Some(userPath),
           )
 
@@ -3645,8 +3645,8 @@ describe("State__SwitchVersion", () => {
 
           await onSelectionCompleted
 
-          // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PickedConnection
-          Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(userPath))
+          // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PreferredCandidate
+          Assert.deepStrictEqual(Memento.PreferredCandidate.get(state.memento), Some(userPath))
           Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [userPath])
 
           let _ = await FS.deleteRecursive(storageUri)
@@ -3688,8 +3688,8 @@ describe("State__SwitchVersion", () => {
 
         await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/bin/agda"])
 
-        // SIMULATE: No picked connection (fresh state)
-        await Memento.PickedConnection.set(state.memento, None)
+        // SIMULATE: No preferred candidate (fresh state)
+        await Memento.PreferredCandidate.set(state.memento, None)
 
         // SIMULATE: Active connection
         let mockConnection = TestData.makeMockConnection("/usr/bin/agda", "2.6.4")
@@ -3739,7 +3739,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should set picked connection to downloaded path when downloading via handler",
+      "should set preferred candidate to downloaded path when downloading via handler",
       async () => {
         let testCases = [
           (Some("/usr/bin/agda"), State__SwitchVersion.Download.Native, false),
@@ -3760,7 +3760,7 @@ describe("State__SwitchVersion", () => {
           let state = createTestState()
           let manager = State__SwitchVersion.SwitchVersionManager.make(state)
 
-          await Memento.PickedConnection.set(state.memento, initialPicked)
+          await Memento.PreferredCandidate.set(state.memento, initialPicked)
 
           let activePath = "/opt/homebrew/bin/agda"
           let activeConnection = TestData.makeMockConnection(activePath, "2.6.3")
@@ -3787,7 +3787,7 @@ describe("State__SwitchVersion", () => {
             ~refreshUI=None,
           )
 
-          let pickedAfter = Memento.PickedConnection.get(state.memento)
+          let pickedAfter = Memento.PreferredCandidate.get(state.memento)
           // Manual UI download should set PreferredCandidate
           Assert.deepStrictEqual(pickedAfter, Some(expectedDownloadPath))
 

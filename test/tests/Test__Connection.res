@@ -1289,10 +1289,10 @@ describe("Connection", () => {
     }
 
     Async.it(
-      "should try PickedConnection first even when it is not in connection.paths",
+      "should try PreferredCandidate first even when it is not in connection.paths",
       async () => {
         let memento = Memento.make(None)
-        await Memento.PickedConnection.set(memento, Some(pickedAgda.contents))
+        await Memento.PreferredCandidate.set(memento, Some(pickedAgda.contents))
 
         let result = await Connection.makeWithFallback(
           Mock.Platform.makeBasic(),
@@ -1306,17 +1306,17 @@ describe("Connection", () => {
         switch result {
         | Ok(connection) =>
           Assert.deepStrictEqual(connection->Connection.getPath, pickedAgda.contents)
-        | Error(_) => Assert.fail("Expected connection to succeed via picked connection")
+        | Error(_) => Assert.fail("Expected connection to succeed via preferred candidate")
         }
       },
     )
 
     Async.it(
-      "should continue to later steps when PickedConnection fails",
+      "should continue to later steps when PreferredCandidate fails",
       async () => {
         let (pickedPath, markerPath) = await makePickedFailureExecutable(~name="agda-picked-fail")
         let memento = Memento.make(None)
-        await Memento.PickedConnection.set(memento, Some(pickedPath))
+        await Memento.PreferredCandidate.set(memento, Some(pickedPath))
 
         let result = await Connection.makeWithFallback(
           Mock.Platform.makeBasic(),
@@ -1340,13 +1340,13 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should not re-probe PickedConnection in the paths step",
+      "should not re-probe PreferredCandidate in the paths step",
       async () => {
         let (pickedPath, flagPath) = await makeFirstFailThenSuccessExecutable(
           ~name="agda-picked-duplicate",
         )
         let memento = Memento.make(None)
-        await Memento.PickedConnection.set(memento, Some(pickedPath))
+        await Memento.PreferredCandidate.set(memento, Some(pickedPath))
 
         let result = await Connection.makeWithFallback(
           Mock.Platform.makeBasic(),
@@ -1446,7 +1446,7 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should update connection.paths but not PickedConnection after automatic fallback download",
+      "should update connection.paths but not PreferredCandidate after automatic fallback download",
       async () => {
         let logChannel = Chan.make()
         await Config.Connection.setAgdaPaths(logChannel, [])
@@ -1471,7 +1471,7 @@ describe("Connection", () => {
             [downloadedAgda.contents, "/invalid/path"],
           )
           Assert.deepStrictEqual(
-            Memento.PickedConnection.get(memento),
+            Memento.PreferredCandidate.get(memento),
             None,
           )
         | Error(_) => Assert.fail("Expected fallback download to succeed")
@@ -1480,14 +1480,14 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should not overwrite existing PickedConnection after automatic fallback download",
+      "should not overwrite existing PreferredCandidate after automatic fallback download",
       async () => {
         let logChannel = Chan.make()
         let existingPicked = "/usr/local/bin/agda"
         await Config.Connection.setAgdaPaths(logChannel, [])
         await Config.Connection.DownloadPolicy.set(Undecided)
         let memento = Memento.make(None)
-        await Memento.PickedConnection.set(memento, Some(existingPicked))
+        await Memento.PreferredCandidate.set(memento, Some(existingPicked))
         let platform = Mock.Platform.makeWithSuccessfulDownload(downloadedAgda.contents)
 
         let result = await Connection.makeWithFallback(
@@ -1507,7 +1507,7 @@ describe("Connection", () => {
             [downloadedAgda.contents, "/invalid/path"],
           )
           Assert.deepStrictEqual(
-            Memento.PickedConnection.get(memento),
+            Memento.PreferredCandidate.get(memento),
             Some(existingPicked),
           )
         | Error(_) => Assert.fail("Expected fallback download to succeed")

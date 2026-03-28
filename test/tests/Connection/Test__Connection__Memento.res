@@ -1,12 +1,12 @@
 open Mocha
 open Test__Util
 
-// Memento.PickedConnection
+// Memento.PreferredCandidate
 // ├── Memento path exists in config → should prioritize over other config paths
 // ├── Memento path not in config → should still be prioritized (step 0)
 // └── Memento update behavior
 
-describe("Memento.PickedConnection", () => {
+describe("Memento.PreferredCandidate", () => {
   let userAgda = ref("")
   let systemAgda = ref("")
   let alternativeAgda = ref("")
@@ -45,7 +45,7 @@ describe("Memento.PickedConnection", () => {
     // Mock memento to simulate previously selected path
     let memento = Memento.make(None)
     switch previouslySelectedPath {
-    | Some(path) => await memento->Memento.PickedConnection.set(Some(path))
+    | Some(path) => await memento->Memento.PreferredCandidate.set(Some(path))
     | None => ()
     }
 
@@ -91,7 +91,7 @@ describe("Memento.PickedConnection", () => {
 
         // Config: [userAgda]
         // Memento: systemAgda (not in config)
-        // Expected: systemAgda should be used (step 0 picked path)
+        // Expected: systemAgda should be used (step 0 preferred candidate)
 
         let configPaths = [userAgda.contents]
         let result = await makeConnection(Some(systemAgda.contents), configPaths)
@@ -125,7 +125,7 @@ describe("Memento.PickedConnection", () => {
         switch result {
         | Ok(connection) =>
           let actualPath = connection->Connection.getPath
-          let mementoPath = Memento.PickedConnection.get(memento)
+          let mementoPath = Memento.PreferredCandidate.get(memento)
           Assert.deepStrictEqual(actualPath, userAgda.contents)
           Assert.deepStrictEqual(mementoPath, None)
         | Error(_) => Assert.fail("Connection should succeed")

@@ -51,7 +51,7 @@ module Module: {
     let clear: (t, string, string) => promise<unit>
   }
 
-  module PickedConnection: {
+  module PreferredCandidate: {
     let get: t => option<string>
     let set: (t, option<string>) => promise<unit>
     let clear: t => promise<unit>
@@ -278,8 +278,8 @@ module Module: {
     }
   }
 
-  module PickedConnection = {
-    let key = "pickedConnection"
+  module PreferredCandidate = {
+    let key = "preferredCandidate"
 
     let get = (memento: t): option<string> => {
       memento->get(key)

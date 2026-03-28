@@ -138,7 +138,7 @@ describe("Connection Downloads", () => {
     Async.after(
       async () => {
         await Config.Connection.setAgdaPaths(Chan.make(), [])
-        await Memento.PickedConnection.set(Memento.make(None), None)
+        await Memento.PreferredCandidate.set(Memento.make(None), None)
 
         switch agdaMockEndpoint.contents {
         | Some(target) =>
