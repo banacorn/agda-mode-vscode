@@ -1276,7 +1276,7 @@ describe("State__SwitchVersion", () => {
       )
 
       Async.it(
-        "should remove managed candidates under all download directories and preserve unrelated candidates",
+        "should remove actual download-produced candidates and preserve unrelated candidates",
         async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1292,22 +1292,40 @@ describe("State__SwitchVersion", () => {
         let keepPath = "/usr/local/bin/agda"
         let keepBareCommand = "agda"
         let keepUri = "vscode-userdata:/global/user-managed/als.wasm"
-        let downloadedHardcoded =
-          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
-        let downloadedLatest =
-          VSCode.Uri.joinPath(storageUri, ["latest-als", "als"])->VSCode.Uri.fsPath
-        let downloadedDevNative =
-          VSCode.Uri.joinPath(storageUri, ["dev-als", "als"])->VSCode.Uri.fsPath
-        let downloadedDevWasm =
-          VSCode.Uri.joinPath(storageUri, ["dev-wasm-als", "als.wasm"])->VSCode.Uri.toString
+        let downloadedHardcodedNative = State__SwitchVersion.Download.expectedPathForVariant(
+          storageUri,
+          State__SwitchVersion.Download.Native,
+          ~channel=Connection__Download.Channel.Hardcoded,
+        )
+        let downloadedHardcodedWasm = State__SwitchVersion.Download.expectedPathForVariant(
+          storageUri,
+          State__SwitchVersion.Download.WASM,
+          ~channel=Connection__Download.Channel.Hardcoded,
+        )
+        let downloadedLatestNative = State__SwitchVersion.Download.expectedPathForVariant(
+          storageUri,
+          State__SwitchVersion.Download.Native,
+          ~channel=Connection__Download.Channel.LatestALS,
+        )
+        let downloadedDevNative = State__SwitchVersion.Download.expectedPathForVariant(
+          storageUri,
+          State__SwitchVersion.Download.Native,
+          ~channel=Connection__Download.Channel.DevALS,
+        )
+        let downloadedDevWasm = State__SwitchVersion.Download.expectedPathForVariant(
+          storageUri,
+          State__SwitchVersion.Download.WASM,
+          ~channel=Connection__Download.Channel.DevALS,
+        )
 
         await Config.Connection.setAgdaPaths(
           state.channels.log,
           [
             keepPath,
-            downloadedHardcoded,
+            downloadedHardcodedNative,
             keepBareCommand,
-            downloadedLatest,
+            downloadedHardcodedWasm,
+            downloadedLatestNative,
             keepUri,
             downloadedDevNative,
             downloadedDevWasm,
@@ -1339,33 +1357,62 @@ describe("State__SwitchVersion", () => {
 
         Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, keepBareCommand, keepUri])
 
+        let remainingManaged =
+          Config.Connection.getAgdaPaths()->Array.some(path =>
+            [
+              VSCode.Uri.joinPath(storageUri, ["hardcoded-als"]),
+              VSCode.Uri.joinPath(storageUri, ["latest-als"]),
+              VSCode.Uri.joinPath(storageUri, ["dev-als"]),
+            ]->Array.some(dirUri =>
+              Connection__Candidate.isUnderDirectory(Connection__Candidate.make(path), dirUri)
+            )
+          )
+        Assert.deepStrictEqual(remainingManaged, false)
+
         let _ = await FS.deleteRecursive(storageUri)
         view->State__SwitchVersion.View.destroy
         },
       )
 
       Async.it(
-        "should remove download paths from connection.paths and preserve user-managed PickedConnection on Delete Downloads",
+        "should preserve candidates under managed directories that fail to delete and remove candidates under successfully deleted directories",
         async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
-          "agda-switch-version-delete-keep-picked-" ++ string_of_int(int_of_float(Js.Date.now())),
+          "agda-switch-version-delete-partial-config-cleanup-" ++ string_of_int(int_of_float(Js.Date.now())),
         ])
         let storageUri = VSCode.Uri.file(storagePath)
         let _ = await FS.createDirectory(storageUri)
+        let latestDirUri = VSCode.Uri.joinPath(storageUri, ["latest-als"])
+        let hardcodedDirUri = VSCode.Uri.joinPath(storageUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(latestDirUri)
+        let _ = await FS.createDirectory(hardcodedDirUri)
 
         let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
 
         let keepPath = "/usr/local/bin/agda"
-        let downloadedLatest =
-          VSCode.Uri.joinPath(storageUri, ["latest-als", "als"])->VSCode.Uri.fsPath
+        let downloadedLatest = State__SwitchVersion.Download.expectedPathForVariant(
+          storageUri,
+          State__SwitchVersion.Download.Native,
+          ~channel=Connection__Download.Channel.LatestALS,
+        )
+        let downloadedHardcoded = State__SwitchVersion.Download.expectedPathForVariant(
+          storageUri,
+          State__SwitchVersion.Download.Native,
+          ~channel=Connection__Download.Channel.Hardcoded,
+        )
 
-        await Config.Connection.setAgdaPaths(state.channels.log, [keepPath, downloadedLatest])
-        await Memento.PickedConnection.set(state.memento, Some(keepPath))
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          [keepPath, downloadedLatest, downloadedHardcoded],
+        )
 
         let selectedItem = makePickerItem(state, DeleteDownloads)
+        let restoreDeleteRecursive = Test__Util.TestFS.withDeleteFailureFor(
+          latestDirUri->VSCode.Uri.fsPath,
+        )
 
         let onSelectionCompleted = Log.on(
           state.channels.log,
@@ -1387,9 +1434,12 @@ describe("State__SwitchVersion", () => {
           [selectedItem],
         )
         await onSelectionCompleted
+        restoreDeleteRecursive()
 
-        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath])
-        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(keepPath))
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          [keepPath, downloadedLatest],
+        )
 
         let _ = await FS.deleteRecursive(storageUri)
         view->State__SwitchVersion.View.destroy

@@ -714,3 +714,19 @@ module Candidate = {
     }
   }
 }
+
+module TestFS = {
+  let withDeleteFailureFor: string => unit => unit = %raw(`function(failedFsPath) {
+    const fsModule = require("../../src/FS.bs.js");
+    const originalDeleteRecursive = fsModule.deleteRecursive;
+    fsModule.deleteRecursive = function(uri) {
+      if (uri && uri.fsPath === failedFsPath) {
+        return Promise.resolve({ TAG: 1, _0: "mock delete failure" });
+      }
+      return originalDeleteRecursive(uri);
+    };
+    return function() {
+      fsModule.deleteRecursive = originalDeleteRecursive;
+    };
+  }`)
+}
