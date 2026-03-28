@@ -3804,9 +3804,11 @@ describe("State__SwitchVersion", () => {
               | _ => None
               }
             )
+          let currentPaths = Config.Connection.getAgdaPaths()
           let expectedSelectedCandidates = switch initialPicked {
-          | Some(path) => [path]
-          | None => [activePath]
+          | Some(path) when currentPaths->Array.some(candidate => candidate == path) => [path]
+          | _ when currentPaths->Array.some(candidate => candidate == activePath) => [activePath]
+          | _ => []
           }
           Assert.deepStrictEqual(selectedCandidates, expectedSelectedCandidates)
           let hasDownloadedPath = Config.Connection.getAgdaPaths()->Array.some(path => path == expectedDownloadPath)

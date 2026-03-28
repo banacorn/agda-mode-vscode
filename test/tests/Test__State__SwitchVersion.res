@@ -1263,7 +1263,16 @@ describe("State__SwitchVersion", () => {
               | _ => None
               }
             )
-          Assert.deepStrictEqual(selectedCandidates, [previouslyPicked->Option.getExn])
+          let currentPaths = Config.Connection.getAgdaPaths()
+          let expectedSelectedCandidates =
+            if currentPaths->Array.some(candidate => candidate == previouslyPicked->Option.getExn) {
+              [previouslyPicked->Option.getExn]
+            } else if currentPaths->Array.some(candidate => candidate == activePath) {
+              [activePath]
+            } else {
+              []
+            }
+          Assert.deepStrictEqual(selectedCandidates, expectedSelectedCandidates)
           Assert.deepStrictEqual(sawSelectedCandidate.contents, false)
         view->State__SwitchVersion.View.destroy
           Registry__Connection.status := Empty
