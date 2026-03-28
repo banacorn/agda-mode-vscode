@@ -79,24 +79,43 @@ let deduplicate = candidates => {
 let isUnderPrefix = (path: string, prefix: string, separator: string): bool =>
   path == prefix || String.startsWith(path, prefix ++ separator)
 
+let localComparablePath = (uri: VSCode.Uri.t): option<string> =>
+  switch (VSCode.Uri.scheme(uri), VSCode.Uri.authority(uri)) {
+  | ("file", "") => Some(VSCode.Uri.fsPath(uri))
+  | ("vscode-userdata", "") => Some(Js.Global.decodeURIComponent(VSCode.Uri.path(uri)))
+  | _ => None
+  }
+
 let isUnderDirectory = (candidate: t, directory: VSCode.Uri.t): bool =>
   switch candidate {
   | Command(_) => false
   | Resource(resource) =>
-    if
-      VSCode.Uri.scheme(resource) != VSCode.Uri.scheme(directory) ||
-        VSCode.Uri.authority(resource) != VSCode.Uri.authority(directory)
-    {
-      false
+    if VSCode.Uri.scheme(resource) == VSCode.Uri.scheme(directory) &&
+        VSCode.Uri.authority(resource) == VSCode.Uri.authority(directory) {
+      if VSCode.Uri.scheme(resource) == "file" {
+        let resourceFsPath = VSCode.Uri.fsPath(resource)
+        let directoryFsPath = VSCode.Uri.fsPath(directory)
+        isUnderPrefix(resourceFsPath, directoryFsPath, NodeJs.Path.sep) ||
+        isUnderPrefix(resourceFsPath, directoryFsPath, "/")
+      } else {
+        let resourcePath = VSCode.Uri.path(resource)
+        let directoryPath = VSCode.Uri.path(directory)
+        isUnderPrefix(resourcePath, directoryPath, "/")
+      }
     } else if VSCode.Uri.scheme(resource) == "file" {
-      let resourceFsPath = VSCode.Uri.fsPath(resource)
-      let directoryFsPath = VSCode.Uri.fsPath(directory)
-      isUnderPrefix(resourceFsPath, directoryFsPath, NodeJs.Path.sep) ||
-      isUnderPrefix(resourceFsPath, directoryFsPath, "/")
+      switch (localComparablePath(resource), localComparablePath(directory)) {
+      | (Some(resourcePath), Some(directoryPath)) =>
+        isUnderPrefix(resourcePath, directoryPath, NodeJs.Path.sep) ||
+        isUnderPrefix(resourcePath, directoryPath, "/")
+      | _ => false
+      }
     } else {
-      let resourcePath = VSCode.Uri.path(resource)
-      let directoryPath = VSCode.Uri.path(directory)
-      isUnderPrefix(resourcePath, directoryPath, "/")
+      switch (localComparablePath(resource), localComparablePath(directory)) {
+      | (Some(resourcePath), Some(directoryPath)) =>
+        isUnderPrefix(resourcePath, directoryPath, NodeJs.Path.sep) ||
+        isUnderPrefix(resourcePath, directoryPath, "/")
+      | _ => false
+      }
     }
   }
 
