@@ -1375,6 +1375,162 @@ describe("State__SwitchVersion", () => {
       )
 
       Async.it(
+        "should remove the exact candidate path produced by manual desktop WASM download",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-manual-desktop-wasm-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+
+        let actualDownloadedPath =
+          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als.wasm"])->VSCode.Uri.fsPath
+
+        let platform: Platform.t = {
+          module MockPlatform = {
+            let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+            let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+              switch channel {
+              | Connection__Download.Channel.Hardcoded =>
+                Ok(
+                  Connection__Download.Source.FromURL(
+                    Connection__Download.Channel.Hardcoded,
+                    "https://example.invalid/hardcoded-als.wasm",
+                    "hardcoded-als",
+                  ),
+                )
+              | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              }
+            )
+            let download = (_globalStorageUri, _source) => Promise.resolve(Ok(actualDownloadedPath))
+            let findCommand = (_command, ~timeout as _timeout=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+          module(MockPlatform)
+        }
+
+        await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/local/bin/agda"])
+        await State__SwitchVersion.Handler.handleDownload(
+          state,
+          platform,
+          State__SwitchVersion.Download.WASM,
+          false,
+          "ALS vTest",
+          ~channel=Connection__Download.Channel.Hardcoded,
+        )
+
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          ["/usr/local/bin/agda", actualDownloadedPath],
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/local/bin/agda"])
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove the exact candidate path produced by automatic fallback download",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-auto-fallback-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let autoDownloadedPath =
+          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als.wasm"])->VSCode.Uri.fsPath
+
+        let logChannel = Chan.make()
+        await Config.Connection.setAgdaPaths(logChannel, ["/invalid/path"])
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let memento = Memento.make(None)
+        let platform = Mock.Platform.makeWithSuccessfulDownload(autoDownloadedPath)
+
+        let result = await Connection.makeWithFallback(
+          platform,
+          memento,
+          storageUri,
+          ["/invalid/path"],
+          ["invalid-command"],
+          logChannel,
+        )
+
+        switch result {
+        | Ok(_) => ()
+        | Error(_) => Assert.fail("Expected automatic fallback download to succeed")
+        }
+
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          [autoDownloadedPath, "/invalid/path"],
+        )
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/invalid/path"])
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
         "should preserve candidates under managed directories that fail to delete and remove candidates under successfully deleted directories",
         async () => {
         let storagePath = NodeJs.Path.join([
