@@ -1155,8 +1155,9 @@ describe("State__SwitchVersion", () => {
     )
 
     describe("delete downloads", () => {
+      describe("connection.paths", () => {
       Async.it(
-        "should remove download paths from connection.paths and preserve PickedConnection on Delete Downloads",
+        "should remove download paths from connection.paths on Delete Downloads",
         async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1209,9 +1210,8 @@ describe("State__SwitchVersion", () => {
         )
         await onSelectionCompleted
 
-        // Delete Downloads MUST remove download paths from connection.paths, MUST NOT modify PickedConnection
+        // Delete Downloads MUST remove download paths from connection.paths.
         Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, keepBareCommand])
-        Assert.deepStrictEqual(Memento.PickedConnection.get(state.memento), Some(downloadedLatest))
 
         let _ = await FS.deleteRecursive(storageUri)
         view->State__SwitchVersion.View.destroy
@@ -1276,7 +1276,76 @@ describe("State__SwitchVersion", () => {
       )
 
       Async.it(
-        "should remove download paths from connection.paths and preserve PickedConnection on Delete Downloads",
+        "should remove managed candidates under all download directories and preserve unrelated candidates",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-all-managed-paths-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let keepBareCommand = "agda"
+        let keepUri = "vscode-userdata:/global/user-managed/als.wasm"
+        let downloadedHardcoded =
+          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
+        let downloadedLatest =
+          VSCode.Uri.joinPath(storageUri, ["latest-als", "als"])->VSCode.Uri.fsPath
+        let downloadedDevNative =
+          VSCode.Uri.joinPath(storageUri, ["dev-als", "als"])->VSCode.Uri.fsPath
+        let downloadedDevWasm =
+          VSCode.Uri.joinPath(storageUri, ["dev-wasm-als", "als.wasm"])->VSCode.Uri.toString
+
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          [
+            keepPath,
+            downloadedHardcoded,
+            keepBareCommand,
+            downloadedLatest,
+            keepUri,
+            downloadedDevNative,
+            downloadedDevWasm,
+          ],
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, keepBareCommand, keepUri])
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove download paths from connection.paths and preserve user-managed PickedConnection on Delete Downloads",
         async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1326,7 +1395,9 @@ describe("State__SwitchVersion", () => {
         view->State__SwitchVersion.View.destroy
         },
       )
+      })
 
+      describe("resolved metadata", () => {
       Async.it(
         "should preserve non-download ResolvedMetadata and remove download-managed ResolvedMetadata on Delete Downloads",
         async () => {
@@ -1564,7 +1635,9 @@ describe("State__SwitchVersion", () => {
         view->State__SwitchVersion.View.destroy
         },
       )
+      })
 
+      describe("release cache", () => {
       Async.it(
         "should clear managed ALSReleaseCache repos and preserve unrelated repo cache on Delete Downloads",
         async () => {
@@ -1637,7 +1710,9 @@ describe("State__SwitchVersion", () => {
         view->State__SwitchVersion.View.destroy
         },
       )
+      })
 
+      describe("memento", () => {
       Async.it(
         "should preserve PickedConnection when Delete Downloads removes managed paths",
         async () => {
@@ -1772,6 +1847,7 @@ describe("State__SwitchVersion", () => {
           view->State__SwitchVersion.View.destroy
         },
       )
+      })
     })
 
     Async.it(
