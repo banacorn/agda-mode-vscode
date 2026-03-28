@@ -140,6 +140,11 @@ describe("Connection__Candidate", () => {
   })
 
   describe("isUnderDirectory", () => {
+    let desktopStorageRoot =
+      "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode"
+    let desktopStorageRootEscaped =
+      "/Users/banacorn/Library/Application%20Support/Code/User/globalStorage/banacorn.agda-mode"
+
     it("should return false for Command candidates", () => {
       let directory = VSCode.Uri.file("/tmp/hardcoded-als")
       Assert.deepStrictEqual(Candidate.isUnderDirectory(Candidate.make("agda"), directory), false)
@@ -161,6 +166,81 @@ describe("Connection__Candidate", () => {
       let directory = VSCode.Uri.parse("vscode-userdata:/global/hardcoded-als")
       let candidate = Candidate.make("vscode-userdata:/global/hardcoded-als/als.wasm")
       Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+    })
+
+    it("should recognize native desktop file candidates under vscode-userdata managed directories", () => {
+      let directory =
+        VSCode.Uri.parse(
+          "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/hardcoded-als",
+        )
+      let candidate = Candidate.make(desktopStorageRoot ++ "/hardcoded-als/als")
+      Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+    })
+
+    it("should recognize native desktop file:// candidates under vscode-userdata managed directories", () => {
+      let directory =
+        VSCode.Uri.parse(
+          "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/hardcoded-als",
+        )
+      let candidate = Candidate.make(
+        "file://" ++ desktopStorageRoot ++ "/hardcoded-als/als",
+      )
+      Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+    })
+
+    it("should recognize native desktop file candidates for wasm artifacts under vscode-userdata managed directories", () => {
+      let directory =
+        VSCode.Uri.parse(
+          "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/hardcoded-als",
+        )
+      let candidate = Candidate.make(desktopStorageRoot ++ "/hardcoded-als/als.wasm")
+      Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+    })
+
+    it("should recognize native desktop file candidates under vscode-userdata dev-als managed directories", () => {
+      let directory =
+        VSCode.Uri.parse(
+          "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/dev-als",
+        )
+      let candidate = Candidate.make(desktopStorageRoot ++ "/dev-als/als")
+      Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+    })
+
+    it("should recognize unescaped native desktop file:// candidates with spaces under vscode-userdata managed directories", () => {
+      let directory =
+        VSCode.Uri.parse(
+          "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/hardcoded-als",
+        )
+      let candidate = Candidate.make(
+        "file://" ++ desktopStorageRoot ++ "/hardcoded-als/als.wasm",
+      )
+      Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+    })
+
+    it("should recognize vscode-userdata desktop candidates under native file managed directories", () => {
+      let directory = VSCode.Uri.file(desktopStorageRoot ++ "/hardcoded-als")
+      let candidate = Candidate.make(
+        "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/hardcoded-als/als",
+      )
+      Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+    })
+
+    it("should return false when mixed-form resource and directory authorities differ", () => {
+      let directory =
+        VSCode.Uri.parse(
+          "vscode-userdata://workspace" ++ desktopStorageRootEscaped ++ "/hardcoded-als",
+        )
+      let candidate = Candidate.make(desktopStorageRoot ++ "/hardcoded-als/als")
+      Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), false)
+    })
+
+    it("should still return false for mixed-form candidates outside the managed desktop directory", () => {
+      let directory =
+        VSCode.Uri.parse(
+          "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/hardcoded-als",
+        )
+      let candidate = Candidate.make(desktopStorageRoot ++ "/latest-als/als")
+      Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), false)
     })
 
     it("should return false for resources outside the directory", () => {

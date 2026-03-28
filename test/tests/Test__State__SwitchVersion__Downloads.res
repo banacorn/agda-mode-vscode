@@ -38,6 +38,81 @@ module TestData = {
   }
 }
 
+module RealConfig = {
+  type snapshot = {
+    globalValue: option<array<string>>,
+    workspaceValue: option<array<string>>,
+    workspaceFolderValue: option<array<string>>,
+  }
+
+  let inspectConnectionPaths: unit => snapshot = %raw(`() => {
+    const vscode = require("vscode");
+    const inspect = vscode.workspace.getConfiguration("agdaMode").inspect("connection.paths") || {};
+    return {
+      globalValue: inspect.globalValue ?? undefined,
+      workspaceValue: inspect.workspaceValue ?? undefined,
+      workspaceFolderValue: inspect.workspaceFolderValue ?? undefined,
+    };
+  }`)
+
+  let updateConnectionPathsAt: (array<string>, int) => promise<unit> = %raw(`(paths, target) => {
+    const vscode = require("vscode");
+    return vscode.workspace.getConfiguration("agdaMode").update("connection.paths", paths, target);
+  }`)
+
+  let restoreConnectionPaths: snapshot => promise<unit> = %raw(`async snapshot => {
+    const vscode = require("vscode");
+    const config = vscode.workspace.getConfiguration("agdaMode");
+    await config.update("connection.paths", snapshot.globalValue, 1);
+    await config.update("connection.paths", snapshot.workspaceValue, 2);
+    try {
+      await config.update("connection.paths", snapshot.workspaceFolderValue, 3);
+    } catch (_) {}
+  }`)
+
+  let effectiveConnectionPaths: unit => array<string> = %raw(`() => {
+    const vscode = require("vscode");
+    return vscode.workspace.getConfiguration("agdaMode").get("connection.paths") || [];
+  }`)
+
+  let inspectConnectionPathsAtUri: VSCode.Uri.t => snapshot = %raw(`uri => {
+    const vscode = require("vscode");
+    const inspect = vscode.workspace.getConfiguration("agdaMode", uri).inspect("connection.paths") || {};
+    return {
+      globalValue: inspect.globalValue ?? undefined,
+      workspaceValue: inspect.workspaceValue ?? undefined,
+      workspaceFolderValue: inspect.workspaceFolderValue ?? undefined,
+    };
+  }`)
+
+  let updateConnectionPathsAtUri: (VSCode.Uri.t, array<string>, int) => promise<unit> = %raw(`(
+    uri,
+    paths,
+    target,
+  ) => {
+    const vscode = require("vscode");
+    return vscode.workspace.getConfiguration("agdaMode", uri).update("connection.paths", paths, target);
+  }`)
+
+  let restoreConnectionPathsAtUri: (VSCode.Uri.t, snapshot) => promise<unit> = %raw(`async (
+    uri,
+    snapshot,
+  ) => {
+    const vscode = require("vscode");
+    const config = vscode.workspace.getConfiguration("agdaMode", uri);
+    await config.update("connection.paths", snapshot.globalValue, 1);
+    await config.update("connection.paths", snapshot.workspaceValue, 2);
+    try {
+      await config.update("connection.paths", snapshot.workspaceFolderValue, 3);
+    } catch (_) {}
+  }`)
+
+  let effectiveConnectionPathsAtUri: VSCode.Uri.t => array<string> = %raw(`uri => {
+    const vscode = require("vscode");
+    return vscode.workspace.getConfiguration("agdaMode", uri).get("connection.paths") || [];
+  }`)
+}
+
 describe("State__SwitchVersion", () => {
   describe("Core", () => {
     describe(
@@ -1308,6 +1383,291 @@ describe("State__SwitchVersion", () => {
 
         let _ = await FS.deleteRecursive(storageUri)
         view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove managed paths from effective connection.paths when they are stored in workspace settings",
+        async () => {
+        let previousTestingMode = Config.inTestingMode.contents
+        let configSnapshot = RealConfig.inspectConnectionPaths()
+
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Code",
+          "User",
+          "globalStorage",
+          "banacorn.agda-mode-workspace-delete-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let hardcodedDirUri = VSCode.Uri.joinPath(storageUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(hardcodedDirUri)
+        let hardcodedAlsUri = VSCode.Uri.joinPath(hardcodedDirUri, ["als"])
+        NodeJs.Fs.writeFileSync(
+          hardcodedAlsUri->VSCode.Uri.fsPath,
+          NodeJs.Buffer.fromString("mock native als"),
+        )
+
+        try {
+          Config.inTestingMode := false
+
+          let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+          let view = State__SwitchVersion.View.make(state.channels.log)
+          let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+          let keepPath = "/usr/local/bin/agda"
+          let exactDownloadedPath = hardcodedAlsUri->VSCode.Uri.fsPath
+
+          await RealConfig.updateConnectionPathsAt([], 1)
+          await RealConfig.updateConnectionPathsAt([keepPath, exactDownloadedPath], 2)
+          let afterWorkspaceSet = RealConfig.inspectConnectionPaths()
+          Assert.deepStrictEqual(afterWorkspaceSet.workspaceValue, Some([keepPath, exactDownloadedPath]))
+
+          let selectedItem = makePickerItem(state, DeleteDownloads)
+          let onSelectionCompleted = Log.on(
+            state.channels.log,
+            log =>
+              switch log {
+              | Log.SwitchVersionUI(SelectionCompleted) => true
+              | _ => false
+              },
+          )
+
+          State__SwitchVersion.Handler.onSelection(
+            state,
+            makeMockPlatform(),
+            manager,
+            ref([Connection__Download.Channel.Hardcoded]),
+            ref(Connection__Download.Channel.Hardcoded),
+            _downloadInfo => Promise.resolve(),
+            view,
+            [selectedItem],
+          )
+          await onSelectionCompleted
+
+          let effectivePaths = RealConfig.effectiveConnectionPaths()
+          let afterDelete = RealConfig.inspectConnectionPaths()
+          await RealConfig.restoreConnectionPaths(configSnapshot)
+          Config.inTestingMode := previousTestingMode
+
+          Assert.deepStrictEqual(effectivePaths, [keepPath])
+          Assert.deepStrictEqual(afterDelete.workspaceValue, Some([keepPath]))
+
+          let _ = await FS.deleteRecursive(storageUri)
+          view->State__SwitchVersion.View.destroy
+        } catch {
+        | exn =>
+          await RealConfig.restoreConnectionPaths(configSnapshot)
+          Config.inTestingMode := previousTestingMode
+          let _ = await FS.deleteRecursive(storageUri)
+          raise(exn)
+        }
+        },
+      )
+
+      Async.it(
+        "should remove managed paths from effective connection.paths when they are stored in workspace folder settings",
+        async () => {
+        let previousTestingMode = Config.inTestingMode.contents
+        let workspaceFolderUri = switch VSCode.Workspace.workspaceFolders->Option.flatMap(folders => folders[0]) {
+        | Some(folder) => VSCode.WorkspaceFolder.uri(folder)
+        | None => failwith("Expected workspace folder for workspace-folder settings test")
+        }
+        let configSnapshot = RealConfig.inspectConnectionPathsAtUri(workspaceFolderUri)
+
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Code",
+          "User",
+          "globalStorage",
+          "banacorn.agda-mode-workspace-folder-delete-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let hardcodedDirUri = VSCode.Uri.joinPath(storageUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(hardcodedDirUri)
+        let hardcodedAlsUri = VSCode.Uri.joinPath(hardcodedDirUri, ["als"])
+        NodeJs.Fs.writeFileSync(
+          hardcodedAlsUri->VSCode.Uri.fsPath,
+          NodeJs.Buffer.fromString("mock native als"),
+        )
+
+        try {
+          Config.inTestingMode := false
+
+          let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+          let view = State__SwitchVersion.View.make(state.channels.log)
+          let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+          let keepPath = "/usr/local/bin/agda"
+          let exactDownloadedPath = hardcodedAlsUri->VSCode.Uri.fsPath
+
+          await RealConfig.updateConnectionPathsAtUri(workspaceFolderUri, [], 1)
+          await RealConfig.updateConnectionPathsAtUri(workspaceFolderUri, [], 2)
+          await RealConfig.updateConnectionPathsAtUri(
+            workspaceFolderUri,
+            [keepPath, exactDownloadedPath],
+            3,
+          )
+          let afterWorkspaceFolderSet = RealConfig.inspectConnectionPathsAtUri(workspaceFolderUri)
+          Assert.deepStrictEqual(
+            afterWorkspaceFolderSet.workspaceFolderValue,
+            Some([keepPath, exactDownloadedPath]),
+          )
+
+          let selectedItem = makePickerItem(state, DeleteDownloads)
+          let onSelectionCompleted = Log.on(
+            state.channels.log,
+            log =>
+              switch log {
+              | Log.SwitchVersionUI(SelectionCompleted) => true
+              | _ => false
+              },
+          )
+
+          State__SwitchVersion.Handler.onSelection(
+            state,
+            makeMockPlatform(),
+            manager,
+            ref([Connection__Download.Channel.Hardcoded]),
+            ref(Connection__Download.Channel.Hardcoded),
+            _downloadInfo => Promise.resolve(),
+            view,
+            [selectedItem],
+          )
+          await onSelectionCompleted
+
+          let effectivePaths = RealConfig.effectiveConnectionPathsAtUri(workspaceFolderUri)
+          let afterDelete = RealConfig.inspectConnectionPathsAtUri(workspaceFolderUri)
+          await RealConfig.restoreConnectionPathsAtUri(workspaceFolderUri, configSnapshot)
+          Config.inTestingMode := previousTestingMode
+
+          Assert.deepStrictEqual(effectivePaths, [keepPath])
+          Assert.deepStrictEqual(afterDelete.workspaceFolderValue, Some([keepPath]))
+
+          let _ = await FS.deleteRecursive(storageUri)
+          view->State__SwitchVersion.View.destroy
+        } catch {
+        | exn =>
+          await RealConfig.restoreConnectionPathsAtUri(workspaceFolderUri, configSnapshot)
+          Config.inTestingMode := previousTestingMode
+          let _ = await FS.deleteRecursive(storageUri)
+          raise(exn)
+        }
+        },
+      )
+
+      Async.it(
+        "should remove managed paths from a second workspace folder's connection.paths settings",
+        async () => {
+        let previousTestingMode = Config.inTestingMode.contents
+        let originalFolders = VSCode.Workspace.workspaceFolders->Option.getOr([])
+        let secondFolderPath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-second-workspace-folder-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let secondFolderUri = VSCode.Uri.file(secondFolderPath)
+        let _ = await FS.createDirectory(secondFolderUri)
+        let addedFolderIndex = Array.length(originalFolders)
+        let addedFolder = {"name": "agda-mode-second-folder", "uri": secondFolderUri}
+
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Code",
+          "User",
+          "globalStorage",
+          "banacorn.agda-mode-second-folder-delete-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let hardcodedDirUri = VSCode.Uri.joinPath(storageUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(hardcodedDirUri)
+        let hardcodedAlsUri = VSCode.Uri.joinPath(hardcodedDirUri, ["als"])
+        NodeJs.Fs.writeFileSync(
+          hardcodedAlsUri->VSCode.Uri.fsPath,
+          NodeJs.Buffer.fromString("mock native als"),
+        )
+
+        let addFolderSucceeded =
+          await VSCode.Workspace.updateWorkspaceFolders(addedFolderIndex, None, [addedFolder])
+
+        if !addFolderSucceeded {
+          let _ = await FS.deleteRecursive(storageUri)
+          let _ = await FS.deleteRecursive(secondFolderUri)
+          failwith("Expected to add a second workspace folder for Delete Downloads test")
+        }
+
+        let configSnapshot = RealConfig.inspectConnectionPathsAtUri(secondFolderUri)
+
+        try {
+          Config.inTestingMode := false
+
+          let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+          let view = State__SwitchVersion.View.make(state.channels.log)
+          let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+          let keepPath = "/usr/local/bin/agda"
+          let exactDownloadedPath = hardcodedAlsUri->VSCode.Uri.fsPath
+
+          await RealConfig.updateConnectionPathsAtUri(
+            secondFolderUri,
+            [keepPath, exactDownloadedPath],
+            3,
+          )
+          let afterWorkspaceFolderSet = RealConfig.inspectConnectionPathsAtUri(secondFolderUri)
+          Assert.deepStrictEqual(
+            afterWorkspaceFolderSet.workspaceFolderValue,
+            Some([keepPath, exactDownloadedPath]),
+          )
+
+          let selectedItem = makePickerItem(state, DeleteDownloads)
+          let onSelectionCompleted = Log.on(
+            state.channels.log,
+            log =>
+              switch log {
+              | Log.SwitchVersionUI(SelectionCompleted) => true
+              | _ => false
+              },
+          )
+
+          State__SwitchVersion.Handler.onSelection(
+            state,
+            makeMockPlatform(),
+            manager,
+            ref([Connection__Download.Channel.Hardcoded]),
+            ref(Connection__Download.Channel.Hardcoded),
+            _downloadInfo => Promise.resolve(),
+            view,
+            [selectedItem],
+          )
+          await onSelectionCompleted
+
+          let afterDelete = RealConfig.inspectConnectionPathsAtUri(secondFolderUri)
+          await RealConfig.restoreConnectionPathsAtUri(secondFolderUri, configSnapshot)
+          let _ = await VSCode.Workspace.updateWorkspaceFolders(addedFolderIndex, Some(1), [])
+          Config.inTestingMode := previousTestingMode
+
+          Assert.deepStrictEqual(afterDelete.workspaceFolderValue, Some([keepPath]))
+
+          let _ = await FS.deleteRecursive(storageUri)
+          let _ = await FS.deleteRecursive(secondFolderUri)
+          view->State__SwitchVersion.View.destroy
+        } catch {
+        | exn =>
+          await RealConfig.restoreConnectionPathsAtUri(secondFolderUri, configSnapshot)
+          let _ = await VSCode.Workspace.updateWorkspaceFolders(addedFolderIndex, Some(1), [])
+          Config.inTestingMode := previousTestingMode
+          let _ = await FS.deleteRecursive(storageUri)
+          let _ = await FS.deleteRecursive(secondFolderUri)
+          raise(exn)
+        }
         },
       )
 
