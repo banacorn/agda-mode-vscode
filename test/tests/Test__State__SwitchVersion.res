@@ -1172,7 +1172,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should set preferred candidate to downloaded path when user clicks download action",
+      "should not modify PreferredCandidate when user clicks download action",
       async () => {
         let cases = [
           State__SwitchVersion.Constants.downloadNativeALS,
@@ -1245,11 +1245,8 @@ describe("State__SwitchVersion", () => {
 
           await onOperationComplete
 
-          // Manual UI download should set PreferredCandidate
-          Assert.deepStrictEqual(
-            Memento.PreferredCandidate.get(state.memento),
-            Some(expectedDownloadPath),
-          )
+          // Manual UI download must not modify PreferredCandidate
+          Assert.deepStrictEqual(Memento.PreferredCandidate.get(state.memento), previouslyPicked)
 
           let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
             manager,
@@ -1258,7 +1255,7 @@ describe("State__SwitchVersion", () => {
               Mock.Platform.makeWithSuccessfulDownload(expectedDownloadPath),
             ),
           )
-          let selectedEndpoints =
+          let selectedCandidates =
             itemData
             ->Array.filterMap(item =>
               switch item {
@@ -1266,7 +1263,7 @@ describe("State__SwitchVersion", () => {
               | _ => None
               }
             )
-          Assert.deepStrictEqual(selectedEndpoints, [expectedDownloadPath])
+          Assert.deepStrictEqual(selectedCandidates, [previouslyPicked->Option.getExn])
           Assert.deepStrictEqual(sawSelectedCandidate.contents, false)
         view->State__SwitchVersion.View.destroy
           Registry__Connection.status := Empty

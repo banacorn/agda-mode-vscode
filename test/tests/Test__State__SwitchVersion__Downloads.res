@@ -3739,7 +3739,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should set preferred candidate to downloaded path when downloading via handler",
+      "should not modify PreferredCandidate when downloading via handler",
       async () => {
         let testCases = [
           (Some("/usr/bin/agda"), State__SwitchVersion.Download.Native, false),
@@ -3787,16 +3787,16 @@ describe("State__SwitchVersion", () => {
             ~refreshUI=None,
           )
 
-          let pickedAfter = Memento.PreferredCandidate.get(state.memento)
-          // Manual UI download should set PreferredCandidate
-          Assert.deepStrictEqual(pickedAfter, Some(expectedDownloadPath))
+          let preferredAfter = Memento.PreferredCandidate.get(state.memento)
+          // Manual UI download must not modify PreferredCandidate
+          Assert.deepStrictEqual(preferredAfter, initialPicked)
 
           let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
             manager,
             await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform),
           )
 
-          let selectedEndpoints =
+          let selectedCandidates =
             itemData
             ->Array.filterMap(item =>
               switch item {
@@ -3804,8 +3804,11 @@ describe("State__SwitchVersion", () => {
               | _ => None
               }
             )
-          // After manual UI download, picked is the downloaded path
-          Assert.deepStrictEqual(selectedEndpoints, [expectedDownloadPath])
+          let expectedSelectedCandidates = switch initialPicked {
+          | Some(path) => [path]
+          | None => [activePath]
+          }
+          Assert.deepStrictEqual(selectedCandidates, expectedSelectedCandidates)
           let hasDownloadedPath = Config.Connection.getAgdaPaths()->Array.some(path => path == expectedDownloadPath)
           Assert.deepStrictEqual(hasDownloadedPath, true)
 

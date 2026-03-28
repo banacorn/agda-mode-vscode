@@ -680,8 +680,8 @@ describe("Config.Connection paths", () => {
             let expectedConfig = Array.concat(initialConfig, [expectedDownloadedPath])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
             Assert.deepStrictEqual(finalConfig, expectedConfig)
-            // Manual UI download should set PreferredCandidate
-            Assert.deepStrictEqual(preferredCandidate, Some(expectedDownloadedPath))
+            // Manual UI download must not modify PreferredCandidate
+            Assert.deepStrictEqual(preferredCandidate, None)
           },
         )
 
@@ -699,8 +699,8 @@ describe("Config.Connection paths", () => {
             let expectedConfig = Array.concat(initialConfig, [expectedDownloadedPath])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
             Assert.deepStrictEqual(finalConfig, expectedConfig)
-            // Manual UI download should set PreferredCandidate
-            Assert.deepStrictEqual(preferredCandidate, Some(expectedDownloadedPath))
+            // Manual UI download must not modify PreferredCandidate
+            Assert.deepStrictEqual(preferredCandidate, None)
           },
         )
       },

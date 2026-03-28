@@ -56,7 +56,8 @@ Switching channels **MUST NOT** remove existing downloaded Candidates.
 
 Explicit user actions that set `PreferredCandidate`:
 - user candidate selection in Picker UI
-- successful manual UI-triggered download
+
+Successful manual UI-triggered download **MUST NOT** modify `PreferredCandidate`.
 
 ## Delete Downloads
 
