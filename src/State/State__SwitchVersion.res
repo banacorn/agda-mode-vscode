@@ -724,6 +724,36 @@ module Download = {
 module Handler = {
   let downloadDirectoryNames = ["hardcoded-als", "latest-als", "dev-als", "dev-wasm-als"]
 
+  let cleanupRoots = (globalStorageUri: VSCode.Uri.t): array<VSCode.Uri.t> => {
+    let uriString = globalStorageUri->VSCode.Uri.toString
+    let candidateRoots =
+      if String.includes(uriString, "/User/globalStorage/") {
+        [
+          uriString,
+          String.replace(uriString, "/User/globalStorage/", "/Users/globalStorage/"),
+        ]
+      } else if String.includes(uriString, "/Users/globalStorage/") {
+        [
+          uriString,
+          String.replace(uriString, "/Users/globalStorage/", "/User/globalStorage/"),
+        ]
+      } else {
+        [uriString]
+      }
+
+    candidateRoots
+    ->Array.map(uriString => VSCode.Uri.parse(uriString))
+    ->Array.reduce([], (roots, root) => {
+      let alreadyIncluded =
+        roots->Array.some(existing => VSCode.Uri.toString(existing) == VSCode.Uri.toString(root))
+      if alreadyIncluded {
+        roots
+      } else {
+        Array.concat(roots, [root])
+      }
+    })
+  }
+
   let handleDownload = async (
     state: State.t,
     platformDeps: Platform.t,
@@ -857,8 +887,8 @@ module Handler = {
             view->View.destroy
             let cleanedDirectories = ref([])
             let failedDirectoryNames = ref([])
-            let deleteDir = async dirName => {
-              let uri = VSCode.Uri.joinPath(state.globalStorageUri, [dirName])
+            let deleteDir = async (root: VSCode.Uri.t, dirName) => {
+              let uri = VSCode.Uri.joinPath(root, [dirName])
               switch await FS.deleteRecursive(uri) {
               | Ok() =>
                 cleanedDirectories := Array.concat(cleanedDirectories.contents, [uri])
@@ -876,10 +906,21 @@ module Handler = {
                 }
               }
             }
-            await deleteDir("dev-wasm-als")
-            await deleteDir("dev-als")
-            await deleteDir("latest-als")
-            await deleteDir("hardcoded-als")
+            let roots = cleanupRoots(state.globalStorageUri)
+            let rec deleteDirsForRoot = async (root: VSCode.Uri.t, dirIndex: int): unit => {
+              if dirIndex < Array.length(downloadDirectoryNames) {
+                await deleteDir(root, Belt.Array.getExn(downloadDirectoryNames, dirIndex))
+                await deleteDirsForRoot(root, dirIndex + 1)
+              }
+            }
+            let rec deleteAllRoots = async (rootIndex: int): unit => {
+              if rootIndex < Array.length(roots) {
+                let root = Belt.Array.getExn(roots, rootIndex)
+                await deleteDirsForRoot(root, 0)
+                await deleteAllRoots(rootIndex + 1)
+              }
+            }
+            await deleteAllRoots(0)
             // Clear cache for all repositories
             await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
             await Memento.ALSReleaseCache.clear(state.memento, "banacorn", "agda-language-server")

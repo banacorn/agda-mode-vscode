@@ -47,6 +47,24 @@ describe("Connection Downloads", () => {
     VSCode.Uri.file(storagePath)
   }
 
+  let siblingStorageUri = (storageUri: VSCode.Uri.t): option<VSCode.Uri.t> => {
+    let uriString = storageUri->VSCode.Uri.toString
+    let siblingUriString =
+      if String.includes(uriString, "/User/globalStorage/") {
+        String.replace(uriString, "/User/globalStorage/", "/Users/globalStorage/")
+      } else if String.includes(uriString, "/Users/globalStorage/") {
+        String.replace(uriString, "/Users/globalStorage/", "/User/globalStorage/")
+      } else {
+        uriString
+      }
+
+    if siblingUriString == uriString {
+      None
+    } else {
+      Some(VSCode.Uri.parse(siblingUriString))
+    }
+  }
+
   let createDirectoryWithFile = async (
     rootPath: string,
     relativeSegments: array<string>,
@@ -1083,6 +1101,314 @@ describe("Connection Downloads", () => {
           Assert.deepStrictEqual(NodeJs.Fs.existsSync(keptSiblingFilePath), true)
 
           let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+
+      Async.it(
+        "should remove managed download directories under the legacy sibling globalStorage root",
+        async () => {
+          let storagePath = NodeJs.Path.join([
+            NodeJs.Os.tmpdir(),
+            "Library",
+            "Application Support",
+            "Code",
+            "User",
+            "globalStorage",
+            "banacorn.agda-mode-delete-legacy-root-" ++ string_of_int(int_of_float(Js.Date.now())),
+          ])
+          let storageUri = VSCode.Uri.file(storagePath)
+          let legacyStorageUri = switch siblingStorageUri(storageUri) {
+          | Some(uri) => uri
+          | None => failwith("Expected legacy sibling storage URI")
+          }
+          let _ = await FS.createDirectory(storageUri)
+          let _ = await FS.createDirectory(legacyStorageUri)
+
+          let (currentDirPath, currentFilePath) =
+            await createDirectoryWithFile(storagePath, ["hardcoded-als"], "als")
+          let legacyPath = legacyStorageUri->VSCode.Uri.fsPath
+          let (legacyDirPath, legacyFilePath) =
+            await createDirectoryWithFile(legacyPath, ["hardcoded-als"], "als")
+
+          let state = createTestStateWithStorage(storageUri)
+          await invokeDeleteDownloads(state)
+
+          Assert.deepStrictEqual(NodeJs.Fs.existsSync(currentDirPath), false)
+          Assert.deepStrictEqual(NodeJs.Fs.existsSync(currentFilePath), false)
+          Assert.deepStrictEqual(NodeJs.Fs.existsSync(legacyDirPath), false)
+          Assert.deepStrictEqual(NodeJs.Fs.existsSync(legacyFilePath), false)
+
+          let _ = await FS.deleteRecursive(storageUri)
+          let _ = await FS.deleteRecursive(legacyStorageUri)
+        },
+      )
+
+      Async.it(
+        "should remove all managed download directories under the legacy sibling globalStorage root",
+        async () => {
+          let storagePath = NodeJs.Path.join([
+            NodeJs.Os.tmpdir(),
+            "Library",
+            "Application Support",
+            "Code",
+            "User",
+            "globalStorage",
+            "banacorn.agda-mode-delete-legacy-root-all-" ++ string_of_int(int_of_float(Js.Date.now())),
+          ])
+          let storageUri = VSCode.Uri.file(storagePath)
+          let legacyStorageUri = switch siblingStorageUri(storageUri) {
+          | Some(uri) => uri
+          | None => failwith("Expected legacy sibling storage URI")
+          }
+          let _ = await FS.createDirectory(storageUri)
+          let _ = await FS.createDirectory(legacyStorageUri)
+
+          let legacyPath = legacyStorageUri->VSCode.Uri.fsPath
+          let legacyArtifacts =
+            managedDirectorySpecs->Array.map(((dirName, fileName)) =>
+              createDirectoryWithFile(legacyPath, [dirName], fileName)
+            )
+          let legacyArtifacts = await Promise.all(legacyArtifacts)
+
+          let state = createTestStateWithStorage(storageUri)
+          await invokeDeleteDownloads(state)
+
+          legacyArtifacts->Array.forEach(((directoryPath, filePath)) => {
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(directoryPath), false)
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(filePath), false)
+          })
+
+          let _ = await FS.deleteRecursive(storageUri)
+          let _ = await FS.deleteRecursive(legacyStorageUri)
+        },
+      )
+
+      Async.it(
+        "should remove managed download directories under legacy sibling roots for non-Code desktop app paths",
+        async () => {
+          let storagePath = NodeJs.Path.join([
+            NodeJs.Os.tmpdir(),
+            "Library",
+            "Application Support",
+            "Cursor",
+            "User",
+            "globalStorage",
+            "banacorn.agda-mode-delete-legacy-cursor-root-" ++ string_of_int(int_of_float(Js.Date.now())),
+          ])
+          let storageUri = VSCode.Uri.file(storagePath)
+          let legacyStorageUri =
+            VSCode.Uri.file(
+              String.replace(storagePath, "/Cursor/User/globalStorage/", "/Cursor/Users/globalStorage/"),
+            )
+          let _ = await FS.createDirectory(storageUri)
+          let _ = await FS.createDirectory(legacyStorageUri)
+
+          let legacyPath = legacyStorageUri->VSCode.Uri.fsPath
+          let legacyArtifacts =
+            managedDirectorySpecs->Array.map(((dirName, fileName)) =>
+              createDirectoryWithFile(legacyPath, [dirName], fileName)
+            )
+          let legacyArtifacts = await Promise.all(legacyArtifacts)
+
+          let state = createTestStateWithStorage(storageUri)
+          await invokeDeleteDownloads(state)
+
+          legacyArtifacts->Array.forEach(((directoryPath, filePath)) => {
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(directoryPath), false)
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(filePath), false)
+          })
+
+          let _ = await FS.deleteRecursive(storageUri)
+          let _ = await FS.deleteRecursive(legacyStorageUri)
+        },
+      )
+
+      Async.it(
+        "should remove managed download directories when a non-Code desktop app root uses Users",
+        async () => {
+          let storagePath = NodeJs.Path.join([
+            NodeJs.Os.tmpdir(),
+            "Library",
+            "Application Support",
+            "Cursor",
+            "Users",
+            "globalStorage",
+            "banacorn.agda-mode-delete-cursor-users-root-" ++ string_of_int(int_of_float(Js.Date.now())),
+          ])
+          let storageUri = VSCode.Uri.file(storagePath)
+          let siblingUri = switch siblingStorageUri(storageUri) {
+          | Some(uri) => uri
+          | None => failwith("Expected sibling storage URI")
+          }
+          let _ = await FS.createDirectory(storageUri)
+          let _ = await FS.createDirectory(siblingUri)
+
+          let currentPath = storageUri->VSCode.Uri.fsPath
+          let siblingPath = siblingUri->VSCode.Uri.fsPath
+          let currentArtifacts =
+            managedDirectorySpecs->Array.map(((dirName, fileName)) =>
+              createDirectoryWithFile(currentPath, [dirName], fileName)
+            )
+          let siblingArtifacts =
+            managedDirectorySpecs->Array.map(((dirName, fileName)) =>
+              createDirectoryWithFile(siblingPath, [dirName], fileName)
+            )
+          let currentArtifacts = await Promise.all(currentArtifacts)
+          let siblingArtifacts = await Promise.all(siblingArtifacts)
+
+          let state = createTestStateWithStorage(storageUri)
+          await invokeDeleteDownloads(state)
+
+          currentArtifacts->Array.forEach(((directoryPath, filePath)) => {
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(directoryPath), false)
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(filePath), false)
+          })
+          siblingArtifacts->Array.forEach(((directoryPath, filePath)) => {
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(directoryPath), false)
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(filePath), false)
+          })
+
+          let _ = await FS.deleteRecursive(storageUri)
+          let _ = await FS.deleteRecursive(siblingUri)
+        },
+      )
+
+      Async.it(
+        "should remove all managed download directories when the current globalStorage root uses Users",
+        async () => {
+          let storagePath = NodeJs.Path.join([
+            NodeJs.Os.tmpdir(),
+            "Library",
+            "Application Support",
+            "Code",
+            "Users",
+            "globalStorage",
+            "banacorn.agda-mode-delete-users-root-all-" ++ string_of_int(int_of_float(Js.Date.now())),
+          ])
+          let storageUri = VSCode.Uri.file(storagePath)
+          let siblingUri = switch siblingStorageUri(storageUri) {
+          | Some(uri) => uri
+          | None => failwith("Expected sibling storage URI")
+          }
+          let _ = await FS.createDirectory(storageUri)
+          let _ = await FS.createDirectory(siblingUri)
+
+          let currentPath = storageUri->VSCode.Uri.fsPath
+          let siblingPath = siblingUri->VSCode.Uri.fsPath
+          let currentArtifacts =
+            managedDirectorySpecs->Array.map(((dirName, fileName)) =>
+              createDirectoryWithFile(currentPath, [dirName], fileName)
+            )
+          let siblingArtifacts =
+            managedDirectorySpecs->Array.map(((dirName, fileName)) =>
+              createDirectoryWithFile(siblingPath, [dirName], fileName)
+            )
+          let currentArtifacts = await Promise.all(currentArtifacts)
+          let siblingArtifacts = await Promise.all(siblingArtifacts)
+
+          let state = createTestStateWithStorage(storageUri)
+          await invokeDeleteDownloads(state)
+
+          currentArtifacts->Array.forEach(((directoryPath, filePath)) => {
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(directoryPath), false)
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(filePath), false)
+          })
+          siblingArtifacts->Array.forEach(((directoryPath, filePath)) => {
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(directoryPath), false)
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(filePath), false)
+          })
+
+          let _ = await FS.deleteRecursive(storageUri)
+          let _ = await FS.deleteRecursive(siblingUri)
+        },
+      )
+
+      Async.it(
+        "should continue deleting sibling-root managed directories when one sibling-root directory fails",
+        async () => {
+          let storagePath = NodeJs.Path.join([
+            NodeJs.Os.tmpdir(),
+            "Library",
+            "Application Support",
+            "Code",
+            "User",
+            "globalStorage",
+            "banacorn.agda-mode-delete-sibling-failure-" ++ string_of_int(int_of_float(Js.Date.now())),
+          ])
+          let storageUri = VSCode.Uri.file(storagePath)
+          let siblingUri = switch siblingStorageUri(storageUri) {
+          | Some(uri) => uri
+          | None => failwith("Expected sibling storage URI")
+          }
+          let _ = await FS.createDirectory(storageUri)
+          let _ = await FS.createDirectory(siblingUri)
+
+          let siblingPath = siblingUri->VSCode.Uri.fsPath
+          let siblingArtifacts =
+            managedDirectorySpecs->Array.map(((dirName, fileName)) =>
+              createDirectoryWithFile(siblingPath, [dirName], fileName)
+            )
+          let siblingArtifacts = await Promise.all(siblingArtifacts)
+          let failedDirectoryPath = NodeJs.Path.join([siblingPath, "latest-als"])
+          let restoreDelete = withDeleteFailureFor(failedDirectoryPath)
+
+          let state = createTestStateWithStorage(storageUri)
+          await invokeDeleteDownloads(state)
+
+          restoreDelete()
+
+          siblingArtifacts->Array.forEach(((directoryPath, filePath)) => {
+            let shouldRemain = directoryPath == failedDirectoryPath
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(directoryPath), shouldRemain)
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(filePath), shouldRemain)
+          })
+
+          let _ = await FS.deleteRecursive(storageUri)
+          let _ = await FS.deleteRecursive(siblingUri)
+        },
+      )
+
+      Async.it(
+        "should continue deleting sibling-root managed directories for non-Code desktop app roots when one sibling-root directory fails",
+        async () => {
+          let storagePath = NodeJs.Path.join([
+            NodeJs.Os.tmpdir(),
+            "Library",
+            "Application Support",
+            "Cursor",
+            "User",
+            "globalStorage",
+            "banacorn.agda-mode-delete-cursor-sibling-failure-" ++ string_of_int(int_of_float(Js.Date.now())),
+          ])
+          let storageUri = VSCode.Uri.file(storagePath)
+          let siblingUri = switch siblingStorageUri(storageUri) {
+          | Some(uri) => uri
+          | None => failwith("Expected sibling storage URI")
+          }
+          let _ = await FS.createDirectory(storageUri)
+          let _ = await FS.createDirectory(siblingUri)
+
+          let siblingPath = siblingUri->VSCode.Uri.fsPath
+          let siblingArtifacts =
+            managedDirectorySpecs->Array.map(((dirName, fileName)) =>
+              createDirectoryWithFile(siblingPath, [dirName], fileName)
+            )
+          let siblingArtifacts = await Promise.all(siblingArtifacts)
+          let failedDirectoryPath = NodeJs.Path.join([siblingPath, "latest-als"])
+          let restoreDelete = withDeleteFailureFor(failedDirectoryPath)
+
+          let state = createTestStateWithStorage(storageUri)
+          await invokeDeleteDownloads(state)
+          restoreDelete()
+
+          siblingArtifacts->Array.forEach(((directoryPath, filePath)) => {
+            let shouldRemain = directoryPath == failedDirectoryPath
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(directoryPath), shouldRemain)
+            Assert.deepStrictEqual(NodeJs.Fs.existsSync(filePath), shouldRemain)
+          })
+
+          let _ = await FS.deleteRecursive(storageUri)
+          let _ = await FS.deleteRecursive(siblingUri)
         },
       )
     })

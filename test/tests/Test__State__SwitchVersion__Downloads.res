@@ -677,6 +677,42 @@ describe("State__SwitchVersion", () => {
     let createTestState = () => createTestStateWithPlatform(makeMockPlatform())
     let makePickerItem = (state: State.t, itemData: State__SwitchVersion.ItemData.t) =>
       State__SwitchVersion.Item.fromItemData(itemData, state.extensionUri)
+    let siblingStorageUri = (storageUri: VSCode.Uri.t): option<VSCode.Uri.t> => {
+      let uriString = storageUri->VSCode.Uri.toString
+      let siblingUriString =
+        if String.includes(uriString, "/User/globalStorage/") {
+          String.replace(uriString, "/User/globalStorage/", "/Users/globalStorage/")
+        } else if String.includes(uriString, "/Users/globalStorage/") {
+          String.replace(uriString, "/Users/globalStorage/", "/User/globalStorage/")
+        } else {
+          uriString
+        }
+
+      if siblingUriString == uriString {
+        None
+      } else {
+        Some(VSCode.Uri.parse(siblingUriString))
+      }
+    }
+    let writeMockNativeAgdaAt = async (targetUri: VSCode.Uri.t) => {
+      let targetPath = targetUri->VSCode.Uri.fsPath
+      let parentDir = targetPath->NodeJs.Path.dirname->VSCode.Uri.file
+      let _ = await FS.createDirectory(parentDir)
+      let output = "Agda version 2.7.0.1"
+      let content = if OS.onUnix {
+        "#!/bin/sh\necho '" ++ output ++ "'\nexit 0"
+      } else {
+        "@echo " ++ output
+      }
+
+      NodeJs.Fs.writeFileSync(targetPath, NodeJs.Buffer.fromString(content))
+      if OS.onUnix {
+        switch await NodeJs.Fs.chmod(targetPath, ~mode=0o755) {
+        | exception _ => Assert.fail("Expected mock native ALS executable to be chmod +x")
+        | _ => ()
+        }
+      }
+    }
 
     Async.it(
       "should not show native download option on web platform",
@@ -1157,68 +1193,6 @@ describe("State__SwitchVersion", () => {
     describe("delete downloads", () => {
       describe("connection.paths", () => {
       Async.it(
-        "should remove download paths from connection.paths on Delete Downloads",
-        async () => {
-        let storagePath = NodeJs.Path.join([
-          NodeJs.Os.tmpdir(),
-          "agda-switch-version-delete-" ++ string_of_int(int_of_float(Js.Date.now())),
-        ])
-        let storageUri = VSCode.Uri.file(storagePath)
-        let _ = await FS.createDirectory(storageUri)
-        let hardcodedDirUri = VSCode.Uri.joinPath(storageUri, ["hardcoded-als"])
-        let _ = await FS.createDirectory(hardcodedDirUri)
-
-        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
-        let view = State__SwitchVersion.View.make(state.channels.log)
-        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-
-        let keepPath = "/usr/local/bin/agda"
-        let keepBareCommand = "agda"
-        let downloadedLatest =
-          VSCode.Uri.joinPath(storageUri, ["latest-als", "als"])->VSCode.Uri.fsPath
-        let downloadedDevWasm =
-          VSCode.Uri.joinPath(storageUri, ["dev-als", "als.wasm"])->VSCode.Uri.toString
-        let downloadedHardcoded =
-          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
-
-        await Config.Connection.setAgdaPaths(
-          state.channels.log,
-          [keepPath, downloadedLatest, downloadedDevWasm, downloadedHardcoded, keepBareCommand],
-        )
-        await Memento.PickedConnection.set(state.memento, Some(downloadedLatest))
-
-        let selectedItem = makePickerItem(state, DeleteDownloads)
-
-        let onSelectionCompleted = Log.on(
-          state.channels.log,
-          log =>
-            switch log {
-            | Log.SwitchVersionUI(SelectionCompleted) => true
-            | _ => false
-            },
-        )
-
-        State__SwitchVersion.Handler.onSelection(
-          state,
-          makeMockPlatform(),
-          manager,
-          ref([Connection__Download.Channel.Hardcoded]),
-          ref(Connection__Download.Channel.Hardcoded),
-          _downloadInfo => Promise.resolve(),
-          view,
-          [selectedItem],
-        )
-        await onSelectionCompleted
-
-        // Delete Downloads MUST remove download paths from connection.paths.
-        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, keepBareCommand])
-
-        let _ = await FS.deleteRecursive(storageUri)
-        view->State__SwitchVersion.View.destroy
-        },
-      )
-
-      Async.it(
         "should remove download paths with unescaped space URIs from connection.paths on Delete Downloads",
         async () => {
         let storagePath = NodeJs.Path.join([
@@ -1269,6 +1243,606 @@ describe("State__SwitchVersion", () => {
         await onSelectionCompleted
 
         Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath])
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove the exact native hardcoded path under a storage URI with spaces from connection.paths and disk",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Code",
+          "User",
+          "globalStorage",
+          "banacorn.agda-mode-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let hardcodedDirUri = VSCode.Uri.joinPath(storageUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(hardcodedDirUri)
+        let hardcodedAlsUri = VSCode.Uri.joinPath(hardcodedDirUri, ["als"])
+        NodeJs.Fs.writeFileSync(
+          hardcodedAlsUri->VSCode.Uri.fsPath,
+          NodeJs.Buffer.fromString("mock native als"),
+        )
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let exactDownloadedPath = hardcodedAlsUri->VSCode.Uri.fsPath
+
+        await Config.Connection.setAgdaPaths(state.channels.log, [keepPath, exactDownloadedPath])
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath])
+        Assert.deepStrictEqual((await FS.stat(hardcodedAlsUri))->Result.isError, true)
+        Assert.deepStrictEqual((await FS.stat(hardcodedDirUri))->Result.isError, true)
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove all legacy sibling-root managed candidates from connection.paths, including URI forms",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Code",
+          "User",
+          "globalStorage",
+          "banacorn.agda-mode-delete-legacy-candidates-all-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let legacyStorageUri = switch siblingStorageUri(storageUri) {
+        | Some(uri) => uri
+        | None => failwith("Expected legacy sibling storage URI")
+        }
+        let _ = await FS.createDirectory(storageUri)
+        let _ = await FS.createDirectory(legacyStorageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let keepBareCommand = "agda"
+        let keepUri = "vscode-userdata:/global/user-managed/als.wasm"
+        let legacyHardcodedNative =
+          VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
+        let legacyLatestNative =
+          VSCode.Uri.joinPath(legacyStorageUri, ["latest-als", "als"])->VSCode.Uri.fsPath
+        let legacyDevNative =
+          VSCode.Uri.joinPath(legacyStorageUri, ["dev-als", "als"])->VSCode.Uri.fsPath
+        let legacyDevWasm =
+          VSCode.Uri.joinPath(legacyStorageUri, ["dev-als", "als.wasm"])->VSCode.Uri.toString
+        let legacyLegacyDevWasm =
+          VSCode.Uri.joinPath(legacyStorageUri, ["dev-wasm-als", "als.wasm"])->VSCode.Uri.toString
+        let legacyHardcodedUnescapedWasm =
+          "file://" ++ VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als.wasm"])->VSCode.Uri.fsPath
+
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          [
+            keepPath,
+            legacyHardcodedNative,
+            keepBareCommand,
+            legacyLatestNative,
+            keepUri,
+            legacyDevNative,
+            legacyDevWasm,
+            legacyLegacyDevWasm,
+            legacyHardcodedUnescapedWasm,
+          ],
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, keepBareCommand, keepUri])
+
+        let _ = await FS.deleteRecursive(storageUri)
+        let _ = await FS.deleteRecursive(legacyStorageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove all legacy sibling-root managed candidates for non-Code desktop app paths",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Cursor",
+          "User",
+          "globalStorage",
+          "banacorn.agda-mode-delete-legacy-cursor-candidates-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let legacyStorageUri =
+          VSCode.Uri.file(
+            String.replace(storagePath, "/Cursor/User/globalStorage/", "/Cursor/Users/globalStorage/"),
+          )
+        let _ = await FS.createDirectory(storageUri)
+        let _ = await FS.createDirectory(legacyStorageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let keepBareCommand = "agda"
+        let keepUri = "vscode-userdata:/global/user-managed/als.wasm"
+        let legacyHardcodedNative =
+          VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
+        let legacyLatestNative =
+          VSCode.Uri.joinPath(legacyStorageUri, ["latest-als", "als"])->VSCode.Uri.fsPath
+        let legacyDevNative =
+          VSCode.Uri.joinPath(legacyStorageUri, ["dev-als", "als"])->VSCode.Uri.fsPath
+        let legacyDevWasm =
+          VSCode.Uri.joinPath(legacyStorageUri, ["dev-als", "als.wasm"])->VSCode.Uri.toString
+        let legacyLegacyDevWasm =
+          VSCode.Uri.joinPath(legacyStorageUri, ["dev-wasm-als", "als.wasm"])->VSCode.Uri.toString
+        let legacyHardcodedUnescapedWasm =
+          "file://" ++ VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als.wasm"])->VSCode.Uri.fsPath
+
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          [
+            keepPath,
+            legacyHardcodedNative,
+            keepBareCommand,
+            legacyLatestNative,
+            keepUri,
+            legacyDevNative,
+            legacyDevWasm,
+            legacyLegacyDevWasm,
+            legacyHardcodedUnescapedWasm,
+          ],
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, keepBareCommand, keepUri])
+
+        let _ = await FS.deleteRecursive(storageUri)
+        let _ = await FS.deleteRecursive(legacyStorageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove managed candidates when a non-Code desktop app root uses Users",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Cursor",
+          "Users",
+          "globalStorage",
+          "banacorn.agda-mode-delete-cursor-users-candidates-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let siblingUri = switch siblingStorageUri(storageUri) {
+        | Some(uri) => uri
+        | None => failwith("Expected sibling storage URI")
+        }
+        let _ = await FS.createDirectory(storageUri)
+        let _ = await FS.createDirectory(siblingUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let keepBareCommand = "agda"
+        let keepUri = "vscode-userdata:/global/user-managed/als.wasm"
+        let currentHardcodedNative =
+          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
+        let currentLatestNative =
+          VSCode.Uri.joinPath(storageUri, ["latest-als", "als"])->VSCode.Uri.fsPath
+        let siblingDevNative =
+          VSCode.Uri.joinPath(siblingUri, ["dev-als", "als"])->VSCode.Uri.fsPath
+        let siblingDevWasm =
+          VSCode.Uri.joinPath(siblingUri, ["dev-als", "als.wasm"])->VSCode.Uri.toString
+        let siblingLegacyDevWasm =
+          VSCode.Uri.joinPath(siblingUri, ["dev-wasm-als", "als.wasm"])->VSCode.Uri.toString
+        let siblingHardcodedUnescapedWasm =
+          "file://" ++ VSCode.Uri.joinPath(siblingUri, ["hardcoded-als", "als.wasm"])->VSCode.Uri.fsPath
+
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          [
+            keepPath,
+            currentHardcodedNative,
+            keepBareCommand,
+            currentLatestNative,
+            keepUri,
+            siblingDevNative,
+            siblingDevWasm,
+            siblingLegacyDevWasm,
+            siblingHardcodedUnescapedWasm,
+          ],
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, keepBareCommand, keepUri])
+
+        let _ = await FS.deleteRecursive(storageUri)
+        let _ = await FS.deleteRecursive(siblingUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove managed candidates when the current globalStorage root uses Users",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Code",
+          "Users",
+          "globalStorage",
+          "banacorn.agda-mode-delete-users-candidates-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let siblingUri = switch siblingStorageUri(storageUri) {
+        | Some(uri) => uri
+        | None => failwith("Expected sibling storage URI")
+        }
+        let _ = await FS.createDirectory(storageUri)
+        let _ = await FS.createDirectory(siblingUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let keepBareCommand = "agda"
+        let keepUri = "vscode-userdata:/global/user-managed/als.wasm"
+        let currentHardcodedNative =
+          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
+        let currentLatestNative =
+          VSCode.Uri.joinPath(storageUri, ["latest-als", "als"])->VSCode.Uri.fsPath
+        let siblingDevNative =
+          VSCode.Uri.joinPath(siblingUri, ["dev-als", "als"])->VSCode.Uri.fsPath
+        let siblingDevWasm =
+          VSCode.Uri.joinPath(siblingUri, ["dev-als", "als.wasm"])->VSCode.Uri.toString
+        let siblingLegacyDevWasm =
+          VSCode.Uri.joinPath(siblingUri, ["dev-wasm-als", "als.wasm"])->VSCode.Uri.toString
+        let siblingHardcodedUnescapedWasm =
+          "file://" ++ VSCode.Uri.joinPath(siblingUri, ["hardcoded-als", "als.wasm"])->VSCode.Uri.fsPath
+
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          [
+            keepPath,
+            currentHardcodedNative,
+            keepBareCommand,
+            currentLatestNative,
+            keepUri,
+            siblingDevNative,
+            siblingDevWasm,
+            siblingLegacyDevWasm,
+            siblingHardcodedUnescapedWasm,
+          ],
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath, keepBareCommand, keepUri])
+
+        let _ = await FS.deleteRecursive(storageUri)
+        let _ = await FS.deleteRecursive(siblingUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove the exact native hardcoded path produced by selecting an already-downloaded item",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-already-downloaded-native-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let hardcodedDirUri = VSCode.Uri.joinPath(storageUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(hardcodedDirUri)
+        let hardcodedAlsUri = VSCode.Uri.joinPath(hardcodedDirUri, ["als"])
+        NodeJs.Fs.writeFileSync(
+          hardcodedAlsUri->VSCode.Uri.fsPath,
+          NodeJs.Buffer.fromString("mock native als"),
+        )
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+
+        await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/local/bin/agda"])
+        await State__SwitchVersion.Handler.handleDownload(
+          state,
+          makeMockPlatform(),
+          State__SwitchVersion.Download.Native,
+          true,
+          "ALS vCached",
+          ~channel=Connection__Download.Channel.Hardcoded,
+        )
+
+        let exactDownloadedPath = hardcodedAlsUri->VSCode.Uri.fsPath
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          ["/usr/local/bin/agda", exactDownloadedPath],
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/local/bin/agda"])
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove the exact hardcoded WASM candidate produced by selecting an already-downloaded item",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-already-downloaded-wasm " ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let hardcodedDirUri = VSCode.Uri.joinPath(storageUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(hardcodedDirUri)
+        let hardcodedWasmUri = VSCode.Uri.joinPath(hardcodedDirUri, ["als.wasm"])
+        NodeJs.Fs.writeFileSync(
+          hardcodedWasmUri->VSCode.Uri.fsPath,
+          NodeJs.Buffer.fromString("mock wasm"),
+        )
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+
+        await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/local/bin/agda"])
+        await State__SwitchVersion.Handler.handleDownload(
+          state,
+          makeMockPlatform(),
+          State__SwitchVersion.Download.WASM,
+          true,
+          "ALS vCached",
+          ~channel=Connection__Download.Channel.Hardcoded,
+        )
+
+        let exactDownloadedPath = hardcodedWasmUri->VSCode.Uri.toString
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          ["/usr/local/bin/agda", exactDownloadedPath],
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/local/bin/agda"])
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove the exact DevALS WASM candidate produced by selecting an already-downloaded item",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-already-downloaded-dev-wasm " ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let devDirUri = VSCode.Uri.joinPath(storageUri, ["dev-als"])
+        let _ = await FS.createDirectory(devDirUri)
+        let devWasmUri = VSCode.Uri.joinPath(devDirUri, ["als.wasm"])
+        NodeJs.Fs.writeFileSync(
+          devWasmUri->VSCode.Uri.fsPath,
+          NodeJs.Buffer.fromString("mock wasm"),
+        )
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+
+        await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/local/bin/agda"])
+        await State__SwitchVersion.Handler.handleDownload(
+          state,
+          makeMockPlatform(),
+          State__SwitchVersion.Download.WASM,
+          true,
+          "ALS vCached",
+          ~channel=Connection__Download.Channel.DevALS,
+        )
+
+        let exactDownloadedPath = devWasmUri->VSCode.Uri.toString
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          ["/usr/local/bin/agda", exactDownloadedPath],
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded, Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.DevALS),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/local/bin/agda"])
 
         let _ = await FS.deleteRecursive(storageUri)
         view->State__SwitchVersion.View.destroy
@@ -1375,6 +1949,58 @@ describe("State__SwitchVersion", () => {
       )
 
       Async.it(
+        "should remove legacy dev-wasm-als candidates from connection.paths and preserve unrelated candidates",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-legacy-dev-wasm-dir-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let legacyDevWasmCandidate =
+          VSCode.Uri.joinPath(storageUri, ["dev-wasm-als", "als.wasm"])->VSCode.Uri.toString
+
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          [keepPath, legacyDevWasmCandidate],
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath])
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
         "should remove the exact candidate path produced by manual desktop WASM download",
         async () => {
         let storagePath = NodeJs.Path.join([
@@ -1461,6 +2087,92 @@ describe("State__SwitchVersion", () => {
       )
 
       Async.it(
+        "should remove the exact candidate path produced by manual desktop native download",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-version-delete-manual-desktop-native-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let actualDownloadedPath =
+          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
+
+        let platform: Platform.t = {
+          module MockPlatform = {
+            let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+            let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+              switch channel {
+              | Connection__Download.Channel.Hardcoded =>
+                Ok(
+                  Connection__Download.Source.FromURL(
+                    Connection__Download.Channel.Hardcoded,
+                    "https://example.invalid/hardcoded-als",
+                    "hardcoded-als",
+                  ),
+                )
+              | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              }
+            )
+            let download = (_globalStorageUri, _source) => Promise.resolve(Ok(actualDownloadedPath))
+            let findCommand = (_command, ~timeout as _timeout=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+          module(MockPlatform)
+        }
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+
+        await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/local/bin/agda"])
+        await State__SwitchVersion.Handler.handleDownload(
+          state,
+          platform,
+          State__SwitchVersion.Download.Native,
+          false,
+          "ALS vTest",
+          ~channel=Connection__Download.Channel.Hardcoded,
+        )
+
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          ["/usr/local/bin/agda", actualDownloadedPath],
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/local/bin/agda"])
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
         "should remove the exact candidate path produced by automatic fallback download",
         async () => {
         let storagePath = NodeJs.Path.join([
@@ -1471,13 +2183,14 @@ describe("State__SwitchVersion", () => {
         let _ = await FS.createDirectory(storageUri)
 
         let autoDownloadedPath =
-          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als.wasm"])->VSCode.Uri.fsPath
+          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])
+        await writeMockNativeAgdaAt(autoDownloadedPath)
 
         let logChannel = Chan.make()
         await Config.Connection.setAgdaPaths(logChannel, ["/invalid/path"])
         await Config.Connection.DownloadPolicy.set(Undecided)
         let memento = Memento.make(None)
-        let platform = Mock.Platform.makeWithSuccessfulDownload(autoDownloadedPath)
+        let platform = Mock.Platform.makeWithSuccessfulDownload(autoDownloadedPath->VSCode.Uri.fsPath)
 
         let result = await Connection.makeWithFallback(
           platform,
@@ -1495,7 +2208,7 @@ describe("State__SwitchVersion", () => {
 
         Assert.deepStrictEqual(
           Config.Connection.getAgdaPaths(),
-          [autoDownloadedPath, "/invalid/path"],
+          [autoDownloadedPath->VSCode.Uri.fsPath, "/invalid/path"],
         )
 
         let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
@@ -1524,6 +2237,7 @@ describe("State__SwitchVersion", () => {
         await onSelectionCompleted
 
         Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/invalid/path"])
+        Assert.deepStrictEqual((await FS.stat(autoDownloadedPath))->Result.isError, true)
 
         let _ = await FS.deleteRecursive(storageUri)
         view->State__SwitchVersion.View.destroy
@@ -1598,6 +2312,158 @@ describe("State__SwitchVersion", () => {
         )
 
         let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should preserve candidates under sibling-root managed directories that fail to delete and remove candidates under successfully deleted sibling directories",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Code",
+          "User",
+          "globalStorage",
+          "agda-switch-version-delete-sibling-partial-config-cleanup-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let siblingUri = switch siblingStorageUri(storageUri) {
+        | Some(uri) => uri
+        | None => failwith("Expected sibling storage URI")
+        }
+        let _ = await FS.createDirectory(storageUri)
+        let _ = await FS.createDirectory(siblingUri)
+        let failedSiblingDirUri = VSCode.Uri.joinPath(siblingUri, ["latest-als"])
+        let otherSiblingDirUri = VSCode.Uri.joinPath(siblingUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(failedSiblingDirUri)
+        let _ = await FS.createDirectory(otherSiblingDirUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let failedSiblingCandidate =
+          VSCode.Uri.joinPath(siblingUri, ["latest-als", "als"])->VSCode.Uri.fsPath
+        let removedSiblingCandidate =
+          VSCode.Uri.joinPath(siblingUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
+
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          [keepPath, failedSiblingCandidate, removedSiblingCandidate],
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let restoreDeleteRecursive = Test__Util.TestFS.withDeleteFailureFor(
+          failedSiblingDirUri->VSCode.Uri.fsPath,
+        )
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+        restoreDeleteRecursive()
+
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          [keepPath, failedSiblingCandidate],
+        )
+
+        let _ = await FS.deleteRecursive(storageUri)
+        let _ = await FS.deleteRecursive(siblingUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should preserve candidates under non-Code sibling-root managed directories that fail to delete and remove candidates under successfully deleted sibling directories",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Cursor",
+          "User",
+          "globalStorage",
+          "banacorn.agda-mode-delete-cursor-sibling-partial-config-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let siblingUri = switch siblingStorageUri(storageUri) {
+        | Some(uri) => uri
+        | None => failwith("Expected sibling storage URI")
+        }
+        let _ = await FS.createDirectory(storageUri)
+        let _ = await FS.createDirectory(siblingUri)
+        let failedSiblingDirUri = VSCode.Uri.joinPath(siblingUri, ["latest-als"])
+        let otherSiblingDirUri = VSCode.Uri.joinPath(siblingUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(failedSiblingDirUri)
+        let _ = await FS.createDirectory(otherSiblingDirUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepPath = "/usr/local/bin/agda"
+        let failedSiblingCandidate =
+          VSCode.Uri.joinPath(siblingUri, ["latest-als", "als"])->VSCode.Uri.fsPath
+        let removedSiblingCandidate =
+          VSCode.Uri.joinPath(siblingUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath
+
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          [keepPath, failedSiblingCandidate, removedSiblingCandidate],
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let restoreDeleteRecursive = Test__Util.TestFS.withDeleteFailureFor(
+          failedSiblingDirUri->VSCode.Uri.fsPath,
+        )
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+        restoreDeleteRecursive()
+
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          [keepPath, failedSiblingCandidate],
+        )
+
+        let _ = await FS.deleteRecursive(storageUri)
+        let _ = await FS.deleteRecursive(siblingUri)
         view->State__SwitchVersion.View.destroy
         },
       )
@@ -1838,6 +2704,740 @@ describe("State__SwitchVersion", () => {
         )
 
         let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove legacy sibling-root ResolvedMetadata entries on Delete Downloads",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Code",
+          "User",
+          "globalStorage",
+          "banacorn.agda-mode-delete-legacy-metadata-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let legacyStorageUri = switch siblingStorageUri(storageUri) {
+        | Some(uri) => uri
+        | None => failwith("Expected legacy sibling storage URI")
+        }
+        let _ = await FS.createDirectory(storageUri)
+        let _ = await FS.createDirectory(legacyStorageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make("/usr/local/bin/agda"),
+          resource: VSCode.Uri.file("/usr/local/bin/agda"),
+        }
+        let legacyResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als"]),
+        }
+
+        await Memento.ResolvedMetadata.setKind(
+          state.memento,
+          keepResolved,
+          Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+        )
+        await Memento.ResolvedMetadata.setKind(
+          state.memento,
+          legacyResolved,
+          Memento.ResolvedMetadata.ALS(Native, None),
+        )
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, keepResolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+        )
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, legacyResolved), None)
+
+        let _ = await FS.deleteRecursive(storageUri)
+        let _ = await FS.deleteRecursive(legacyStorageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove all legacy sibling-root ResolvedMetadata entries, including URI forms",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Code",
+          "User",
+          "globalStorage",
+          "banacorn.agda-mode-delete-legacy-metadata-all-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let legacyStorageUri = switch siblingStorageUri(storageUri) {
+        | Some(uri) => uri
+        | None => failwith("Expected legacy sibling storage URI")
+        }
+        let _ = await FS.createDirectory(storageUri)
+        let _ = await FS.createDirectory(legacyStorageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make("/usr/local/bin/agda"),
+          resource: VSCode.Uri.file("/usr/local/bin/agda"),
+        }
+        let legacyHardcodedResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als"]),
+        }
+        let legacyLatestResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(legacyStorageUri, ["latest-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(legacyStorageUri, ["latest-als", "als"]),
+        }
+        let legacyDevNativeResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(legacyStorageUri, ["dev-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(legacyStorageUri, ["dev-als", "als"]),
+        }
+        let legacyDevWasmResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(legacyStorageUri, ["dev-als", "als.wasm"])->VSCode.Uri.toString,
+          ),
+          resource: VSCode.Uri.joinPath(legacyStorageUri, ["dev-als", "als.wasm"]),
+        }
+        let legacyLegacyDevWasmResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(legacyStorageUri, ["dev-wasm-als", "als.wasm"])->VSCode.Uri.toString,
+          ),
+          resource: VSCode.Uri.joinPath(legacyStorageUri, ["dev-wasm-als", "als.wasm"]),
+        }
+        let legacyHardcodedUnescapedWasmResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            "file://" ++ VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als.wasm"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als.wasm"]),
+        }
+
+        await Memento.ResolvedMetadata.setKind(
+          state.memento,
+          keepResolved,
+          Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+        )
+        await Memento.ResolvedMetadata.setKind(state.memento, legacyHardcodedResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, legacyLatestResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, legacyDevNativeResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, legacyDevWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, legacyLegacyDevWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, legacyHardcodedUnescapedWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, keepResolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+        )
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, legacyHardcodedResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, legacyLatestResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, legacyDevNativeResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, legacyDevWasmResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, legacyLegacyDevWasmResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, legacyHardcodedUnescapedWasmResolved), None)
+
+        let _ = await FS.deleteRecursive(storageUri)
+        let _ = await FS.deleteRecursive(legacyStorageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove legacy sibling-root ResolvedMetadata entries for non-Code desktop app paths",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Cursor",
+          "User",
+          "globalStorage",
+          "banacorn.agda-mode-delete-legacy-cursor-metadata-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let legacyStorageUri =
+          VSCode.Uri.file(
+            String.replace(storagePath, "/Cursor/User/globalStorage/", "/Cursor/Users/globalStorage/"),
+          )
+        let _ = await FS.createDirectory(storageUri)
+        let _ = await FS.createDirectory(legacyStorageUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make("/usr/local/bin/agda"),
+          resource: VSCode.Uri.file("/usr/local/bin/agda"),
+        }
+        let legacyHardcodedResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als"]),
+        }
+        let legacyLatestResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(legacyStorageUri, ["latest-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(legacyStorageUri, ["latest-als", "als"]),
+        }
+        let legacyDevNativeResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(legacyStorageUri, ["dev-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(legacyStorageUri, ["dev-als", "als"]),
+        }
+        let legacyDevWasmResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(legacyStorageUri, ["dev-als", "als.wasm"])->VSCode.Uri.toString,
+          ),
+          resource: VSCode.Uri.joinPath(legacyStorageUri, ["dev-als", "als.wasm"]),
+        }
+        let legacyLegacyDevWasmResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(legacyStorageUri, ["dev-wasm-als", "als.wasm"])->VSCode.Uri.toString,
+          ),
+          resource: VSCode.Uri.joinPath(legacyStorageUri, ["dev-wasm-als", "als.wasm"]),
+        }
+        let legacyHardcodedUnescapedWasmResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            "file://" ++ VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als.wasm"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(legacyStorageUri, ["hardcoded-als", "als.wasm"]),
+        }
+
+        await Memento.ResolvedMetadata.setKind(
+          state.memento,
+          keepResolved,
+          Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+        )
+        await Memento.ResolvedMetadata.setKind(state.memento, legacyHardcodedResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, legacyLatestResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, legacyDevNativeResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, legacyDevWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, legacyLegacyDevWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, legacyHardcodedUnescapedWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, keepResolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+        )
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, legacyHardcodedResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, legacyLatestResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, legacyDevNativeResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, legacyDevWasmResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, legacyLegacyDevWasmResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, legacyHardcodedUnescapedWasmResolved), None)
+
+        let _ = await FS.deleteRecursive(storageUri)
+        let _ = await FS.deleteRecursive(legacyStorageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove managed ResolvedMetadata when a non-Code desktop app root uses Users",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Cursor",
+          "Users",
+          "globalStorage",
+          "banacorn.agda-mode-delete-cursor-users-metadata-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let siblingUri = switch siblingStorageUri(storageUri) {
+        | Some(uri) => uri
+        | None => failwith("Expected sibling storage URI")
+        }
+        let _ = await FS.createDirectory(storageUri)
+        let _ = await FS.createDirectory(siblingUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make("/usr/local/bin/agda"),
+          resource: VSCode.Uri.file("/usr/local/bin/agda"),
+        }
+        let currentHardcodedResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"]),
+        }
+        let currentLatestResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(storageUri, ["latest-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(storageUri, ["latest-als", "als"]),
+        }
+        let siblingDevNativeResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(siblingUri, ["dev-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(siblingUri, ["dev-als", "als"]),
+        }
+        let siblingDevWasmResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(siblingUri, ["dev-als", "als.wasm"])->VSCode.Uri.toString,
+          ),
+          resource: VSCode.Uri.joinPath(siblingUri, ["dev-als", "als.wasm"]),
+        }
+        let siblingLegacyDevWasmResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(siblingUri, ["dev-wasm-als", "als.wasm"])->VSCode.Uri.toString,
+          ),
+          resource: VSCode.Uri.joinPath(siblingUri, ["dev-wasm-als", "als.wasm"]),
+        }
+        let siblingHardcodedUnescapedWasmResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            "file://" ++ VSCode.Uri.joinPath(siblingUri, ["hardcoded-als", "als.wasm"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(siblingUri, ["hardcoded-als", "als.wasm"]),
+        }
+
+        await Memento.ResolvedMetadata.setKind(
+          state.memento,
+          keepResolved,
+          Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+        )
+        await Memento.ResolvedMetadata.setKind(state.memento, currentHardcodedResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, currentLatestResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, siblingDevNativeResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, siblingDevWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, siblingLegacyDevWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, siblingHardcodedUnescapedWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, keepResolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+        )
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, currentHardcodedResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, currentLatestResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, siblingDevNativeResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, siblingDevWasmResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, siblingLegacyDevWasmResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, siblingHardcodedUnescapedWasmResolved), None)
+
+        let _ = await FS.deleteRecursive(storageUri)
+        let _ = await FS.deleteRecursive(siblingUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should remove managed ResolvedMetadata when the current globalStorage root uses Users",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Code",
+          "Users",
+          "globalStorage",
+          "banacorn.agda-mode-delete-users-metadata-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let siblingUri = switch siblingStorageUri(storageUri) {
+        | Some(uri) => uri
+        | None => failwith("Expected sibling storage URI")
+        }
+        let _ = await FS.createDirectory(storageUri)
+        let _ = await FS.createDirectory(siblingUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make("/usr/local/bin/agda"),
+          resource: VSCode.Uri.file("/usr/local/bin/agda"),
+        }
+        let currentHardcodedResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als"]),
+        }
+        let currentLatestResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(storageUri, ["latest-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(storageUri, ["latest-als", "als"]),
+        }
+        let siblingDevNativeResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(siblingUri, ["dev-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(siblingUri, ["dev-als", "als"]),
+        }
+        let siblingDevWasmResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(siblingUri, ["dev-als", "als.wasm"])->VSCode.Uri.toString,
+          ),
+          resource: VSCode.Uri.joinPath(siblingUri, ["dev-als", "als.wasm"]),
+        }
+        let siblingLegacyDevWasmResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(siblingUri, ["dev-wasm-als", "als.wasm"])->VSCode.Uri.toString,
+          ),
+          resource: VSCode.Uri.joinPath(siblingUri, ["dev-wasm-als", "als.wasm"]),
+        }
+        let siblingHardcodedUnescapedWasmResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            "file://" ++ VSCode.Uri.joinPath(siblingUri, ["hardcoded-als", "als.wasm"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(siblingUri, ["hardcoded-als", "als.wasm"]),
+        }
+
+        await Memento.ResolvedMetadata.setKind(
+          state.memento,
+          keepResolved,
+          Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+        )
+        await Memento.ResolvedMetadata.setKind(state.memento, currentHardcodedResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, currentLatestResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, siblingDevNativeResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, siblingDevWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, siblingLegacyDevWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, siblingHardcodedUnescapedWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, keepResolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+        )
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, currentHardcodedResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, currentLatestResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, siblingDevNativeResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, siblingDevWasmResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, siblingLegacyDevWasmResolved), None)
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, siblingHardcodedUnescapedWasmResolved), None)
+
+        let _ = await FS.deleteRecursive(storageUri)
+        let _ = await FS.deleteRecursive(siblingUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should preserve ResolvedMetadata under sibling-root managed directories that fail to delete and remove metadata under successfully deleted sibling directories",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Code",
+          "User",
+          "globalStorage",
+          "banacorn.agda-mode-delete-sibling-partial-metadata-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let siblingUri = switch siblingStorageUri(storageUri) {
+        | Some(uri) => uri
+        | None => failwith("Expected sibling storage URI")
+        }
+        let _ = await FS.createDirectory(storageUri)
+        let _ = await FS.createDirectory(siblingUri)
+        let failedSiblingDirUri = VSCode.Uri.joinPath(siblingUri, ["latest-als"])
+        let otherSiblingDirUri = VSCode.Uri.joinPath(siblingUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(failedSiblingDirUri)
+        let _ = await FS.createDirectory(otherSiblingDirUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make("/usr/local/bin/agda"),
+          resource: VSCode.Uri.file("/usr/local/bin/agda"),
+        }
+        let failedSiblingResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(siblingUri, ["latest-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(siblingUri, ["latest-als", "als"]),
+        }
+        let removedSiblingResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(siblingUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(siblingUri, ["hardcoded-als", "als"]),
+        }
+
+        await Memento.ResolvedMetadata.setKind(
+          state.memento,
+          keepResolved,
+          Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+        )
+        await Memento.ResolvedMetadata.setKind(state.memento, failedSiblingResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, removedSiblingResolved, Memento.ResolvedMetadata.ALS(Native, None))
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let restoreDeleteRecursive = Test__Util.TestFS.withDeleteFailureFor(
+          failedSiblingDirUri->VSCode.Uri.fsPath,
+        )
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+        restoreDeleteRecursive()
+
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, keepResolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+        )
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, failedSiblingResolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.ALS(Native, None)),
+        )
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, removedSiblingResolved), None)
+
+        let _ = await FS.deleteRecursive(storageUri)
+        let _ = await FS.deleteRecursive(siblingUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+
+      Async.it(
+        "should preserve ResolvedMetadata under non-Code sibling-root managed directories that fail to delete and remove metadata under successfully deleted sibling directories",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "Library",
+          "Application Support",
+          "Cursor",
+          "User",
+          "globalStorage",
+          "banacorn.agda-mode-delete-cursor-sibling-metadata-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let siblingUri = switch siblingStorageUri(storageUri) {
+        | Some(uri) => uri
+        | None => failwith("Expected sibling storage URI")
+        }
+        let _ = await FS.createDirectory(storageUri)
+        let _ = await FS.createDirectory(siblingUri)
+        let failedSiblingDirUri = VSCode.Uri.joinPath(siblingUri, ["latest-als"])
+        let otherSiblingDirUri = VSCode.Uri.joinPath(siblingUri, ["hardcoded-als"])
+        let _ = await FS.createDirectory(failedSiblingDirUri)
+        let _ = await FS.createDirectory(otherSiblingDirUri)
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let keepResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make("/usr/local/bin/agda"),
+          resource: VSCode.Uri.file("/usr/local/bin/agda"),
+        }
+        let failedSiblingResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(siblingUri, ["latest-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(siblingUri, ["latest-als", "als"]),
+        }
+        let removedSiblingResolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(
+            VSCode.Uri.joinPath(siblingUri, ["hardcoded-als", "als"])->VSCode.Uri.fsPath,
+          ),
+          resource: VSCode.Uri.joinPath(siblingUri, ["hardcoded-als", "als"]),
+        }
+
+        await Memento.ResolvedMetadata.setKind(
+          state.memento,
+          keepResolved,
+          Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+        )
+        await Memento.ResolvedMetadata.setKind(state.memento, failedSiblingResolved, Memento.ResolvedMetadata.ALS(Native, None))
+        await Memento.ResolvedMetadata.setKind(state.memento, removedSiblingResolved, Memento.ResolvedMetadata.ALS(Native, None))
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let restoreDeleteRecursive = Test__Util.TestFS.withDeleteFailureFor(
+          failedSiblingDirUri->VSCode.Uri.fsPath,
+        )
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+        restoreDeleteRecursive()
+
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, keepResolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+        )
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, failedSiblingResolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.ALS(Native, None)),
+        )
+        Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, removedSiblingResolved), None)
+
+        let _ = await FS.deleteRecursive(storageUri)
+        let _ = await FS.deleteRecursive(siblingUri)
         view->State__SwitchVersion.View.destroy
         },
       )
