@@ -992,22 +992,22 @@ describe("Connection", () => {
               loggedEvents,
               [Log.Connection(Log.Connection.ConnectedToAgda(path, version))],
             )
-          | ALS(_, path, Some(alsVersion, agdaVersion, _)) =>
+          | ALS(_, path, {alsVersion: Some(v), agdaVersion}) =>
             Assert.deepStrictEqual(
               loggedEvents,
-              [Log.Connection(Log.Connection.ConnectedToALS(path, Some(alsVersion, agdaVersion)))],
+              [Log.Connection(Log.Connection.ConnectedToALS(path, Some(v, agdaVersion)))],
             )
-          | ALS(_, path, None) =>
+          | ALS(_, path, {alsVersion: None}) =>
             Assert.deepStrictEqual(
               loggedEvents,
               [Log.Connection(Log.Connection.ConnectedToALS(path, None))],
             )
-          | ALSWASM(_, _, path, Some(alsVersion, agdaVersion, _)) =>
+          | ALSWASM(_, _, path, {alsVersion: Some(v), agdaVersion}) =>
             Assert.deepStrictEqual(
               loggedEvents,
-              [Log.Connection(Log.Connection.ConnectedToALS(path, Some(alsVersion, agdaVersion)))],
+              [Log.Connection(Log.Connection.ConnectedToALS(path, Some(v, agdaVersion)))],
             )
-          | ALSWASM(_, _, path, None) =>
+          | ALSWASM(_, _, path, {alsVersion: None}) =>
             Assert.deepStrictEqual(
               loggedEvents,
               [Log.Connection(Log.Connection.ConnectedToALS(path, None))],

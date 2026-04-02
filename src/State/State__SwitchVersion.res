@@ -493,22 +493,22 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
         resolved,
         ResolvedMetadata.Agda(Some(version)),
       )
-    | ALS(_, path, Some(alsVersion, agdaVersion, lspOptions)) =>
+    | ALS(_, path, {alsVersion: Some(v), agdaVersion, lspOptions}) =>
       let resolved = resolvedFromConnectionPath(path)
       await Memento.ResolvedMetadata.setKind(
         state.memento,
         resolved,
-        ResolvedMetadata.ALS(Native, Some(alsVersion, agdaVersion, lspOptions)),
+        ResolvedMetadata.ALS(Native, Some(v, agdaVersion, lspOptions)),
       )
-    | ALS(_, _, None) => () // version still unknown, don't update memento
-    | ALSWASM(_, _, _, None) => () // WASM version unknown, don't update memento
-    | ALSWASM(_, _, path, Some(alsVersion, agdaVersion, lspOptions)) =>
+    | ALS(_, _, {alsVersion: None}) => () // ALS version unknown, don't update memento
+    | ALSWASM(_, _, path, {alsVersion: Some(v), agdaVersion, lspOptions}) =>
       let resolved = resolvedFromConnectionPath(path)
       await Memento.ResolvedMetadata.setKind(
         state.memento,
         resolved,
-        ResolvedMetadata.ALS(WASM, Some(alsVersion, agdaVersion, lspOptions)),
+        ResolvedMetadata.ALS(WASM, Some(v, agdaVersion, lspOptions)),
       )
+    | ALSWASM(_, _, _, {alsVersion: None}) => () // ALS version unknown, don't update memento
     }
     // Final cleanup: destroy the temporary connection used for version probing/switching
     // The next command will re-acquire via Registry

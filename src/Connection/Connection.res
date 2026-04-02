@@ -6,11 +6,15 @@ module Candidate = Connection__Candidate
 
 module type Module = {
   type agdaVersion = string // Agda version
-  type alsVersion = (string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // (ALS version, Agda version, LSP options)
+  type alsVersionInfo = {
+    agdaVersion: string,
+    alsVersion: option<string>,
+    lspOptions: option<Connection__Protocol__LSP__Binding.executableOptions>,
+  }
   type t =
     | Agda(Agda.t, string, agdaVersion) // connection, path, version
-    | ALS(ALS.t, string, option<alsVersion>) // connection, path, version
-    | ALSWASM(ALS.t, WASMLoader.t, string, option<alsVersion>) // path, version
+    | ALS(ALS.t, string, alsVersionInfo) // connection, path, version
+    | ALSWASM(ALS.t, WASMLoader.t, string, alsVersionInfo) // connection, WASM loader, path, version
 
   // lifecycle
   let make: (string, Error.Establish.pathSource) => promise<result<t, Error.Establish.t>>
@@ -72,21 +76,27 @@ module Module: Module = {
   }
 
   type agdaVersion = string // Agda version
-  type alsVersion = (string, string, option<Connection__Protocol__LSP__Binding.executableOptions>) // (ALS version, Agda version, LSP options)
+  type alsVersionInfo = {
+    agdaVersion: string,
+    alsVersion: option<string>,
+    lspOptions: option<Connection__Protocol__LSP__Binding.executableOptions>,
+  }
   type t =
     | Agda(Agda.t, string, agdaVersion) // connection, path, version
-    | ALS(ALS.t, string, option<alsVersion>) // connection, path, version
-    | ALSWASM(ALS.t, WASMLoader.t, string, option<alsVersion>) // connection, WASM loader, path, version
+    | ALS(ALS.t, string, alsVersionInfo) // connection, path, version
+    | ALSWASM(ALS.t, WASMLoader.t, string, alsVersionInfo) // connection, WASM loader, path, version
 
   let toString = connection =>
     switch connection {
     | Agda(_, _, version) => "Agda v" ++ version
-    | ALS(_, _, Some(alsVersion, agdaVersion, _)) =>
-      "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
-    | ALS(_, _, None) => "Agda Language Server (version unknown)"
-    | ALSWASM(_, _, _, Some(alsVersion, agdaVersion, _)) =>
-      "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion ++ " WASM"
-    | ALSWASM(_, _, _, None) => "Agda Language Server (version unknown) WASM"
+    | ALS(_, _, {alsVersion: Some(v), agdaVersion}) =>
+      "Agda v" ++ agdaVersion ++ " Language Server v" ++ v
+    | ALS(_, _, {alsVersion: None, agdaVersion}) =>
+      "Agda v" ++ agdaVersion ++ " Language Server (version unknown)"
+    | ALSWASM(_, _, _, {alsVersion: Some(v), agdaVersion}) =>
+      "Agda v" ++ agdaVersion ++ " Language Server v" ++ v ++ " WASM"
+    | ALSWASM(_, _, _, {alsVersion: None, agdaVersion}) =>
+      "Agda v" ++ agdaVersion ++ " Language Server (version unknown) WASM"
     }
 
   let getPath = connection =>
@@ -248,7 +258,8 @@ module Module: Module = {
       ) {
       | Error(error) =>
         Error(Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error), source))
-      | Ok(conn) => Ok(ALS(conn, path, Some(alsVersion, agdaVersion, lspOptions)))
+      | Ok(conn) =>
+        Ok(ALS(conn, path, {agdaVersion, alsVersion: Some(alsVersion), lspOptions}))
       }
     | Ok(path, IsALSWASM(uri)) =>
       // Get the WASM loader extension
@@ -316,11 +327,14 @@ module Module: Module = {
                 Error.Establish.fromProbeError(path, CannotMakeConnectionWithALS(error), source),
               )
             | Ok(conn) =>
-              let version = switch conn.alsVersion {
-              | None => None
-              | Some(version) => Some(conn.agdaVersion, version, None)
-              }
-              Ok(ALSWASM(conn, wasmLoader, path, version))
+              Ok(
+                ALSWASM(
+                  conn,
+                  wasmLoader,
+                  path,
+                  {agdaVersion: conn.agdaVersion, alsVersion: conn.alsVersion, lspOptions: None},
+                ),
+              )
             }
             }
           }
@@ -577,12 +591,13 @@ module Module: Module = {
       switch connection {
       | Agda(_, path, version) =>
         logChannel->Chan.emit(Log.Connection(ConnectedToAgda(path, version)))
-      | ALS(_, path, Some(alsVersion, agdaVersion, _lspOptions)) =>
-        logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, Some(alsVersion, agdaVersion))))
-      | ALS(_, path, None) => logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, None)))
-      | ALSWASM(_, _, path, Some(alsVersion, agdaVersion, _)) =>
-        logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, Some(alsVersion, agdaVersion))))
-      | ALSWASM(_, _, path, None) =>
+      | ALS(_, path, {alsVersion: Some(v), agdaVersion}) =>
+        logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, Some(v, agdaVersion))))
+      | ALS(_, path, {alsVersion: None}) =>
+        logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, None)))
+      | ALSWASM(_, _, path, {alsVersion: Some(v), agdaVersion}) =>
+        logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, Some(v, agdaVersion))))
+      | ALSWASM(_, _, path, {alsVersion: None}) =>
         logChannel->Chan.emit(Log.Connection(ConnectedToALS(path, None)))
       }
     }

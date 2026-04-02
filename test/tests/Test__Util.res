@@ -378,10 +378,8 @@ module AgdaMode = {
     ) {
     | Error(_error) => false
     | Ok(Agda(_, _, actualVersion)) => Util.Version.gte(actualVersion, expectedVersion)
-    | Ok(ALS(_, _, Some(_, actualVersion, _))) => Util.Version.gte(actualVersion, expectedVersion)
-    | Ok(ALS(_, _, None)) => false
-    | Ok(ALSWASM(_, _, _, Some(_, actualVersion, _))) => Util.Version.gte(actualVersion, expectedVersion)
-    | Ok(ALSWASM(_, _, _, None)) => false
+    | Ok(ALS(_, _, {agdaVersion})) => Util.Version.gte(agdaVersion, expectedVersion)
+    | Ok(ALSWASM(_, _, _, {agdaVersion})) => Util.Version.gte(agdaVersion, expectedVersion)
     }
   }
 
