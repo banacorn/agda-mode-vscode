@@ -83,10 +83,10 @@ module Module: Module = {
     | Agda(_, _, version) => "Agda v" ++ version
     | ALS(_, _, Some(alsVersion, agdaVersion, _)) =>
       "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
-    | ALS(_, _, None) => "Agda Language Server of unknown version"
+    | ALS(_, _, None) => "Agda Language Server (version unknown)"
     | ALSWASM(_, _, _, Some(alsVersion, agdaVersion, _)) =>
-      "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion ++ " (WASM)"
-    | ALSWASM(_, _, _, None) => "Agda Language Server of unknown version (WASM)"
+      "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion ++ " WASM"
+    | ALSWASM(_, _, _, None) => "Agda Language Server (version unknown) WASM"
     }
 
   let getPath = connection =>
