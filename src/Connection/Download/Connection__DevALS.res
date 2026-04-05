@@ -1,5 +1,5 @@
 let makeRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
-  username: "banacorn",
+  username: "agda",
   repository: "agda-language-server",
   userAgent: "banacorn/agda-mode-vscode",
   globalStorageUri,
@@ -42,4 +42,31 @@ let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>, 
     | Some(downloadDescriptor) => Ok(Connection__Download.Source.FromGitHub(DevALS, downloadDescriptor))
     }
   }
+}
+
+let getAgdaVersionFromAssetName = (asset: Connection__Download__GitHub.Asset.t) =>
+  asset.name
+  ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
+  ->String.replaceRegExp(%re("/-.*/"), "")
+
+let allNativeAssetsForPlatform = (
+  release: Connection__Download__GitHub.Release.t,
+  platform,
+): array<Connection__Download__GitHub.Asset.t> => {
+  let assetName = Connection__Download__Platform.toAssetName(platform)
+  release.assets
+  ->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
+  ->Array.toSorted((a, b) =>
+    Util.Version.compare(getAgdaVersionFromAssetName(b), getAgdaVersionFromAssetName(a))
+  )
+}
+
+let allWasmAssets = (
+  release: Connection__Download__GitHub.Release.t,
+): array<Connection__Download__GitHub.Asset.t> => {
+  release.assets
+  ->Array.filter(asset => asset.name->String.endsWith("-wasm.wasm"))
+  ->Array.toSorted((a, b) =>
+    Util.Version.compare(getAgdaVersionFromAssetName(b), getAgdaVersionFromAssetName(a))
+  )
 }

@@ -705,15 +705,46 @@ module Download = {
       | None => [unavailableItem(WASM)]
       }
     | Ok(platform) =>
-      let nativeItem = switch sourceForVariant(platform, Native, ~channel) {
-      | Some(source) => await makeDownloadItem(state, Native, source, ~channel)
-      | None => unavailableItem(Native)
+      switch channel {
+      | DevALS =>
+        let resolver = PlatformOps.resolveDownloadChannel(channel, true)
+        switch await resolver(state.memento, state.globalStorageUri, platform) {
+        | Error(_) => [unavailableItem(Native), unavailableItem(WASM)]
+        | Ok(Connection__Download.Source.FromURL(_, _, _)) =>
+          [unavailableItem(Native), unavailableItem(WASM)]
+        | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
+          let release = descriptor.release
+          let nativeAssets = Connection__DevALS.allNativeAssetsForPlatform(release, platform)
+          let wasmAssets = Connection__DevALS.allWasmAssets(release)
+          let makeSource = asset =>
+            Connection__Download.Source.FromGitHub(channel, {
+              Connection__Download__GitHub.DownloadDescriptor.asset: asset,
+              release: release,
+              saveAsFileName: descriptor.saveAsFileName,
+            })
+          let nativeItems = await Promise.all(
+            nativeAssets->Array.map(async asset =>
+              await makeDownloadItem(state, Native, makeSource(asset), ~channel)
+            ),
+          )
+          let wasmItems = await Promise.all(
+            wasmAssets->Array.map(async asset =>
+              await makeDownloadItem(state, WASM, makeSource(asset), ~channel)
+            ),
+          )
+          Array.concat(nativeItems, wasmItems)
+        }
+      | _ =>
+        let nativeItem = switch sourceForVariant(platform, Native, ~channel) {
+        | Some(source) => await makeDownloadItem(state, Native, source, ~channel)
+        | None => unavailableItem(Native)
+        }
+        let wasmItem = switch sourceForVariant(platform, WASM, ~channel) {
+        | Some(source) => await makeDownloadItem(state, WASM, source, ~channel)
+        | None => unavailableItem(WASM)
+        }
+        [nativeItem, wasmItem]
       }
-      let wasmItem = switch sourceForVariant(platform, WASM, ~channel) {
-      | Some(source) => await makeDownloadItem(state, WASM, source, ~channel)
-      | None => unavailableItem(WASM)
-      }
-      [nativeItem, wasmItem]
     }
 
     suppressManagedVariants(state.globalStorageUri, Config.Connection.getAgdaPaths(), allItems, ~channel)
@@ -779,9 +810,45 @@ module Handler = {
       let downloadResult = switch await PlatformOps.determinePlatform() {
       | Error(_) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
       | Ok(platform) =>
-        switch Download.sourceForVariant(platform, variant, ~channel) {
-        | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-        | Some(source) => await PlatformOps.download(state.globalStorageUri, source)
+        switch channel {
+        | DevALS =>
+          let resolver = PlatformOps.resolveDownloadChannel(channel, true)
+          switch await resolver(state.memento, state.globalStorageUri, platform) {
+          | Error(e) => Error(e)
+          | Ok(Connection__Download.Source.FromURL(_, _, _) as source) =>
+            await PlatformOps.download(state.globalStorageUri, source)
+          | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
+            let release = descriptor.release
+            let assets = switch variant {
+            | Native => Connection__DevALS.allNativeAssetsForPlatform(release, platform)
+            | WASM => Connection__DevALS.allWasmAssets(release)
+            }
+            let matchingSource = assets->Array.reduce(None, (found, asset) =>
+              switch found {
+              | Some(_) => found
+              | None =>
+                let src = Connection__Download.Source.FromGitHub(channel, {
+                  Connection__Download__GitHub.DownloadDescriptor.asset: asset,
+                  release: release,
+                  saveAsFileName: descriptor.saveAsFileName,
+                })
+                if Connection__Download.Source.toVersionString(src) == versionString {
+                  Some(src)
+                } else {
+                  None
+                }
+              }
+            )
+            switch matchingSource {
+            | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            | Some(src) => await PlatformOps.download(state.globalStorageUri, src)
+            }
+          }
+        | _ =>
+          switch Download.sourceForVariant(platform, variant, ~channel) {
+          | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          | Some(source) => await PlatformOps.download(state.globalStorageUri, source)
+          }
         }
       }
 
@@ -1031,16 +1098,6 @@ module Handler = {
               downloaded,
               versionString,
               ~channel=currentChannel,
-              ~refreshUI=Some(
-                async () => {
-                  let newDownloadItems = await Download.getAllAvailableDownloads(
-                    state,
-                    platformDeps,
-                    ~channel=currentChannel,
-                  )
-                  await updateUI(newDownloadItems)
-                },
-              ),
             )
           | Candidate(selectedPath, _detail, entry, _) =>
             Util.log("[ debug ] user selected kind: " ++ selectedPath, "")
