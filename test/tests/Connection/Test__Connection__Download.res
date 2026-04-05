@@ -496,6 +496,70 @@ describe("Download", () => {
     )
   })
 
+  describe("download — directory vs file cache check", () => {
+    Async.it(
+      "should NOT treat existing directory as cached when binary file is missing",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-dl-cache-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        // Create dev-als directory but NOT the als binary (simulating failed previous download)
+        let devAlsDir = NodeJs.Path.join([tempDir, "dev-als"])
+        await NodeJs.Fs.mkdir(devAlsDir, {recursive: true, mode: 0o777})
+
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+
+        let fakeAsset: GitHub.Asset.t = {
+          url: "https://invalid.example.com/fake-asset.zip",
+          id: 0,
+          node_id: "",
+          name: "als-dev-Agda-2.8.0-macos-arm64.zip",
+          label: None,
+          content_type: "application/zip",
+          state: "uploaded",
+          size: 0,
+          created_at: "",
+          updated_at: "",
+          browser_download_url: "https://invalid.example.com/fake-asset.zip",
+        }
+        let fakeRelease: GitHub.Release.t = {
+          url: "",
+          assets_url: "",
+          upload_url: "",
+          html_url: "",
+          id: 0,
+          node_id: "",
+          tag_name: "dev",
+          target_commitish: "",
+          name: "dev",
+          draft: false,
+          prerelease: true,
+          created_at: "",
+          published_at: "",
+          assets: [fakeAsset],
+          tarball_url: "",
+          zipball_url: "",
+          body: None,
+        }
+        let descriptor: GitHub.DownloadDescriptor.t = {
+          release: fakeRelease,
+          asset: fakeAsset,
+          saveAsFileName: "dev-als",
+        }
+
+        let result = await GitHub.download(descriptor, globalStorageUri, _ => ())
+
+        // Should NOT return Ok(true) (cached) — als binary doesn't exist, only the directory
+        // Should return Error(...) because the download attempt fails (invalid URL)
+        Assert.deepStrictEqual(Result.isOk(result), false)
+
+        // Cleanup
+        let _ = await FS.deleteRecursive(globalStorageUri)
+      },
+    )
+  })
+
   describe("Integration Tests", () => {
     // will get HTTP 403 on GitHub CI macOS runners :(
     describe_skip(

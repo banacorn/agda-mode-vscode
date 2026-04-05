@@ -504,9 +504,15 @@ module Module: {
     if ifIsDownloading {
       Error(Error.AlreadyDownloading)
     } else {
-      // don't download from GitHub if `downloadDescriptor.fileName` already exists
+      // don't download from GitHub if the binary already exists
       let destUri = VSCode.Uri.joinPath(repo.globalStorageUri, [downloadDescriptor.saveAsFileName])
-      switch await FS.stat(destUri) {
+      let fileName = if downloadDescriptor.asset.name->String.includes("wasm") {
+        "als.wasm"
+      } else {
+        "als"
+      }
+      let destFileUri = VSCode.Uri.joinPath(destUri, [fileName])
+      switch await FS.stat(destFileUri) {
       | Ok(_) => Ok(true)
       | Error(_) =>
         switch await downloadLanguageServer(repo, reportProgress, downloadDescriptor) {
