@@ -3654,6 +3654,58 @@ describe("State__SwitchVersion", () => {
         },
       )
       })
+
+      describe("in-flight files", () => {
+      Async.it(
+        "should delete orphaned in-flight.download and in-flight.download.zip files on Delete Downloads",
+        async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-switch-delete-inflight-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        // Create orphaned in-flight temp files (left behind by an interrupted download)
+        let inFlightUri = VSCode.Uri.joinPath(storageUri, ["in-flight.download"])
+        let inFlightZipUri = VSCode.Uri.joinPath(storageUri, ["in-flight.download.zip"])
+        NodeJs.Fs.writeFileSync(inFlightUri->VSCode.Uri.fsPath, NodeJs.Buffer.fromString("partial download"))
+        NodeJs.Fs.writeFileSync(inFlightZipUri->VSCode.Uri.fsPath, NodeJs.Buffer.fromString("partial zip"))
+
+        let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let selectedItem = makePickerItem(state, DeleteDownloads)
+        let onSelectionCompleted = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(SelectionCompleted) => true
+            | _ => false
+            },
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.Hardcoded]),
+          ref(Connection__Download.Channel.Hardcoded),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+        await onSelectionCompleted
+
+        Assert.deepStrictEqual((await FS.stat(inFlightUri))->Result.isError, true)
+        Assert.deepStrictEqual((await FS.stat(inFlightZipUri))->Result.isError, true)
+
+        let _ = await FS.deleteRecursive(storageUri)
+        view->State__SwitchVersion.View.destroy
+        },
+      )
+      })
     })
 
     Async.it(

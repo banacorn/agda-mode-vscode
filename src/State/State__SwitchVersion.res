@@ -1014,6 +1014,14 @@ module Handler = {
               }
             }
             await deleteAllRoots(0)
+            // Delete orphaned in-flight temp files at each cleanup root
+            let deleteInFlightFiles = async (root: VSCode.Uri.t) => {
+              let inFlightUri = VSCode.Uri.joinPath(root, ["in-flight.download"])
+              let inFlightZipUri = VSCode.Uri.joinPath(root, ["in-flight.download.zip"])
+              let _ = await FS.delete(inFlightUri)
+              let _ = await FS.delete(inFlightZipUri)
+            }
+            let _ = await Promise.all(roots->Array.map(deleteInFlightFiles))
             // Clear cache for all repositories
             await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
             await Memento.ALSReleaseCache.clear(state.memento, "banacorn", "agda-language-server")
