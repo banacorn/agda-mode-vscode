@@ -276,9 +276,14 @@ let activateWithoutContext = (
   extensionUri,
   globalStorageUri,
   memento,
+  ~startupCleanup=Connection__Download__GitHub.cleanupInFlightFiles,
 ) => {
   let subscribe = x => subscriptions->Array.push(x)->ignore
   let subscribeMany = xs => subscriptions->Array.pushMany(xs)->ignore
+
+  // Fire-and-forget: startup cleanup failures are ignored by design.
+  // Do not change this to await — cleanup must never block activation.
+  let _ = startupCleanup(globalStorageUri)->Promise.catch(_ => Promise.resolve())
 
   // Semantic Tokens Event
   let semanticTokensEventEmitter = Editor.Provider.Mock.EventEmitter.make()

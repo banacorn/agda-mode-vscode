@@ -534,3 +534,10 @@ module Module: {
 }
 
 include Module
+
+let cleanupInFlightFiles = async (globalStorageUri: VSCode.Uri.t): unit => {
+  let inFlightUri = VSCode.Uri.joinPath(globalStorageUri, ["in-flight.download"])
+  let inFlightZipUri = VSCode.Uri.joinPath(globalStorageUri, ["in-flight.download.zip"])
+  let _ = await FS.delete(inFlightUri)
+  let _ = await FS.delete(inFlightZipUri)
+}
