@@ -936,6 +936,7 @@ describe("State__SwitchVersion", () => {
           )
 
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
         Assert.deepStrictEqual(hasNativeDownloadAction, false)
       },
     )
@@ -943,8 +944,15 @@ describe("State__SwitchVersion", () => {
     Async.it(
       "should hide native download variant when its managed path is present as file:// URI in connection.paths",
       async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-suppress-uri-hide-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
         let platform = makeMockPlatform()
-        let state = createTestStateWithPlatform(platform)
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
         let previousPaths = Config.Connection.getAgdaPaths()
 
@@ -952,6 +960,9 @@ describe("State__SwitchVersion", () => {
           state.globalStorageUri,
           State__SwitchVersion.Download.Native,
         )
+        let nativeDir = NodeJs.Path.dirname(nativeManagedPath)
+        await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(nativeManagedPath, NodeJs.Buffer.fromString(""))
         let nativeManagedUri = VSCode.Uri.file(nativeManagedPath)->VSCode.Uri.toString
         await Config.Connection.setAgdaPaths(state.channels.log, [nativeManagedUri])
 
@@ -967,6 +978,7 @@ describe("State__SwitchVersion", () => {
           )
 
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
         Assert.deepStrictEqual(hasNativeDownloadAction, false)
       },
     )
@@ -1123,17 +1135,17 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should show download action when managed path is in config but artifact is missing via non-file URI (regression guard against fsPath-based logic)",
+      "should show download action when managed path is in config but artifact is missing via unregistered URI scheme (regression guard against existsSync logic)",
       async () => {
-        // Use vscode-userdata: as globalStorageUri.
-        // For Native: expectedPathForVariant returns fsPath (e.g. /tmp/.../hardcoded-als/als).
-        // We create the real file at that fsPath so existsSync() returns true.
-        // FS.stat on the vscode-userdata: URI goes through VS Code's FS provider,
-        // which maps vscode-userdata: to the VS Code user data dir, NOT /tmp —
-        // so FS.stat returns Error. The correct implementation must NOT suppress.
-        let uniqueDir = "agda-suppress-nonfile-" ++ string_of_int(int_of_float(Js.Date.now()))
+        // Use an unregistered URI scheme as globalStorageUri.
+        // For Native: expectedPathForVariant returns Uri.fsPath, which is the path component.
+        // We create the real file at that fsPath so existsSync() would return true.
+        // FS.stat on the unregistered-scheme URI throws "No file system provider" → Error.
+        // Correct implementation (FS.stat) must NOT suppress. Broken implementation (existsSync) would.
+        let uniqueDir = "agda-suppress-unreg-" ++ string_of_int(int_of_float(Js.Date.now()))
         let realFsPath = NodeJs.Path.join([NodeJs.Os.tmpdir(), uniqueDir])
-        let storageUri = VSCode.Uri.parse("vscode-userdata:" ++ realFsPath)
+        // memfs: is not a registered VS Code file system provider
+        let storageUri = VSCode.Uri.parse("memfs:" ++ realFsPath)
 
         let platform = makeMockPlatform()
         let state = createTestStateWithPlatformAndStorage(platform, storageUri)
@@ -1145,8 +1157,7 @@ describe("State__SwitchVersion", () => {
           State__SwitchVersion.Download.Native,
         )
 
-        // Create the file at the real filesystem path (fsPath of the vscode-userdata: URI)
-        // so that existsSync returns true — the regression trap
+        // Create the file at the real filesystem path so existsSync returns true
         let nativeDir = NodeJs.Path.dirname(nativeManagedPath)
         await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
         NodeJs.Fs.writeFileSync(nativeManagedPath, NodeJs.Buffer.fromString("mock binary"))
@@ -1174,7 +1185,7 @@ describe("State__SwitchVersion", () => {
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
         let _ = await FS.deleteRecursive(VSCode.Uri.file(realFsPath))
 
-        // existsSync sees the file; FS.stat(vscode-userdata:...) does not — must show download
+        // existsSync sees the file; FS.stat(memfs:...) fails with no provider — must show download
         Assert.deepStrictEqual(hasNativeDownloadAction, true)
       },
     )

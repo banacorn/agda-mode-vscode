@@ -575,23 +575,31 @@ module Download = {
     }
   }
 
-  let suppressManagedVariants = (
+  let suppressManagedVariants = async (
     globalStorageUri: VSCode.Uri.t,
     configPaths: array<string>,
     downloadItems: array<(bool, string, string)>,
     ~channel: Connection__Download.Channel.t=Hardcoded,
-  ): array<(bool, string, string)> =>
-    downloadItems->Array.filter(((_, _, variantTag)) =>
+  ): array<(bool, string, string)> => {
+    let shouldKeep = async ((_, _, variantTag)) =>
       switch variantFromTag(variantTag) {
       | None => true
       | Some(variant) =>
         let expectedPath = expectedPathForVariant(globalStorageUri, variant, ~channel)
         let expectedCandidate = Candidate.make(expectedPath)
-        !(configPaths->Array.some(configPath =>
-            Candidate.equal(Candidate.make(configPath), expectedCandidate)
-          ))
+        let inConfig = configPaths->Array.some(configPath =>
+          Candidate.equal(Candidate.make(configPath), expectedCandidate))
+        if !inConfig {
+          true
+        } else {
+          let uri = VSCode.Uri.joinPath(globalStorageUri, [channelToDirName(channel), variantFileName(variant)])
+          let fileExists = (await FS.stat(uri))->Result.isOk
+          !fileExists
+        }
       }
-    )
+    let keeps = await Promise.all(downloadItems->Array.map(shouldKeep))
+    downloadItems->Array.filterWithIndex((_, i) => Belt.Array.getExn(keeps, i))
+  }
 
   let sourceForVariant = (
     platform: Connection__Download__Platform.t,
@@ -747,7 +755,7 @@ module Download = {
       }
     }
 
-    suppressManagedVariants(state.globalStorageUri, Config.Connection.getAgdaPaths(), allItems, ~channel)
+    await suppressManagedVariants(state.globalStorageUri, Config.Connection.getAgdaPaths(), allItems, ~channel)
   }
 }
 
