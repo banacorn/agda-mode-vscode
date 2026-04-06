@@ -560,6 +560,129 @@ describe("Download", () => {
     )
   })
 
+  describe("download — in-flight sentinel ordering (Fix 3)", () => {
+    let makeFakeDescriptor = (name): (GitHub.Asset.t, GitHub.Release.t, GitHub.DownloadDescriptor.t) => {
+      let asset: GitHub.Asset.t = {
+        url: "https://invalid.example.com/fake.zip",
+        id: 0, node_id: "", name,
+        label: None, content_type: "application/zip", state: "uploaded",
+        size: 0, created_at: "", updated_at: "",
+        browser_download_url: "https://invalid.example.com/fake.zip",
+      }
+      let release: GitHub.Release.t = {
+        url: "", assets_url: "", upload_url: "", html_url: "",
+        id: 0, node_id: "", tag_name: "v1", target_commitish: "",
+        name: "v1", draft: false, prerelease: false,
+        created_at: "", published_at: "",
+        assets: [asset], tarball_url: "", zipball_url: "", body: None,
+      }
+      let descriptor: GitHub.DownloadDescriptor.t = {
+        release, asset, saveAsFileName: "hardcoded-als",
+      }
+      (asset, release, descriptor)
+    }
+
+    Async.it(
+      "should abort with CannotWriteInFlightFile when claiming in-flight sentinel fails",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-sentinel-write-fail-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+
+        let (_, _, descriptor) = makeFakeDescriptor("als-Agda-2.8.0-macos-arm64.zip")
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+
+        // Seam: sentinel write always fails
+        let mockWriteSentinel = (_uri: VSCode.Uri.t) =>
+          Promise.resolve(Error("simulated sentinel write failure"))
+
+        let result = await GitHub.download(
+          descriptor, globalStorageUri, _ => (),
+          ~writeInFlightSentinel=mockWriteSentinel,
+        )
+
+        let _ = await FS.deleteRecursive(globalStorageUri)
+
+        Assert.deepStrictEqual(result, Error(GitHub.Error.CannotWriteInFlightFile("simulated sentinel write failure")))
+      },
+    )
+
+    Async.it(
+      "should write then delete sentinel when binary is already cached",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-sentinel-cache-hit-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let binaryDir = NodeJs.Path.join([tempDir, "hardcoded-als"])
+        await NodeJs.Fs.mkdir(binaryDir, {recursive: true, mode: 0o777})
+        // Binary is NOT pre-created — it appears only inside mockWriteSentinel.
+        // This proves the cache check runs after sentinel write: if the cache
+        // check ran first it would find no binary and proceed to download instead
+        // of returning Ok(true).
+
+        let (_, _, descriptor) = makeFakeDescriptor("als-Agda-2.8.0-macos-arm64.zip")
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+
+        // Seams record operation sequence
+        let ops = ref([])
+        let mockWriteSentinel = (_uri: VSCode.Uri.t) => {
+          ops := ops.contents->Array.concat(["write"])
+          // Make the cached binary appear now, after the sentinel is claimed
+          NodeJs.Fs.writeFileSync(NodeJs.Path.join([binaryDir, "als"]), NodeJs.Buffer.fromString("mock binary"))
+          Promise.resolve(Ok())
+        }
+        let mockDeleteSentinel = (_uri: VSCode.Uri.t) => {
+          ops := ops.contents->Array.concat(["delete"])
+          Promise.resolve(Ok())
+        }
+
+        let result = await GitHub.download(
+          descriptor, globalStorageUri, _ => (),
+          ~writeInFlightSentinel=mockWriteSentinel,
+          ~deleteInFlightSentinel=mockDeleteSentinel,
+        )
+
+        let _ = await FS.deleteRecursive(globalStorageUri)
+
+        Assert.deepStrictEqual(result, Ok(true))
+        Assert.deepStrictEqual(ops.contents, ["write", "delete"])
+      },
+    )
+
+    Async.it(
+      "should return CannotDeleteFile when cached-binary path cannot release in-flight sentinel",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-sentinel-delete-fail-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let binaryDir = NodeJs.Path.join([tempDir, "hardcoded-als"])
+        await NodeJs.Fs.mkdir(binaryDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(NodeJs.Path.join([binaryDir, "als"]), NodeJs.Buffer.fromString("mock binary"))
+
+        let (_, _, descriptor) = makeFakeDescriptor("als-Agda-2.8.0-macos-arm64.zip")
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+
+        let mockWriteSentinel = (_uri: VSCode.Uri.t) => Promise.resolve(Ok())
+        let mockDeleteSentinel = (_uri: VSCode.Uri.t) =>
+          Promise.resolve(Error("simulated sentinel delete failure"))
+
+        let result = await GitHub.download(
+          descriptor, globalStorageUri, _ => (),
+          ~writeInFlightSentinel=mockWriteSentinel,
+          ~deleteInFlightSentinel=mockDeleteSentinel,
+        )
+
+        let _ = await FS.deleteRecursive(globalStorageUri)
+
+        Assert.deepStrictEqual(result, Error(GitHub.Error.CannotDeleteFile("simulated sentinel delete failure")))
+      },
+    )
+  })
+
   describe("cleanupInFlightFiles", () => {
     Async.it(
       "should delete both in-flight files when they exist",

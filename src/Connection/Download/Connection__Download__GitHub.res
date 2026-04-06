@@ -16,6 +16,7 @@ module Error = {
     | CannotChmodFile(string)
     | CannotStatFile(string)
     | CannotReadFile(Js.Exn.t)
+    | CannotWriteInFlightFile(string)
     | CannotDeleteFile(string)
     | CannotRenameFile(string)
   // // OS
@@ -38,6 +39,7 @@ module Error = {
     | CannotStatFile(path) => "Cannot stat file \"" ++ path ++ "\""
     | CannotChmodFile(path) => "Cannot chmod file \"" ++ path ++ "\""
     | CannotReadFile(exn) => "Cannot to read files:\n" ++ Util.JsError.toString(exn)
+    | CannotWriteInFlightFile(msg) => "Cannot write in-flight sentinel file:\n" ++ msg
     | CannotDeleteFile(msg) => "Cannot to delete files:\n" ++ msg
     | CannotRenameFile(msg) => "Cannot to rename files:\n" ++ msg
     // // OS
@@ -385,6 +387,8 @@ module Module: {
     DownloadDescriptor.t,
     VSCode.Uri.t,
     Download.Event.t => unit,
+    ~writeInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=?,
+    ~deleteInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=?,
   ) => promise<result<bool, Error.t>>
   let isDownloading: VSCode.Uri.t => promise<bool>
 } = {
@@ -491,6 +495,9 @@ module Module: {
     downloadDescriptor: DownloadDescriptor.t,
     globalStorageUri,
     reportProgress,
+    ~writeInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=uri =>
+      FS.writeFile(uri, Uint8Array.fromLength(0)),
+    ~deleteInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=FS.delete,
   ) => {
     let repo: Repo.t = {
       username: "agda",
@@ -500,33 +507,45 @@ module Module: {
       cacheInvalidateExpirationSecs: 86400,
     }
 
+    let inFlightDownloadUri = VSCode.Uri.joinPath(repo.globalStorageUri, [inFlightDownloadFileName])
+
     let ifIsDownloading = await isDownloading(repo.globalStorageUri)
     if ifIsDownloading {
       Error(Error.AlreadyDownloading)
     } else {
-      // don't download from GitHub if the binary already exists
-      let destUri = VSCode.Uri.joinPath(repo.globalStorageUri, [downloadDescriptor.saveAsFileName])
-      let fileName = if downloadDescriptor.asset.name->String.includes("wasm") {
-        "als.wasm"
-      } else {
-        "als"
-      }
-      let destFileUri = VSCode.Uri.joinPath(destUri, [fileName])
-      switch await FS.stat(destFileUri) {
-      | Ok(_) => Ok(true)
-      | Error(_) =>
-        switch await downloadLanguageServer(repo, reportProgress, downloadDescriptor) {
-        | Error(error) => Error(error)
-        | Ok() =>
-          // chmod the executable after download
-          // (no need to chmod if it's on Windows)
-          let destPath = VSCode.Uri.fsPath(destUri)
-          let execPath = NodeJs.Path.join2(destPath, "als")
-          let shouldChmod = OS.onUnix
-          if shouldChmod {
-            let _ = await chmodExecutable(execPath)
+      // Claim the in-flight slot before any cache check
+      switch await writeInFlightSentinel(inFlightDownloadUri) {
+      | Error(e) => Error(Error.CannotWriteInFlightFile(e))
+      | Ok() =>
+        // don't download from GitHub if the binary already exists
+        let destUri = VSCode.Uri.joinPath(repo.globalStorageUri, [downloadDescriptor.saveAsFileName])
+        let fileName = if downloadDescriptor.asset.name->String.includes("wasm") {
+          "als.wasm"
+        } else {
+          "als"
+        }
+        let destFileUri = VSCode.Uri.joinPath(destUri, [fileName])
+        switch await FS.stat(destFileUri) {
+        | Ok(_) =>
+          // Cache hit: release the sentinel
+          switch await deleteInFlightSentinel(inFlightDownloadUri) {
+          | Error(e) => Error(Error.CannotDeleteFile(e))
+          | Ok() => Ok(true)
           }
-          Ok(false)
+        | Error(_) =>
+          switch await downloadLanguageServer(repo, reportProgress, downloadDescriptor) {
+          | Error(error) => Error(error)
+          | Ok() =>
+            // chmod the executable after download
+            // (no need to chmod if it's on Windows)
+            let destPath = VSCode.Uri.fsPath(destUri)
+            let execPath = NodeJs.Path.join2(destPath, "als")
+            let shouldChmod = OS.onUnix
+            if shouldChmod {
+              let _ = await chmodExecutable(execPath)
+            }
+            Ok(false)
+          }
         }
       }
     }
