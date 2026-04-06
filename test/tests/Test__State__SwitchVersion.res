@@ -468,36 +468,6 @@ describe("State__SwitchVersion", () => {
       State__SwitchVersion.Item.fromItemData(itemData, state.extensionUri)
 
     Async.it(
-      "should hide native download variant when its managed path is already in connection.paths",
-      async () => {
-        let platform = makeMockPlatform()
-        let state = createTestStateWithPlatform(platform)
-        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let previousPaths = Config.Connection.getAgdaPaths()
-
-        let nativeManagedPath = State__SwitchVersion.Download.expectedPathForVariant(
-          state.globalStorageUri,
-          State__SwitchVersion.Download.Native,
-        )
-        await Config.Connection.setAgdaPaths(state.channels.log, [nativeManagedPath])
-
-        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
-        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
-
-        let hasNativeDownloadAction =
-          itemData->Array.some(item =>
-            switch item {
-            | DownloadAction(_, _, "native") => true
-            | _ => false
-            }
-          )
-
-        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
-        Assert.deepStrictEqual(hasNativeDownloadAction, false)
-      },
-    )
-
-    Async.it(
       "candidate rows should equal reversed connection.paths",
       async () => {
         module MockPlatform = {

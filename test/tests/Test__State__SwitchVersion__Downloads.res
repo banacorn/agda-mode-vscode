@@ -901,6 +901,46 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should hide native download variant when its managed path is already in connection.paths",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-suppress-hide-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let platform = makeMockPlatform()
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        let nativeManagedPath = State__SwitchVersion.Download.expectedPathForVariant(
+          state.globalStorageUri,
+          State__SwitchVersion.Download.Native,
+        )
+        let nativeDir = NodeJs.Path.dirname(nativeManagedPath)
+        await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(nativeManagedPath, NodeJs.Buffer.fromString(""))
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativeManagedPath])
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
+
+        let hasNativeDownloadAction =
+          itemData->Array.some(item =>
+            switch item {
+            | DownloadAction(_, _, "native") => true
+            | _ => false
+            }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        Assert.deepStrictEqual(hasNativeDownloadAction, false)
+      },
+    )
+
+    Async.it(
       "should hide native download variant when its managed path is present as file:// URI in connection.paths",
       async () => {
         let platform = makeMockPlatform()
@@ -928,6 +968,312 @@ describe("State__SwitchVersion", () => {
 
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
         Assert.deepStrictEqual(hasNativeDownloadAction, false)
+      },
+    )
+
+    Async.it(
+      "should show native download variant when its managed path is in config but file no longer exists on disk",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-suppress-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let platform = makeMockPlatform()
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        // Add the expected native path to config, but do NOT create the file on disk
+        let nativeManagedPath = State__SwitchVersion.Download.expectedPathForVariant(
+          state.globalStorageUri,
+          State__SwitchVersion.Download.Native,
+        )
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativeManagedPath])
+
+        // Verify the file does not exist on disk
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativeManagedPath), false)
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          platform,
+        )
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+          manager,
+          downloadItems,
+        )
+
+        let hasNativeDownloadAction =
+          itemData->Array.some(item =>
+            switch item {
+            | DownloadAction(_, _, "native") => true
+            | _ => false
+            }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+
+        // File is gone — download option MUST still be shown
+        Assert.deepStrictEqual(hasNativeDownloadAction, true)
+      },
+    )
+
+    Async.it(
+      "should show native download variant when its file:// URI alias is in config but file no longer exists on disk",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-suppress-uri-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let platform = makeMockPlatform()
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        let nativeManagedPath = State__SwitchVersion.Download.expectedPathForVariant(
+          state.globalStorageUri,
+          State__SwitchVersion.Download.Native,
+        )
+        // Store as file:// URI alias — same canonical candidate, different spelling
+        let nativeManagedUri = VSCode.Uri.file(nativeManagedPath)->VSCode.Uri.toString
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativeManagedUri])
+
+        // File does NOT exist on disk
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativeManagedPath), false)
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          platform,
+        )
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+          manager,
+          downloadItems,
+        )
+
+        let hasNativeDownloadAction =
+          itemData->Array.some(item =>
+            switch item {
+            | DownloadAction(_, _, "native") => true
+            | _ => false
+            }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+
+        Assert.deepStrictEqual(hasNativeDownloadAction, true)
+      },
+    )
+
+    Async.it(
+      "should show WASM download variant when its managed path is in config but file no longer exists on disk",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-suppress-wasm-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let platform = makeMockPlatform()
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        let wasmManagedPath = State__SwitchVersion.Download.expectedPathForVariant(
+          state.globalStorageUri,
+          State__SwitchVersion.Download.WASM,
+        )
+        await Config.Connection.setAgdaPaths(state.channels.log, [wasmManagedPath])
+
+        // WASM file does NOT exist on disk
+        let wasmFsPath = VSCode.Uri.fsPath(
+          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als.wasm"]),
+        )
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(wasmFsPath), false)
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          platform,
+        )
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+          manager,
+          downloadItems,
+        )
+
+        let hasWasmDownloadAction =
+          itemData->Array.some(item =>
+            switch item {
+            | DownloadAction(_, _, "wasm") => true
+            | _ => false
+            }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+
+        Assert.deepStrictEqual(hasWasmDownloadAction, true)
+      },
+    )
+
+    Async.it(
+      "should show download action when managed path is in config but artifact is missing via non-file URI (regression guard against fsPath-based logic)",
+      async () => {
+        // Use vscode-userdata: as globalStorageUri.
+        // For Native: expectedPathForVariant returns fsPath (e.g. /tmp/.../hardcoded-als/als).
+        // We create the real file at that fsPath so existsSync() returns true.
+        // FS.stat on the vscode-userdata: URI goes through VS Code's FS provider,
+        // which maps vscode-userdata: to the VS Code user data dir, NOT /tmp —
+        // so FS.stat returns Error. The correct implementation must NOT suppress.
+        let uniqueDir = "agda-suppress-nonfile-" ++ string_of_int(int_of_float(Js.Date.now()))
+        let realFsPath = NodeJs.Path.join([NodeJs.Os.tmpdir(), uniqueDir])
+        let storageUri = VSCode.Uri.parse("vscode-userdata:" ++ realFsPath)
+
+        let platform = makeMockPlatform()
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        let nativeManagedPath = State__SwitchVersion.Download.expectedPathForVariant(
+          state.globalStorageUri,
+          State__SwitchVersion.Download.Native,
+        )
+
+        // Create the file at the real filesystem path (fsPath of the vscode-userdata: URI)
+        // so that existsSync returns true — the regression trap
+        let nativeDir = NodeJs.Path.dirname(nativeManagedPath)
+        await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(nativeManagedPath, NodeJs.Buffer.fromString("mock binary"))
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativeManagedPath), true)
+
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativeManagedPath])
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          platform,
+        )
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+          manager,
+          downloadItems,
+        )
+
+        let hasNativeDownloadAction =
+          itemData->Array.some(item =>
+            switch item {
+            | DownloadAction(_, _, "native") => true
+            | _ => false
+            }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(VSCode.Uri.file(realFsPath))
+
+        // existsSync sees the file; FS.stat(vscode-userdata:...) does not — must show download
+        Assert.deepStrictEqual(hasNativeDownloadAction, true)
+      },
+    )
+
+    Async.it(
+      "should show DevALS native download action when managed path is in config but file no longer exists on disk",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-suppress-devals-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let makeDevAsset = (name): Connection__Download__GitHub.Asset.t => {
+          url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+          id: 0,
+          node_id: "",
+          name,
+          label: Some(""),
+          content_type: "application/zip",
+          state: "uploaded",
+          size: 1000000,
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+          browser_download_url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+        }
+        let devRelease: Connection__Download__GitHub.Release.t = {
+          url: "",
+          assets_url: "",
+          upload_url: "",
+          html_url: "",
+          id: 1,
+          node_id: "dev",
+          tag_name: "dev",
+          target_commitish: "main",
+          name: "dev",
+          draft: false,
+          prerelease: true,
+          created_at: "2024-01-01T00:00:00Z",
+          published_at: "2024-01-01T00:00:00Z",
+          assets: [makeDevAsset("als-dev-Agda-2.8.0-macos-arm64.zip")],
+          tarball_url: "",
+          zipball_url: "",
+          body: None,
+        }
+        let devDescriptor: Connection__Download__GitHub.DownloadDescriptor.t = {
+          asset: makeDevAsset("als-dev-Agda-2.8.0-macos-arm64.zip"),
+          release: devRelease,
+          saveAsFileName: "dev-als",
+        }
+        let platform: Platform.t = {
+          module MockDevALS = {
+            let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+            let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+              switch channel {
+              | Connection__Download.Channel.DevALS =>
+                Ok(
+                  Connection__Download.Source.FromGitHub(
+                    Connection__Download.Channel.DevALS,
+                    devDescriptor,
+                  ),
+                )
+              | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              }
+            )
+            let download = (_globalStorageUri, _) =>
+              Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            let findCommand = (_command, ~timeout as _timeout=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+          module(MockDevALS)
+        }
+
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        // Add the DevALS native managed path to config, but do NOT create the file
+        let devAlsNativePath = VSCode.Uri.fsPath(
+          VSCode.Uri.joinPath(storageUri, ["dev-als", "als"]),
+        )
+        await Config.Connection.setAgdaPaths(state.channels.log, [devAlsNativePath])
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(devAlsNativePath), false)
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          platform,
+          ~channel=Connection__Download.Channel.DevALS,
+        )
+
+        let hasNativeItem =
+          downloadItems->Array.some(((_, _, tag)) => tag == "native")
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+
+        Assert.deepStrictEqual(hasNativeItem, true)
       },
     )
 
