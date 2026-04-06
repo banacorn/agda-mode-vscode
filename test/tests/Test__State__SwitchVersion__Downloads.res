@@ -4688,6 +4688,119 @@ describe("State__SwitchVersion", () => {
         },
       )
     })
+
+    describe("onActivate — background update wiring (Fix 6)", () => {
+      // Races promise p against a ms-millisecond timer; rejects immediately on timeout
+      let withTimeout = (ms, p) => {
+        let timerId: ref<option<Js.Global.timeoutId>> = ref(None)
+        let clearTimer = () => timerId.contents->Option.forEach(id => Js.Global.clearTimeout(id))
+        let wrappedP = p->Promise.then(v => { clearTimer(); Promise.resolve(v) })
+        wrappedP->Promise.catch(_ => { clearTimer(); Promise.resolve() })->ignore
+        Promise.race([
+          wrappedP,
+          Promise.make((_, reject) => {
+            timerId :=
+              Some(
+                Js.Global.setTimeout(
+                  () => {
+                    let err: Js.Exn.t = %raw(`new Error("timed out after " + ms + "ms")`)
+                    reject(err->Obj.magic)
+                  },
+                  ms,
+                ),
+              )
+          }),
+        ])
+      }
+
+      Async.it(
+        "should replace Checking availability... with unavailable items when the background download-items promise fails",
+        async () => {
+          let state = createTestState()
+          let previousPaths = Config.Connection.getAgdaPaths()
+          await Config.Connection.setAgdaPaths(state.channels.log, [])
+
+          // Narrow seam: inject a deferred promise via ~downloadItemsPromiseOverride.
+          // Rejection happens AFTER await onActivate(...) returns, at which point
+          // runBackgroundUpdate has already subscribed to the promise.
+          module MockPlatform = {
+            let determinePlatform = () =>
+              Promise.resolve(Ok(Connection__Download__Platform.Ubuntu))
+            let findCommand = (_, ~timeout as _=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+            let alreadyDownloaded = (_, _) => Promise.resolve(None)
+            let resolveDownloadChannel = (_, _) =>
+              async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            let download = (_, _) =>
+              Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            let askUserAboutDownloadPolicy = () =>
+              Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+          }
+
+          let (downloadItemsDeferred, _, rejectDownloadItems) = Util.Promise_.pending()
+
+          // Capture UpdatedDownloadItems log events; resolve bgDone when the second arrives
+          let downloadItemLogs: ref<array<array<(bool, string, string)>>> = ref([])
+          let bgDoneResolve: ref<unit => unit> = ref(_ => ())
+          let bgDone = Promise.make((resolve, _) => bgDoneResolve := resolve)
+
+          let _ = state.channels.log->Chan.on(logEvent =>
+            switch logEvent {
+            | Log.SwitchVersionUI(UpdatedDownloadItems(items)) =>
+              downloadItemLogs := Array.concat(downloadItemLogs.contents, [items])
+              if Array.length(downloadItemLogs.contents) >= 2 { bgDoneResolve.contents() }
+            | _ => ()
+            }
+          )
+
+          let restoreConfig = async () =>
+            await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+          // finally: run restoreConfig regardless of success or failure
+          let withFinally = async (p, finally_) => {
+            let result = try { Ok(await p) } catch { | exn => Error(exn) }
+            await finally_()
+            switch result {
+            | Ok(v) => v
+            | Error(exn) => raise(exn)
+            }
+          }
+          await withFinally(
+            (async () => {
+              await State__SwitchVersion.Handler.onActivate(
+                state,
+                module(MockPlatform),
+                ~downloadItemsPromiseOverride=Some(downloadItemsDeferred),
+              )
+              // onActivate has returned; runBackgroundUpdate is now subscribed to the deferred.
+              // Arm the timeout promise before rejecting to avoid a race where bgDone resolves
+              // synchronously before the await is reached.
+              let timeoutP = withTimeout(2000, bgDone)
+              rejectDownloadItems(Failure("simulated background download-items failure"))
+              await timeoutP
+            })(),
+            restoreConfig,
+          )
+
+          // Phase 1: both download items show "Checking availability..."
+          Assert.deepStrictEqual(
+            downloadItemLogs.contents[0],
+            Some([
+              (false, State__SwitchVersion.Constants.checkingAvailability, "native"),
+              (false, State__SwitchVersion.Constants.checkingAvailability, "wasm"),
+            ]),
+          )
+
+          // Background fallback: both show "Not available for this platform"
+          Assert.deepStrictEqual(
+            downloadItemLogs.contents[1],
+            Some([
+              (false, State__SwitchVersion.Constants.downloadUnavailable, "native"),
+              (false, State__SwitchVersion.Constants.downloadUnavailable, "wasm"),
+            ]),
+          )
+        },
+      )
+    })
   })
 
 
@@ -4909,6 +5022,153 @@ describe("State__SwitchVersion", () => {
         Assert.notDeepStrictEqual(devALSFlags, hardcodedFlags)
 
         let _ = await FS.deleteRecursive(storageUri)
+      },
+    )
+  })
+
+  describe("backgroundUpdate — error fallback (Fix 6)", () => {
+    Async.it(
+      "should swallow updateUI failure in error fallback",
+      async () => {
+        module MockDesktopPlatform = {
+          let determinePlatform = () =>
+            Promise.resolve(Ok(Connection__Download__Platform.Ubuntu))
+          let findCommand = (_, ~timeout as _=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+          let alreadyDownloaded = (_, _) => Promise.resolve(None)
+          let resolveDownloadChannel = (_, _) =>
+            async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          let download = (_, _) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let askUserAboutDownloadPolicy = () =>
+            Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+        }
+
+        // updateUI rejects — the nested try/catch in the fallback must swallow it
+        let throwingUpdateUI = async (_items: array<(bool, string, string)>) => {
+          raise(Failure("updateUI failure"))
+        }
+
+        // Should complete without throwing
+        await State__SwitchVersion.Handler.backgroundUpdateFailureFallback(
+          module(MockDesktopPlatform),
+          throwingUpdateUI,
+        )
+      },
+    )
+
+    Async.it(
+      "should show unavailable native and WASM items when determinePlatform returns an error",
+      async () => {
+        module MockErrorPlatform = {
+          let determinePlatform = () =>
+            Promise.resolve(
+              Error(
+                %raw(`{ os: "unknown", dist: "unknown", codename: "unknown", release: "unknown" }`),
+              ),
+            )
+          let findCommand = (_, ~timeout as _=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+          let alreadyDownloaded = (_, _) => Promise.resolve(None)
+          let resolveDownloadChannel = (_, _) =>
+            async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          let download = (_, _) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let askUserAboutDownloadPolicy = () =>
+            Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+        }
+
+        let capturedItems: ref<array<(bool, string, string)>> = ref([])
+        let mockUpdateUI = async items => capturedItems := items
+
+        await State__SwitchVersion.Handler.backgroundUpdateFailureFallback(
+          module(MockErrorPlatform),
+          mockUpdateUI,
+        )
+
+        Assert.deepStrictEqual(capturedItems.contents, [
+          (false, State__SwitchVersion.Constants.downloadUnavailable, "native"),
+          (false, State__SwitchVersion.Constants.downloadUnavailable, "wasm"),
+        ])
+      },
+    )
+  })
+
+  describe("runBackgroundUpdate — catch-path wiring (Fix 6)", () => {
+    Async.it(
+      "failing downloadItemsPromise on desktop should route to unavailable native and WASM fallback",
+      async () => {
+        module MockDesktopPlatform = {
+          let determinePlatform = () =>
+            Promise.resolve(Ok(Connection__Download__Platform.Ubuntu))
+          let findCommand = (_, ~timeout as _=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+          let alreadyDownloaded = (_, _) => Promise.resolve(None)
+          let resolveDownloadChannel = (_, _) =>
+            async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          let download = (_, _) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let askUserAboutDownloadPolicy = () =>
+            Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+        }
+
+        let failingPromise: promise<array<(bool, string, string)>> =
+          Promise.reject(Failure("simulated getAllAvailableDownloads failure"))
+        // manager is intentionally unreachable: the failing promise rejects before
+        // SwitchVersionManager.probeVersions can use the manager
+        let manager: State__SwitchVersion.SwitchVersionManager.t = Obj.magic(())
+        let capturedItems: ref<array<(bool, string, string)>> = ref([])
+        let mockUpdateUI = async items => capturedItems := items
+
+        await State__SwitchVersion.Handler.runBackgroundUpdate(
+          failingPromise,
+          module(MockDesktopPlatform),
+          manager,
+          mockUpdateUI,
+        )
+
+        Assert.deepStrictEqual(capturedItems.contents, [
+          (false, State__SwitchVersion.Constants.downloadUnavailable, "native"),
+          (false, State__SwitchVersion.Constants.downloadUnavailable, "wasm"),
+        ])
+      },
+    )
+
+    Async.it(
+      "failing downloadItemsPromise on web should route to unavailable WASM-only fallback",
+      async () => {
+        module MockWebPlatform = {
+          let determinePlatform = () =>
+            Promise.resolve(Ok(Connection__Download__Platform.Web))
+          let findCommand = (_, ~timeout as _=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+          let alreadyDownloaded = (_, _) => Promise.resolve(None)
+          let resolveDownloadChannel = (_, _) =>
+            async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          let download = (_, _) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let askUserAboutDownloadPolicy = () =>
+            Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+        }
+
+        let failingPromise: promise<array<(bool, string, string)>> =
+          Promise.reject(Failure("simulated getAllAvailableDownloads failure"))
+        // manager is intentionally unreachable: the failing promise rejects before
+        // SwitchVersionManager.probeVersions can use the manager
+        let manager: State__SwitchVersion.SwitchVersionManager.t = Obj.magic(())
+        let capturedItems: ref<array<(bool, string, string)>> = ref([])
+        let mockUpdateUI = async items => capturedItems := items
+
+        await State__SwitchVersion.Handler.runBackgroundUpdate(
+          failingPromise,
+          module(MockWebPlatform),
+          manager,
+          mockUpdateUI,
+        )
+
+        Assert.deepStrictEqual(capturedItems.contents, [
+          (false, State__SwitchVersion.Constants.downloadUnavailable, "wasm"),
+        ])
       },
     )
   })

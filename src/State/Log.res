@@ -7,6 +7,7 @@ module SwitchVersion = {
     | SelectedOpenFolder(string)
     | SelectedNoInstallations
     | UpdatedCandidates(array<(string, Memento.ResolvedMetadata.kind, option<string>, bool)>) // array of (path, kind, optional error, isSelected)
+    | UpdatedDownloadItems(array<(bool, string, string)>) // array of (downloaded, versionString, variant)
     | SelectionCompleted // when onSelection handler has completed all async operations
     | Others(string)
 
@@ -53,6 +54,13 @@ module SwitchVersion = {
         } ++ (isSelected ? " [Selected]" : "")
       )
       ->Array.join("\n")
+    | UpdatedDownloadItems(items) =>
+      "UpdatedDownloadItems: " ++
+      items
+      ->Array.map(((downloaded, vs, variant)) =>
+        variant ++ "=" ++ vs ++ if downloaded { "(downloaded)" } else { "" }
+      )
+      ->Array.join(", ")
     | Others(str) => str
     }
 }

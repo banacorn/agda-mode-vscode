@@ -1154,7 +1154,47 @@ module Handler = {
     }
   }
 
-  let onActivate = async (state: State.t, platformDeps: Platform.t) => {
+  let backgroundUpdateFailureFallback = async (
+    platformDeps: Platform.t,
+    updateUI: array<(bool, string, string)> => promise<unit>,
+  ): unit => {
+    module PlatformOps = unpack(platformDeps)
+    let fallback = switch await PlatformOps.determinePlatform() {
+    | Ok(Connection__Download__Platform.Web) => [Download.unavailableItem(WASM)]
+    | _ => [Download.unavailableItem(Native), Download.unavailableItem(WASM)]
+    }
+    try {
+      await updateUI(fallback)
+    } catch {
+    | _ => ()
+    }
+  }
+
+  let runBackgroundUpdate = async (
+    downloadItemsPromise: promise<array<(bool, string, string)>>,
+    platformDeps: Platform.t,
+    manager: SwitchVersionManager.t,
+    updateUI: array<(bool, string, string)> => promise<unit>,
+  ): unit => {
+    try {
+      let downloadItems = await downloadItemsPromise
+      let phase3Changed = await SwitchVersionManager.probeVersions(manager, platformDeps)
+      if phase3Changed {
+        await updateUI(downloadItems)
+      }
+      if !phase3Changed {
+        await updateUI(downloadItems)
+      }
+    } catch {
+    | _exn => await backgroundUpdateFailureFallback(platformDeps, updateUI)
+    }
+  }
+
+  let onActivate = async (
+    state: State.t,
+    platformDeps: Platform.t,
+    ~downloadItemsPromiseOverride: option<promise<array<(bool, string, string)>>>=None,
+  ) => {
     let manager = SwitchVersionManager.make(state)
     let view = View.make(state.channels.log)
     let availableChannels = ref([Connection__Download.Channel.Hardcoded])
@@ -1188,6 +1228,7 @@ module Handler = {
       )
       state.channels.log->Chan.emit(Log.SwitchVersionUI(UpdatedCandidates(candidateItemDatas)))
       state.channels.log->Chan.emit(Log.SwitchVersionUI(Others(downloadHeader)))
+      state.channels.log->Chan.emit(Log.SwitchVersionUI(UpdatedDownloadItems(downloadItems)))
 
       let items = Item.fromItemDataArray(itemData, state.extensionUri)
       view->View.updateItems(items)
@@ -1209,7 +1250,10 @@ module Handler = {
     state.channels.log->Chan.emit(SwitchVersionUI(Others("QuickPick shown")))
 
     // Get download info asynchronously in background
-    let downloadItemsPromise = Download.getAllAvailableDownloads(state, platformDeps, ~channel=selectedChannel.contents)
+    let downloadItemsPromise = switch downloadItemsPromiseOverride {
+    | Some(override) => override
+    | None => Download.getAllAvailableDownloads(state, platformDeps, ~channel=selectedChannel.contents)
+    }
 
     // Setup event handlers
     view->View.onSelection(selectedItems =>
@@ -1226,29 +1270,8 @@ module Handler = {
     )
     view->View.onHide(() => onHide(view))
 
-    // Background update process (sequential phases)
-    let backgroundUpdate = async () => {
-      try {
-        // Get download info
-        let downloadItems = await downloadItemsPromise
-
-        // Probe version information in the background.
-        let phase3Changed = await SwitchVersionManager.probeVersions(manager, platformDeps)
-        if phase3Changed {
-          await updateUI(downloadItems)
-        }
-
-        // Update UI with download item even if no other changes
-        if !phase3Changed {
-          await updateUI(downloadItems)
-        }
-      } catch {
-      | _exn => () // Ignore background update errors
-      }
-    }
-
     // Start background update
-    let _ = backgroundUpdate()
+    let _ = runBackgroundUpdate(downloadItemsPromise, platformDeps, manager, updateUI)
   }
 }
 
