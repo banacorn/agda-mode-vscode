@@ -560,28 +560,28 @@ describe("Download", () => {
     )
   })
 
-  describe("download — in-flight sentinel ordering (Fix 3)", () => {
-    let makeFakeDescriptor = (name): (GitHub.Asset.t, GitHub.Release.t, GitHub.DownloadDescriptor.t) => {
-      let asset: GitHub.Asset.t = {
-        url: "https://invalid.example.com/fake.zip",
-        id: 0, node_id: "", name,
-        label: None, content_type: "application/zip", state: "uploaded",
-        size: 0, created_at: "", updated_at: "",
-        browser_download_url: "https://invalid.example.com/fake.zip",
-      }
-      let release: GitHub.Release.t = {
-        url: "", assets_url: "", upload_url: "", html_url: "",
-        id: 0, node_id: "", tag_name: "v1", target_commitish: "",
-        name: "v1", draft: false, prerelease: false,
-        created_at: "", published_at: "",
-        assets: [asset], tarball_url: "", zipball_url: "", body: None,
-      }
-      let descriptor: GitHub.DownloadDescriptor.t = {
-        release, asset, saveAsFileName: "hardcoded-als",
-      }
-      (asset, release, descriptor)
+  let makeFakeDescriptor = (name): (GitHub.Asset.t, GitHub.Release.t, GitHub.DownloadDescriptor.t) => {
+    let asset: GitHub.Asset.t = {
+      url: "https://invalid.example.com/fake.zip",
+      id: 0, node_id: "", name,
+      label: None, content_type: "application/zip", state: "uploaded",
+      size: 0, created_at: "", updated_at: "",
+      browser_download_url: "https://invalid.example.com/fake.zip",
     }
+    let release: GitHub.Release.t = {
+      url: "", assets_url: "", upload_url: "", html_url: "",
+      id: 0, node_id: "", tag_name: "v1", target_commitish: "",
+      name: "v1", draft: false, prerelease: false,
+      created_at: "", published_at: "",
+      assets: [asset], tarball_url: "", zipball_url: "", body: None,
+    }
+    let descriptor: GitHub.DownloadDescriptor.t = {
+      release, asset, saveAsFileName: "hardcoded-als",
+    }
+    (asset, release, descriptor)
+  }
 
+  describe("download — in-flight sentinel ordering (Fix 3)", () => {
     Async.it(
       "should abort with CannotWriteInFlightFile when claiming in-flight sentinel fails",
       async () => {
@@ -679,6 +679,164 @@ describe("Download", () => {
         let _ = await FS.deleteRecursive(globalStorageUri)
 
         Assert.deepStrictEqual(result, Error(GitHub.Error.CannotDeleteFile("simulated sentinel delete failure")))
+      },
+    )
+  })
+
+  describe("download — post-unzip binary verification (Fix 4)", () => {
+    Async.it(
+      "should return BinaryMissingAfterExtraction when unzip succeeds but binary is absent",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-fix4-missing-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+
+        let (_, _, descriptor) = makeFakeDescriptor("als-Agda-2.8.0-macos-arm64.zip")
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+
+        // fetchFile: pretend download succeeded by writing the downloaded file at the given URI
+        let mockFetchFile = (uri: VSCode.Uri.t) => {
+          NodeJs.Fs.writeFileSync(VSCode.Uri.fsPath(uri), NodeJs.Buffer.fromString("mock download"))
+          Promise.resolve(Ok())
+        }
+
+        // unzip: succeed without creating destPath/als
+        let mockUnzip = (_zipUri: VSCode.Uri.t, _destUri: VSCode.Uri.t) => Promise.resolve()
+
+        let result = await GitHub.download(
+          descriptor, globalStorageUri, _ => (),
+          ~fetchFile=Some(mockFetchFile),
+          ~unzip=Some(mockUnzip),
+        )
+
+        let _ = await FS.deleteRecursive(globalStorageUri)
+
+        let expectedPath = NodeJs.Path.join([tempDir, "hardcoded-als", "als"])
+        Assert.deepStrictEqual(result, Error(GitHub.Error.BinaryMissingAfterExtraction(expectedPath)))
+      },
+    )
+
+    Async.it(
+      "should return Ok(false) and delete zip when unzip succeeds and binary exists",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-fix4-exists-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+
+        let (_, _, descriptor) = makeFakeDescriptor("als-Agda-2.8.0-macos-arm64.zip")
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+
+        let mockFetchFile = (uri: VSCode.Uri.t) => {
+          NodeJs.Fs.writeFileSync(VSCode.Uri.fsPath(uri), NodeJs.Buffer.fromString("mock download"))
+          Promise.resolve(Ok())
+        }
+
+        // unzip: succeed and create destPath/als
+        let mockUnzip = (_zipUri: VSCode.Uri.t, destUri: VSCode.Uri.t) => {
+          let binaryDir = VSCode.Uri.fsPath(destUri)
+          NodeJs.Fs.mkdirSyncWith(binaryDir, {recursive: true})
+          NodeJs.Fs.writeFileSync(
+            NodeJs.Path.join([binaryDir, "als"]),
+            NodeJs.Buffer.fromString("mock binary"),
+          )
+          Promise.resolve()
+        }
+
+        let result = await GitHub.download(
+          descriptor, globalStorageUri, _ => (),
+          ~fetchFile=Some(mockFetchFile),
+          ~unzip=Some(mockUnzip),
+        )
+
+        let zipPath = NodeJs.Path.join([tempDir, "in-flight.download.zip"])
+        let zipExistsAfter = NodeJs.Fs.existsSync(zipPath)
+        let _ = await FS.deleteRecursive(globalStorageUri)
+
+        Assert.deepStrictEqual(result, Ok(false))
+        Assert.deepStrictEqual(zipExistsAfter, false)
+      },
+    )
+
+    Async.it(
+      "should return CannotDeleteFile when zip cleanup fails after successful unzip and binary stat",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-fix4-deletefail-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+
+        let (_, _, descriptor) = makeFakeDescriptor("als-Agda-2.8.0-macos-arm64.zip")
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+
+        let mockFetchFile = (uri: VSCode.Uri.t) => {
+          NodeJs.Fs.writeFileSync(VSCode.Uri.fsPath(uri), NodeJs.Buffer.fromString("mock download"))
+          Promise.resolve(Ok())
+        }
+
+        let mockUnzip = (_zipUri: VSCode.Uri.t, destUri: VSCode.Uri.t) => {
+          let binaryDir = VSCode.Uri.fsPath(destUri)
+          NodeJs.Fs.mkdirSyncWith(binaryDir, {recursive: true})
+          NodeJs.Fs.writeFileSync(
+            NodeJs.Path.join([binaryDir, "als"]),
+            NodeJs.Buffer.fromString("mock binary"),
+          )
+          Promise.resolve()
+        }
+
+        let mockDeleteZip = (_uri: VSCode.Uri.t) =>
+          Promise.resolve(Error("simulated zip delete failure"))
+
+        let result = await GitHub.download(
+          descriptor, globalStorageUri, _ => (),
+          ~fetchFile=Some(mockFetchFile),
+          ~unzip=Some(mockUnzip),
+          ~deleteZip=Some(mockDeleteZip),
+        )
+
+        let _ = await FS.deleteRecursive(globalStorageUri)
+
+        Assert.deepStrictEqual(result, Error(GitHub.Error.CannotDeleteFile("simulated zip delete failure")))
+      },
+    )
+
+    Async.it(
+      "should return Ok(false) for WASM asset without requiring destPath/als",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-fix4-wasm-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+
+        // WASM asset name — must not trigger native ZIP verification
+        let (_, _, descriptor) = makeFakeDescriptor("als-Agda-2.8.0-macos-wasm.zip")
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+
+        let mockFetchFile = (uri: VSCode.Uri.t) => {
+          NodeJs.Fs.writeFileSync(VSCode.Uri.fsPath(uri), NodeJs.Buffer.fromString("mock download"))
+          Promise.resolve(Ok())
+        }
+
+        // If unzip is ever called for WASM this test fails, proving no regression
+        let shouldNotCallUnzip = (_zipUri: VSCode.Uri.t, _destUri: VSCode.Uri.t) => {
+          Assert.fail("unzip must not be called for WASM downloads")
+          Promise.resolve()
+        }
+
+        let result = await GitHub.download(
+          descriptor, globalStorageUri, _ => (),
+          ~fetchFile=Some(mockFetchFile),
+          ~unzip=Some(shouldNotCallUnzip),
+        )
+
+        let _ = await FS.deleteRecursive(globalStorageUri)
+
+        Assert.deepStrictEqual(result, Ok(false))
       },
     )
   })

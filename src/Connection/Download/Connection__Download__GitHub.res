@@ -19,6 +19,7 @@ module Error = {
     | CannotWriteInFlightFile(string)
     | CannotDeleteFile(string)
     | CannotRenameFile(string)
+    | BinaryMissingAfterExtraction(string)
   // // OS
   // | CannotDetermineOS(Js.Exn.t)
 
@@ -42,6 +43,8 @@ module Error = {
     | CannotWriteInFlightFile(msg) => "Cannot write in-flight sentinel file:\n" ++ msg
     | CannotDeleteFile(msg) => "Cannot to delete files:\n" ++ msg
     | CannotRenameFile(msg) => "Cannot to rename files:\n" ++ msg
+    | BinaryMissingAfterExtraction(path) =>
+      "Binary missing after extraction: expected \"" ++ path ++ "\""
     // // OS
     // | CannotDetermineOS(exn) => "Cannot determine OS:\n" ++ Util.JsError.toString(exn)
     }
@@ -389,6 +392,9 @@ module Module: {
     Download.Event.t => unit,
     ~writeInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=?,
     ~deleteInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=?,
+    ~fetchFile: option<VSCode.Uri.t => promise<result<unit, Download.Error.t>>>=?,
+    ~unzip: option<(VSCode.Uri.t, VSCode.Uri.t) => promise<unit>>=?,
+    ~deleteZip: option<VSCode.Uri.t => promise<result<unit, string>>>=?,
   ) => promise<result<bool, Error.t>>
   let isDownloading: VSCode.Uri.t => promise<bool>
 } = {
@@ -423,6 +429,9 @@ module Module: {
     repo: Repo.t,
     onDownload,
     downloadDescriptor: DownloadDescriptor.t,
+    ~fetchFile: option<VSCode.Uri.t => promise<result<unit, Download.Error.t>>>=None,
+    ~unzip: option<(VSCode.Uri.t, VSCode.Uri.t) => promise<unit>>=None,
+    ~deleteZip: option<VSCode.Uri.t => promise<result<unit, string>>>=None,
   ) => {
     // Use GitHub API URL with Accept: application/octet-stream to avoid CORS issues
     // on web when browser_download_url redirects to release-assets.githubusercontent.com
@@ -443,7 +452,11 @@ module Module: {
     )
     let destPath = VSCode.Uri.joinPath(repo.globalStorageUri, [downloadDescriptor.saveAsFileName])
 
-    let result = switch await Download.asFile(httpOptions, inFlightDownloadUri, onDownload) {
+    let doFetch = fetchFile->Option.getOr(uri => Download.asFile(httpOptions, uri, onDownload))
+    let doUnzip = unzip->Option.getOr((a, b) => Unzip.run(a, b))
+    let doDeleteZip = deleteZip->Option.getOr(FS.delete)
+
+    let result = switch await doFetch(inFlightDownloadUri) {
     | Error(e) => Error(Error.CannotDownload(e))
     | Ok() =>
       // For WASM files (detected by asset name), skip unzip and save directly
@@ -468,11 +481,18 @@ module Module: {
         | Error(e) => Error(Error.CannotRenameFile(e))
         | Ok() =>
           // unzip the downloaded file
-          await Unzip.run(inFlightDownloadZipUri, destPath)
-          // remove the zip file
-          switch await FS.delete(inFlightDownloadZipUri) {
-          | Error(e) => Error(Error.CannotDeleteFile(e))
-          | Ok() => Ok()
+          await doUnzip(inFlightDownloadZipUri, destPath)
+          // verify the binary was actually extracted
+          let execUri = VSCode.Uri.joinPath(destPath, ["als"])
+          let execPath = VSCode.Uri.fsPath(execUri)
+          switch await FS.stat(execUri) {
+          | Error(_) => Error(Error.BinaryMissingAfterExtraction(execPath))
+          | Ok(_) =>
+            // remove the zip file
+            switch await doDeleteZip(inFlightDownloadZipUri) {
+            | Error(e) => Error(Error.CannotDeleteFile(e))
+            | Ok() => Ok()
+            }
           }
         }
       }
@@ -498,6 +518,9 @@ module Module: {
     ~writeInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=uri =>
       FS.writeFile(uri, Uint8Array.fromLength(0)),
     ~deleteInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=FS.delete,
+    ~fetchFile: option<VSCode.Uri.t => promise<result<unit, Download.Error.t>>>=None,
+    ~unzip: option<(VSCode.Uri.t, VSCode.Uri.t) => promise<unit>>=None,
+    ~deleteZip: option<VSCode.Uri.t => promise<result<unit, string>>>=None,
   ) => {
     let repo: Repo.t = {
       username: "agda",
@@ -533,7 +556,7 @@ module Module: {
           | Ok() => Ok(true)
           }
         | Error(_) =>
-          switch await downloadLanguageServer(repo, reportProgress, downloadDescriptor) {
+          switch await downloadLanguageServer(repo, reportProgress, downloadDescriptor, ~fetchFile, ~unzip, ~deleteZip) {
           | Error(error) => Error(error)
           | Ok() =>
             // chmod the executable after download
