@@ -560,6 +560,61 @@ describe("Download", () => {
     )
   })
 
+  describe("cleanupInFlightFiles", () => {
+    Async.it(
+      "should delete both in-flight files when they exist",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "cleanup-inflight-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+
+        let inFlightFile = NodeJs.Path.join([tempDir, "in-flight.download"])
+        let inFlightZipFile = NodeJs.Path.join([tempDir, "in-flight.download.zip"])
+        NodeJs.Fs.writeFileSync(inFlightFile, NodeJs.Buffer.fromString("downloading..."))
+        NodeJs.Fs.writeFileSync(inFlightZipFile, NodeJs.Buffer.fromString("downloading..."))
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(inFlightFile), true)
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(inFlightZipFile), true)
+
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+        await GitHub.cleanupInFlightFiles(globalStorageUri)
+
+        let inFlightGone = !NodeJs.Fs.existsSync(inFlightFile)
+        let inFlightZipGone = !NodeJs.Fs.existsSync(inFlightZipFile)
+        let _ = await FS.deleteRecursive(globalStorageUri)
+
+        Assert.deepStrictEqual(inFlightGone, true)
+        Assert.deepStrictEqual(inFlightZipGone, true)
+      },
+    )
+
+    Async.it(
+      "should succeed when neither in-flight file exists",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "cleanup-inflight-empty-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+
+        let inFlightFile = NodeJs.Path.join([tempDir, "in-flight.download"])
+        let inFlightZipFile = NodeJs.Path.join([tempDir, "in-flight.download.zip"])
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(inFlightFile), false)
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(inFlightZipFile), false)
+
+        // Should not throw
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+        await GitHub.cleanupInFlightFiles(globalStorageUri)
+
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(inFlightFile), false)
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(inFlightZipFile), false)
+
+        let _ = await FS.deleteRecursive(globalStorageUri)
+      },
+    )
+  })
+
   describe("Integration Tests", () => {
     // will get HTTP 403 on GitHub CI macOS runners :(
     describe_skip(
