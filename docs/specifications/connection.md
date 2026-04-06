@@ -114,10 +114,11 @@ The download system has several latent failure modes. All fixes use TDD (failing
 - [ ] **Fix 1** — `suppressManagedVariants` async + `FS.stat`
 - [ ] **Fix 3** — in-flight marker before cache check (+ new error variant)
 - [ ] **Fix 4** — post-unzip binary verification (+ new error variant)
+- [ ] **Fix 5** — `Unzip.run` resolves only after extraction output is finished
 - [ ] **Fix 2** — startup in-flight cleanup (+ wiring test)
-- [ ] **Fix 5** — background update fallback to Unavailable
+- [ ] **Fix 6** — background update fallback to Unavailable
 
-Fixes 3 and 4 are in the same GitHub download critical path. Fix 2 lands after core in-flight semantics are correct.
+Fixes 3, 4, and 5 are in the same GitHub download critical path. Fix 2 lands after core in-flight semantics are correct.
 
 ---
 
@@ -266,7 +267,34 @@ Unzip.run(...)
 
 ---
 
-### Fix 5: Background update error → show Unavailable
+### Fix 5: `Unzip.run` must wait for extraction output completion
+
+**Problem:** `Unzip.run()` currently resolves on the ZIP input read stream `close` event. That only proves the input stream closed; it does **not** prove `unzipper.Extract(...)` has finished writing extracted files. After Fix 4, native ZIP downloads immediately stat `destPath/als`, so they can falsely return `BinaryMissingAfterExtraction` while extraction is still writing.
+
+**File:** `src/Connection/Download/Connection__Download__Unzip.res`
+
+**Change:** Resolve `Unzip.run(...)` only when the extractor output stream has finished/closed. Handle stream errors from both input and extraction output.
+
+Current broken shape:
+```rescript
+let readStream = NodeJs.Fs.createReadStream(srcUri->VSCode.Uri.fsPath)
+readStream->NodeJs.Fs.ReadStream.onCloseOnce(resolve)->ignore
+
+readStream
+->NodeJs.Fs.ReadStream.pipe(Unzipper.extract({"path": destUri->VSCode.Uri.fsPath}))
+->ignore
+```
+
+Required behavior:
+- input stream error → reject/fail the unzip promise
+- extraction stream error → reject/fail the unzip promise
+- extraction stream finish/close → resolve the unzip promise
+
+**Test file:** `test/tests/Connection/Test__Connection__Download.res`
+
+---
+
+### Fix 6: Background update error → show Unavailable
 
 **Problem:** The `backgroundUpdate` catch block swallows all errors. If `getAllAvailableDownloads` fails (e.g. GitHub rate-limited), the UI freezes on "Checking availability..." forever.
 

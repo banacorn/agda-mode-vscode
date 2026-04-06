@@ -1,6 +1,11 @@
 open Mocha
 
 module GitHub = Connection__Download__GitHub
+module Unzip = Connection__Download__Unzip
+
+// Generic stream event emitters for fake-stream tests
+@send external emitEvent: ('stream, string) => bool = "emit"
+@send external emitEventWithArg: ('stream, string, Js.Exn.t) => bool = "emit"
 
 describe("Download", () => {
   This.timeout(10000)
@@ -837,6 +842,140 @@ describe("Download", () => {
         let _ = await FS.deleteRecursive(globalStorageUri)
 
         Assert.deepStrictEqual(result, Ok(false))
+      },
+    )
+  })
+
+  describe("Unzip.run", () => {
+    // Race a promise against a timeout; clears the timer whether the tested promise wins or loses
+    let withTimeout = (ms, p) => {
+      let timerId: ref<option<Js.Global.timeoutId>> = ref(None)
+      let clearTimer = () => timerId.contents->Option.forEach(id => Js.Global.clearTimeout(id))
+      // Wrap p so clearTimer fires on resolution
+      let wrappedP = p->Promise.then(v => {
+        clearTimer()
+        Promise.resolve(v)
+      })
+      // Also clear on rejection (fire-and-forget side chain)
+      wrappedP->Promise.catch(_ => {
+        clearTimer()
+        Promise.resolve()
+      })->ignore
+      Promise.race([
+        wrappedP,
+        Promise.make((_, reject) => {
+          timerId :=
+            Some(
+              Js.Global.setTimeout(
+                () => {
+                  let err: Js.Exn.t = %raw(`new Error("timed out after " + ms + "ms")`)
+                  reject(err->Obj.magic)
+                },
+                ms,
+              ),
+            )
+        }),
+      ])
+    }
+
+    // Assert that a promise rejects; fails fast with a clear message if it hangs instead.
+    // Distinguishes a genuine rejection from a timeout rejection so regressions are not masked.
+    let expectToReject = async p => {
+      let didReject = ref(false)
+      try {
+        await withTimeout(1000, p)
+      } catch {
+      | Js.Exn.Error(e) =>
+        if Js.Exn.message(e)->Option.getOr("")->String.startsWith("timed out") {
+          Assert.fail("expected rejection but timed out — error event listener not wired")
+        } else {
+          didReject := true
+        }
+      | _ => didReject := true
+      }
+      Assert.deepStrictEqual(didReject.contents, true)
+    }
+
+    Async.it(
+      "attaches finish handler before piping",
+      async () => {
+        let fakeInput: NodeJs.Fs.ReadStream.t = NodeJs.Stream.PassThrough.make()->Obj.magic
+        let fakeOutput: NodeJs.Fs.WriteStream.t = NodeJs.Stream.PassThrough.make()->Obj.magic
+
+        // ~doPipe emits finish synchronously. If handlers were attached after doPipe,
+        // the event fires before onFinishOnce is wired → p never resolves → withTimeout fails.
+        let p = Unzip.run(
+          VSCode.Uri.file("/fake/src"),
+          VSCode.Uri.file("/fake/dest"),
+          ~makeStreams=Some((_, _) => (fakeInput, fakeOutput)),
+          ~doPipe=Some((_, e) => e->emitEvent("finish")->ignore),
+        )
+        await withTimeout(1000, p)
+      },
+    )
+
+    Async.it(
+      "should not resolve on input stream close, but should resolve on extractor finish",
+      async () => {
+        let fakeInput: NodeJs.Fs.ReadStream.t = NodeJs.Stream.PassThrough.make()->Obj.magic
+        let fakeOutput: NodeJs.Fs.WriteStream.t = NodeJs.Stream.PassThrough.make()->Obj.magic
+
+        let resolved = ref(false)
+        let p = Unzip.run(
+          VSCode.Uri.file("/fake/src"),
+          VSCode.Uri.file("/fake/dest"),
+          ~makeStreams=Some((_, _) => (fakeInput, fakeOutput)),
+        )
+        p->Promise.then(() => {
+          resolved := true
+          Promise.resolve()
+        })->ignore
+
+        // Emit input close — must NOT resolve (tests that we listen on extractor, not input)
+        fakeInput->emitEvent("close")->ignore
+        await Promise.resolve()
+        Assert.deepStrictEqual(resolved.contents, false)
+
+        // Emit extractor finish — MUST resolve; timeout guard ensures fast failure if not wired
+        fakeOutput->emitEvent("finish")->ignore
+        await withTimeout(1000, p)
+        Assert.deepStrictEqual(resolved.contents, true)
+      },
+    )
+
+    Async.it(
+      "should reject when input stream emits error",
+      async () => {
+        let fakeInput: NodeJs.Fs.ReadStream.t = NodeJs.Stream.PassThrough.make()->Obj.magic
+        let fakeOutput: NodeJs.Fs.WriteStream.t = NodeJs.Stream.PassThrough.make()->Obj.magic
+
+        let p = Unzip.run(
+          VSCode.Uri.file("/fake/src"),
+          VSCode.Uri.file("/fake/dest"),
+          ~makeStreams=Some((_, _) => (fakeInput, fakeOutput)),
+        )
+
+        let fakeErr: Js.Exn.t = %raw(`new Error("input stream error")`)
+        fakeInput->emitEventWithArg("error", fakeErr)->ignore
+        await expectToReject(p)
+      },
+    )
+
+    Async.it(
+      "should reject when extraction stream emits error",
+      async () => {
+        let fakeInput: NodeJs.Fs.ReadStream.t = NodeJs.Stream.PassThrough.make()->Obj.magic
+        let fakeOutput: NodeJs.Fs.WriteStream.t = NodeJs.Stream.PassThrough.make()->Obj.magic
+
+        let p = Unzip.run(
+          VSCode.Uri.file("/fake/src"),
+          VSCode.Uri.file("/fake/dest"),
+          ~makeStreams=Some((_, _) => (fakeInput, fakeOutput)),
+        )
+
+        let fakeErr: Js.Exn.t = %raw(`new Error("extraction stream error")`)
+        fakeOutput->emitEventWithArg("error", fakeErr)->ignore
+        await expectToReject(p)
       },
     )
   })
