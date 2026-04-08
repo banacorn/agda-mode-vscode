@@ -25,13 +25,14 @@ module Error = {
 module Event = {
   type t =
     | Start
-    | Progress(int, int)
+    | Progress(int, option<int>)
     | Finish
+    | Fail
 
   let toString = event =>
     switch event {
     | Start => "Starting"
-    | Progress(accum, total) =>
+    | Progress(accum, Some(total)) =>
       // if the file is larger than 10MB than we use MB as the unit
       total > 10485760
         ? "" ++
@@ -39,12 +40,15 @@ module Event = {
           " MB / " ++
           string_of_int(total / 1048576) ++ " MB"
         : "" ++ string_of_int(accum / 1024) ++ " KB / " ++ string_of_int(total / 1024) ++ " MB"
+    | Progress(accum, None) =>
+      string_of_int(accum / 1024) ++ " KB"
     | Finish => "Done"
+    | Fail => "Failed"
     }
 }
 
 module Progress = {
-  let report = async name => {
+  let report = async (name, ~withProgress=VSCode.Window.withProgress) => {
     let progressRef = ref(None)
 
     // only resolves after the download progress hits 100% or the promise is rejected
@@ -53,11 +57,11 @@ module Progress = {
     // for keeping track of the download progress
     let percentage = ref(0)
 
-    event =>
+    let handler: Event.t => unit = event =>
       switch event {
       | Event.Start =>
         // instantiate the progress bar and steal the progress report function
-        VSCode.Window.withProgress(
+        withProgress(
           {
             location: VSCode.ProgressLocation.Notification,
             title: "Downloading " ++ name,
@@ -68,11 +72,15 @@ module Progress = {
             promise // return a promise that resolves after the download progress hits 100%
           },
         )->ignore
-      | Event.Progress(accum, total) =>
-        let percentageNew = int_of_float(float_of_int(accum) /. float_of_int(total) *. 100.0)
-
-        let increment = percentageNew - percentage.contents
-        percentage := percentageNew
+      | Event.Progress(accum, totalOpt) =>
+        let increment = switch totalOpt {
+        | Some(total) =>
+          let percentageNew = int_of_float(float_of_int(accum) /. float_of_int(total) *. 100.0)
+          let inc = percentageNew - percentage.contents
+          percentage := percentageNew
+          inc
+        | None => 0
+        }
 
         // only report progress if the increment > 0
         if increment > 0 {
@@ -88,7 +96,14 @@ module Progress = {
           progress->VSCode.Progress.report({"increment": 100, "message": Event.toString(event)})
         )
         resolve()
+      | Event.Fail =>
+        progressRef.contents->Option.forEach(progress =>
+          progress->VSCode.Progress.report({"increment": 0, "message": Event.toString(event)})
+        )
+        resolve()
       }
+
+    handler
   }
 }
 
@@ -100,6 +115,10 @@ module Module: {
     {"headers": {..}, "host": string, "path": string},
     VSCode.Uri.t,
     Event.t => unit,
+    ~trace: Connection__Download__Trace.t => unit=?,
+    ~fetch: (string, {"headers": {..}}) => promise<result<Fetch.Response.t, Error.t>>=?,
+    ~readBody: Fetch.Response.t => promise<Core__Uint8Array.t>=?,
+    ~writeFile: (VSCode.Uri.t, Core__Uint8Array.t) => promise<result<unit, string>>=?,
   ) => promise<result<unit, Error.t>>
 
   let timeoutAfter: (promise<result<'a, Error.t>>, int) => promise<result<'a, Error.t>>
@@ -174,7 +193,20 @@ module Module: {
     }
   }
 
-  let asFile = async (httpOptions, destUri, onDownload) => {
+  let defaultReadBody = async (response: Fetch.Response.t) => {
+    let ab = await arrayBuffer(response)
+    Core__Uint8Array.fromBuffer(ab)
+  }
+
+  let asFile = async (
+    httpOptions: {"headers": {..}, "host": string, "path": string},
+    destUri,
+    onDownload,
+    ~trace as _trace=Connection__Download__Trace.noop,
+    ~fetch=fetchWithRedirects,
+    ~readBody=defaultReadBody,
+    ~writeFile=FS.writeFile,
+  ) => {
     let url = optionsToUrl(httpOptions)
     // Detect environment: Node.js has 'process' global, browsers have 'window'
     // On web, Accept header is CORS-safe but User-Agent triggers preflight
@@ -184,10 +216,10 @@ module Module: {
         : {"Accept": httpOptions.headers["Accept"]}
     `)
     let fetchOptions = {"headers": headers}
-    switch await fetchWithRedirects(url, fetchOptions) {
+    switch await fetch(url, fetchOptions) {
     | Ok(response) =>
       onDownload(Event.Start)
-      
+
       try {
         // Get content length for progress tracking
         let contentLength = try {
@@ -196,30 +228,28 @@ module Module: {
         | _ => None
         }
         let totalSize = switch contentLength {
-        | Some(Some(length)) => Belt.Int.fromString(length)->Option.getOr(0)
-        | _ => 0
+        | Some(Some(length)) => Belt.Int.fromString(length)
+        | _ => None
         }
-        
-        // Use arrayBuffer instead of streaming for simplicity with rescript-fetch
-        let arrayBuffer = await arrayBuffer(response)
-        let uint8Array = Core__Uint8Array.fromBuffer(arrayBuffer)
-        
+
+        let uint8Array = await readBody(response)
+
         // Report progress
         let fileSize = Core__TypedArray.length(uint8Array)
         onDownload(Event.Progress(fileSize, totalSize))
-        
+
         // Write to file using FS module
-        switch await FS.writeFile(destUri, uint8Array) {
+        switch await writeFile(destUri, uint8Array) {
         | Ok() =>
           onDownload(Event.Finish)
           Ok()
-        | Error(error) => 
+        | Error(error) =>
           let exn = Obj.magic({"message": error})
           Error(Error.CannotWriteFile(exn))
         }
       } catch {
       | Js.Exn.Error(obj) => Error(Error.CannotWriteFile(obj))
-      | _ => 
+      | _ =>
         let error = Obj.magic({"message": "Failed to download file"})
         Error(Error.CannotWriteFile(error))
       }
