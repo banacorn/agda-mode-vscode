@@ -418,6 +418,58 @@ describe("Connection__Download__Util", () => {
       Assert.deepStrictEqual(events.contents, [Util.Event.Start, Util.Event.Fail])
     })
 
+    Async.it("should pass request headers to the default fetch implementation", async () => {
+      let capturedAccept: ref<option<string>> = ref(None)
+      let capturedUserAgent: ref<option<string>> = ref(None)
+      let installFetchMock: (
+        ref<option<string>>,
+        ref<option<string>>,
+      ) => unit => unit = %raw(`
+        function(capturedAccept, capturedUserAgent) {
+          var originalFetch = globalThis.fetch;
+          globalThis.fetch = async function(_url, init) {
+            capturedAccept.contents = init.headers.get("Accept");
+            capturedUserAgent.contents = init.headers.get("User-Agent");
+            return {
+              ok: true,
+              status: 200,
+              headers: {
+                get: function(name) {
+                  return name === "content-length" ? "3" : undefined;
+                }
+              },
+              arrayBuffer: async function() {
+                return new Uint8Array([1, 2, 3]).buffer;
+              }
+            };
+          };
+          return function() {
+            globalThis.fetch = originalFetch;
+          };
+        }
+      `)
+      let restoreFetch = installFetchMock(capturedAccept, capturedUserAgent)
+      let fakeWriteFile = (_uri: VSCode.Uri.t, _bytes: Core__Uint8Array.t) => Promise.resolve(Ok())
+
+      try {
+        let result = await Util.asFile(
+          httpOptions,
+          destUri,
+          _event => (),
+          ~writeFile=fakeWriteFile,
+        )
+        restoreFetch()
+
+        Assert.deepStrictEqual(result, Ok())
+        Assert.deepStrictEqual(capturedAccept.contents, Some("application/octet-stream"))
+        Assert.deepStrictEqual(capturedUserAgent.contents, Some("test"))
+      } catch {
+      | exn =>
+        restoreFetch()
+        raise(exn)
+      }
+    })
+
     Async.it("should trace full success lifecycle in order", async () => {
       let traces = ref([])
       let onTrace = event => {
