@@ -270,7 +270,7 @@ let download = async (
   globalStorageUri,
   channel,
   ~trace=Connection__Download__Trace.noop,
-  ~fetchFile: option<(VSCode.Uri.t, ~trace: Connection__Download__Trace.t => unit=?) => promise<result<unit, Connection__Download__GitHub.Download.Error.t>>>=None,
+  ~fetchFile: option<Connection__Download__GitHub.fetchFile>=None,
   ~fetch=?,
 ) =>
   switch channel {

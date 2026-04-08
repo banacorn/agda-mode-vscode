@@ -888,12 +888,15 @@ describe("Download", () => {
       ])
       await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
       let uri = VSCode.Uri.file(tempDir)
+      let cleanup = async () => {
+        let _ = await FS.deleteRecursive(uri)
+      }
       try {
         await f(uri)
-        let _ = await FS.deleteRecursive(uri)
+        await cleanup()
       } catch {
       | exn =>
-        let _ = await FS.deleteRecursive(uri)
+        await cleanup()
         raise(exn)
       }
     }
@@ -913,13 +916,13 @@ describe("Download", () => {
           )
 
           Assert.deepStrictEqual(
-            traces.contents->Array.some(t =>
+            traces.contents->Array.filter(t =>
               switch t {
-              | Trace.FetchStarted(url) => url == invalidUrl
+              | Trace.FetchStarted(_) => true
               | _ => false
               }
             ),
-            true,
+            [Trace.FetchStarted(invalidUrl)],
           )
         })
       },
@@ -941,13 +944,13 @@ describe("Download", () => {
           let _ = await Download.download(globalStorageUri, source, ~trace=onTrace, ~fetchFile=Some(mockFetchFile))
 
           Assert.deepStrictEqual(
-            traces.contents->Array.some(t =>
+            traces.contents->Array.filter(t =>
               switch t {
-              | Trace.FetchStarted(url) => url == invalidUrl
+              | Trace.FetchStarted(_) => true
               | _ => false
               }
             ),
-            true,
+            [Trace.FetchStarted(invalidUrl)],
           )
         })
       },

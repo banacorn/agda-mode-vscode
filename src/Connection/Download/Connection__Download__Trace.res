@@ -8,7 +8,9 @@ type t =
   | WriteCompleted(VSCode.Uri.t)
   | Failed(string, string) // stage, message
 
-let noop = (_: t) => ()
+type callback = t => unit
+
+let noop: callback = _ => ()
 
 let toString = (t: t): string =>
   switch t {

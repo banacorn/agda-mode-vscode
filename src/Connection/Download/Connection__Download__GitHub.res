@@ -1,6 +1,11 @@
 module Unzip = Connection__Download__Unzip
 module Download = Connection__Download__Util
 
+type fetchFile = (
+  VSCode.Uri.t,
+  ~trace: Connection__Download__Trace.callback=?,
+) => promise<result<unit, Download.Error.t>>
+
 module Error = {
   type t =
     | ResponseDecodeError(string, Js.Json.t)
@@ -390,10 +395,10 @@ module Module: {
     DownloadDescriptor.t,
     VSCode.Uri.t,
     Download.Event.t => unit,
-    ~trace: Connection__Download__Trace.t => unit=?,
+    ~trace: Connection__Download__Trace.callback=?,
     ~writeInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=?,
     ~deleteInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=?,
-    ~fetchFile: option<(VSCode.Uri.t, ~trace: Connection__Download__Trace.t => unit=?) => promise<result<unit, Download.Error.t>>>=?,
+    ~fetchFile: option<fetchFile>=?,
     ~unzip: option<(VSCode.Uri.t, VSCode.Uri.t) => promise<unit>>=?,
     ~deleteZip: option<VSCode.Uri.t => promise<result<unit, string>>>=?,
   ) => promise<result<bool, Error.t>>
@@ -431,7 +436,7 @@ module Module: {
     onDownload,
     downloadDescriptor: DownloadDescriptor.t,
     ~trace=Connection__Download__Trace.noop,
-    ~fetchFile: option<(VSCode.Uri.t, ~trace: Connection__Download__Trace.t => unit=?) => promise<result<unit, Download.Error.t>>>=None,
+    ~fetchFile: option<fetchFile>=None,
     ~unzip: option<(VSCode.Uri.t, VSCode.Uri.t) => promise<unit>>=None,
     ~deleteZip: option<VSCode.Uri.t => promise<result<unit, string>>>=None,
   ) => {
@@ -524,7 +529,7 @@ module Module: {
     ~writeInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=uri =>
       FS.writeFile(uri, Uint8Array.fromLength(0)),
     ~deleteInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=FS.delete,
-    ~fetchFile: option<(VSCode.Uri.t, ~trace: Connection__Download__Trace.t => unit=?) => promise<result<unit, Download.Error.t>>>=None,
+    ~fetchFile: option<fetchFile>=None,
     ~unzip: option<(VSCode.Uri.t, VSCode.Uri.t) => promise<unit>>=None,
     ~deleteZip: option<VSCode.Uri.t => promise<result<unit, string>>>=None,
   ) => {

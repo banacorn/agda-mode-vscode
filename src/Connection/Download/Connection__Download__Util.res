@@ -117,7 +117,7 @@ module Module: {
     {"headers": {..}, "host": string, "path": string},
     VSCode.Uri.t,
     Event.t => unit,
-    ~trace: Connection__Download__Trace.t => unit=?,
+    ~trace: Connection__Download__Trace.callback=?,
     ~fetch: (string, {"headers": {..}}) => promise<result<Fetch.Response.t, Error.t>>=?,
     ~readBody: Fetch.Response.t => promise<Core__Uint8Array.t>=?,
     ~writeFile: (VSCode.Uri.t, Core__Uint8Array.t) => promise<result<unit, string>>=?,
