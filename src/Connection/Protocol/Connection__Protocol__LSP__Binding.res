@@ -427,17 +427,32 @@ module LanguageClient = {
         return new ctor(id, name, clientOptions, worker);
       }
 
-      const serv = () => serverOptions().then(transport => {
-        const origDispose = client.dispose.bind(client)
-        client.dispose = async (timeout) => {
-          const ret = await transport.dispose()
-          origDispose(timeout)
-          return ret
-        }
-        return transport
+      let transport
+      let onTransportReady
+      let waitUntilTransportSet = new Promise(resolve => {
+        onTransportReady = resolve
+      })
+
+      const serv = () => serverOptions().then(t => {
+        transport = t
+        onTransportReady()
+        return t
       })
 
       const client = new ctor(id, name, serv, clientOptions);
+      const origDispose = client.dispose.bind(client)
+      client.dispose = async (timeout) => {
+        let ret = -1
+        while (transport == null) {
+          await waitUntilTransportSet
+        }
+        if (transport.dispose) {
+          ret = await transport.dispose()
+          transport = undefined
+        }
+        await origDispose(timeout)
+        return ret
+      }
 
       return client;
     }
