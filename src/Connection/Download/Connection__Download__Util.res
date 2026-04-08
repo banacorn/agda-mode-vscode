@@ -130,11 +130,11 @@ module Module: {
     "https://" ++ options["host"] ++ options["path"]
 
   // Web-compatible fetch with redirects (fetch handles redirects automatically)
-  let fetchWithRedirects = async (url, options) => {
+  let fetchWithRedirects = async (url, options: {"headers": {..}}) => {
     try {
       let response = await Fetch.fetch(url, {
         method: #GET,
-        headers: Fetch.Headers.make(Fetch.Headers.Init.object(options)),
+        headers: Fetch.Headers.make(Fetch.Headers.Init.object(options["headers"])),
       })
       if Fetch.Response.ok(response) {
         Ok(response)
