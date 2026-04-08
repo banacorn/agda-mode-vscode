@@ -153,6 +153,65 @@ describe("Connection__Download__Util", () => {
       let lastReport = reportCalls.contents->Array.at(-1)
       Assert.deepStrictEqual(lastReport, Some({"increment": 100, "message": "Done"}))
     })
+
+    Async.it("should report unknown-total progress with zero increment and byte-count message", async () => {
+      let (mockWithProgress, captured, reportCalls) = makeMockWithProgress()
+      let handler = await Util.Progress.report("test", ~withProgress=mockWithProgress)
+
+      handler(Util.Event.Start)
+      let completionPromise = captured.contents->Option.getExn
+      handler(Util.Event.Progress(512000, None))
+
+      let hasUnknownTotalReport = reportCalls.contents->Array.some(r =>
+        r["increment"] == 0 && r["message"] == "500 KB"
+      )
+      Assert.deepStrictEqual(hasUnknownTotalReport, true)
+
+      handler(Util.Event.Finish)
+      let result = await Util.timeoutAfter(
+        completionPromise->Promise.then(() => Promise.resolve(Ok())),
+        100,
+      )
+      Assert.deepStrictEqual(result, Ok())
+    })
+
+    Async.it("should report only remaining increment on Event.Finish after partial progress", async () => {
+      let (mockWithProgress, captured, reportCalls) = makeMockWithProgress()
+      let handler = await Util.Progress.report("test", ~withProgress=mockWithProgress)
+
+      handler(Util.Event.Start)
+      let completionPromise = captured.contents->Option.getExn
+      handler(Util.Event.Progress(50, Some(100)))
+      handler(Util.Event.Finish)
+
+      let result = await Util.timeoutAfter(
+        completionPromise->Promise.then(() => Promise.resolve(Ok())),
+        100,
+      )
+      Assert.deepStrictEqual(result, Ok())
+
+      let lastReport = reportCalls.contents->Array.at(-1)
+      Assert.deepStrictEqual(lastReport, Some({"increment": 50, "message": "Done"}))
+    })
+
+    Async.it("should report zero increment on Event.Finish when already at 100%", async () => {
+      let (mockWithProgress, captured, reportCalls) = makeMockWithProgress()
+      let handler = await Util.Progress.report("test", ~withProgress=mockWithProgress)
+
+      handler(Util.Event.Start)
+      let completionPromise = captured.contents->Option.getExn
+      handler(Util.Event.Progress(100, Some(100)))
+      handler(Util.Event.Finish)
+
+      let result = await Util.timeoutAfter(
+        completionPromise->Promise.then(() => Promise.resolve(Ok())),
+        100,
+      )
+      Assert.deepStrictEqual(result, Ok())
+
+      let lastReport = reportCalls.contents->Array.at(-1)
+      Assert.deepStrictEqual(lastReport, Some({"increment": 0, "message": "Done"}))
+    })
   })
 
   describe("timeoutAfter", () => {

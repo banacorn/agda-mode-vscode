@@ -73,27 +73,29 @@ module Progress = {
           },
         )->ignore
       | Event.Progress(accum, totalOpt) =>
-        let increment = switch totalOpt {
-        | Some(total) =>
-          let percentageNew = int_of_float(float_of_int(accum) /. float_of_int(total) *. 100.0)
+        switch totalOpt {
+        | Some(total) when total > 0 =>
+          let percentageNew = min(100, int_of_float(float_of_int(accum) /. float_of_int(total) *. 100.0))
           let inc = percentageNew - percentage.contents
           percentage := percentageNew
-          inc
-        | None => 0
-        }
-
-        // only report progress if the increment > 0
-        if increment > 0 {
+          if inc > 0 {
+            progressRef.contents->Option.forEach(progress =>
+              progress->VSCode.Progress.report({
+                "increment": inc,
+                "message": Event.toString(event),
+              })
+            )
+          }
+        | Some(_)
+        | None =>
           progressRef.contents->Option.forEach(progress =>
-            progress->VSCode.Progress.report({
-              "increment": increment,
-              "message": Event.toString(event),
-            })
+            progress->VSCode.Progress.report({"increment": 0, "message": Event.toString(event)})
           )
         }
       | Event.Finish =>
+        let remaining = max(0, 100 - percentage.contents)
         progressRef.contents->Option.forEach(progress =>
-          progress->VSCode.Progress.report({"increment": 100, "message": Event.toString(event)})
+          progress->VSCode.Progress.report({"increment": remaining, "message": Event.toString(event)})
         )
         resolve()
       | Event.Fail =>
@@ -202,7 +204,7 @@ module Module: {
     httpOptions: {"headers": {..}, "host": string, "path": string},
     destUri,
     onDownload,
-    ~trace as _trace=Connection__Download__Trace.noop,
+    ~trace=Connection__Download__Trace.noop,
     ~fetch=fetchWithRedirects,
     ~readBody=defaultReadBody,
     ~writeFile=FS.writeFile,
@@ -216,44 +218,59 @@ module Module: {
         : {"Accept": httpOptions.headers["Accept"]}
     `)
     let fetchOptions = {"headers": headers}
+    trace(Connection__Download__Trace.FetchStarted(url))
+    onDownload(Event.Start)
     switch await fetch(url, fetchOptions) {
+    | Error(e) =>
+      trace(Connection__Download__Trace.Failed("fetch", Error.toString(e)))
+      onDownload(Event.Fail)
+      Error(e)
     | Ok(response) =>
-      onDownload(Event.Start)
+      let status = Fetch.Response.status(response)
+      let contentLength = try {
+        Some(Fetch.Response.headers(response)->Fetch.Headers.get("content-length"))
+      } catch {
+      | _ => None
+      }
+      let totalSize = switch contentLength {
+      | Some(Some(length)) => Belt.Int.fromString(length)
+      | _ => None
+      }
+      trace(Connection__Download__Trace.FetchResponseReceived(status, totalSize))
 
       try {
-        // Get content length for progress tracking
-        let contentLength = try {
-          Some(Fetch.Response.headers(response)->Fetch.Headers.get("content-length"))
-        } catch {
-        | _ => None
-        }
-        let totalSize = switch contentLength {
-        | Some(Some(length)) => Belt.Int.fromString(length)
-        | _ => None
-        }
-
+        trace(Connection__Download__Trace.BodyReadStarted)
         let uint8Array = await readBody(response)
-
-        // Report progress
         let fileSize = Core__TypedArray.length(uint8Array)
+        trace(Connection__Download__Trace.BodyProgress(fileSize, totalSize))
+        trace(Connection__Download__Trace.BodyReadCompleted(fileSize))
         onDownload(Event.Progress(fileSize, totalSize))
 
-        // Write to file using FS module
+        trace(Connection__Download__Trace.WriteStarted(destUri))
         switch await writeFile(destUri, uint8Array) {
         | Ok() =>
+          trace(Connection__Download__Trace.WriteCompleted(destUri))
           onDownload(Event.Finish)
           Ok()
         | Error(error) =>
+          trace(Connection__Download__Trace.Failed("write", error))
+          onDownload(Event.Fail)
           let exn = Obj.magic({"message": error})
           Error(Error.CannotWriteFile(exn))
         }
       } catch {
-      | Js.Exn.Error(obj) => Error(Error.CannotWriteFile(obj))
+      | Js.Exn.Error(obj) =>
+        let msg = Util.JsError.toString(obj)
+        trace(Connection__Download__Trace.Failed("body", msg))
+        onDownload(Event.Fail)
+        Error(Error.CannotWriteFile(obj))
       | _ =>
-        let error = Obj.magic({"message": "Failed to download file"})
+        let msg = "Failed to download file"
+        trace(Connection__Download__Trace.Failed("body", msg))
+        onDownload(Event.Fail)
+        let error = Obj.magic({"message": msg})
         Error(Error.CannotWriteFile(error))
       }
-    | Error(e) => Error(e)
     }
   }
 }
