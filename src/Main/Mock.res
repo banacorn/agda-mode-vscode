@@ -64,7 +64,7 @@ module Platform = {
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let resolveDownloadChannelOfLatestALS = (_memento, _globalStorageUri, _platform) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let download = (_globalStorageUri, _downloadDescriptor) =>
+    let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -85,7 +85,7 @@ module Platform = {
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let resolveDownloadChannelOfLatestALS = (_memento, _globalStorageUri, _platform) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-    let download = (_globalStorageUri, _downloadDescriptor) =>
+    let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
       Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
     let findCommand = (_command, ~timeout as _timeout=1000) =>
       Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -100,7 +100,7 @@ module Platform = {
       let resolveDownloadChannel = DownloadDescriptor.mockWith(_ => Error(
         Connection__Download.Error.CannotFindCompatibleALSRelease,
       ))
-      let download = (_globalStorageUri, _downloadDescriptor) =>
+      let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -123,7 +123,7 @@ module Platform = {
       let resolveDownloadChannel = DownloadDescriptor.mockWith(_ => Error(
         Connection__Download.Error.CannotFindCompatibleALSRelease,
       ))
-      let download = (_globalStorageUri, _downloadDescriptor) =>
+      let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -148,7 +148,7 @@ module Platform = {
           Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
       )
-      let download = (_globalStorageUri, _downloadDescriptor) => Promise.resolve(Ok(downloadedPath))
+      let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) => Promise.resolve(Ok(downloadedPath))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
     }
@@ -165,7 +165,7 @@ module Platform = {
       let resolveDownloadChannel = DownloadDescriptor.mockWith(_ => Error(
         Connection__Download.Error.CannotFindCompatibleALSRelease,
       ))
-      let download = (_globalStorageUri, _downloadDescriptor) =>
+      let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -197,7 +197,7 @@ module Platform = {
           Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
       )
-      let download = (_globalStorageUri, _downloadDescriptor) => {
+      let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) => {
         checkedDownloadFlag := true
         Promise.resolve(Ok(downloadedPath))
       }
@@ -220,7 +220,7 @@ module Platform = {
       let resolveDownloadChannel = DownloadDescriptor.mockWith(_ => Error(
         Connection__Download.Error.CannotFindCompatibleALSRelease,
       ))
-      let download = (_globalStorageUri, _downloadDescriptor) =>
+      let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -250,7 +250,7 @@ module Platform = {
         | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
       )
-      let download = (_globalStorageUri, _downloadDescriptor) => {
+      let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) => {
         checkedDownloadFlag := true
         Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
       }
@@ -293,7 +293,7 @@ module Platform = {
         | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
         }
       )
-      let download = (_globalStorageUri, source) =>
+      let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) =>
         switch source {
         | Connection__Download.Source.FromURL(Connection__Download.Channel.Hardcoded, url, _)
           if url == nativeUrl =>

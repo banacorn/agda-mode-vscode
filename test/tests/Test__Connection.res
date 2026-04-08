@@ -825,7 +825,7 @@ describe("Connection", () => {
             let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
             let resolveDownloadChannel = (_target, _) => async (_, _, _) =>
               Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-            let download = (_globalStorageUri, _downloadDescriptor) =>
+            let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
               Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
             let findCommand = (command, ~timeout as _timeout=1000) =>
               switch command {
@@ -1580,7 +1580,7 @@ describe("Connection", () => {
               | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
               }
             )
-            let download = (_globalStorageUri, source) => {
+            let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) => {
               let channel = switch source {
               | Connection__Download.Source.FromURL(ch, _, _) => Some(ch)
               | Connection__Download.Source.FromGitHub(ch, _) => Some(ch)
@@ -1632,7 +1632,7 @@ describe("Connection", () => {
               | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
               }
             )
-            let download = (_globalStorageUri, _downloadDescriptor) =>
+            let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
               Promise.resolve(Ok(downloadedAgda.contents))
             let findCommand = (_command, ~timeout as _timeout=1000) => {
               commandProbed := true
@@ -1715,7 +1715,7 @@ describe("Connection", () => {
               | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
               }
             )
-            let download = (_globalStorageUri, source) => {
+            let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) => {
               switch source {
               | Connection__Download.Source.FromURL(_, url, _)
                 if url == Connection__Hardcoded.wasmUrl =>

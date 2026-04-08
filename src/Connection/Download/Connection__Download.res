@@ -266,7 +266,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
 }
 
 // Download the given DownloadDescriptor and return the path of the downloaded file
-let download = async (globalStorageUri, channel) =>
+let download = async (globalStorageUri, channel, ~trace=Connection__Download__Trace.noop) =>
   switch channel {
   | Source.FromGitHub(_, downloadDescriptor) =>
     let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
@@ -274,6 +274,7 @@ let download = async (globalStorageUri, channel) =>
       downloadDescriptor,
       globalStorageUri,
       reportProgress,
+      ~trace,
     ) {
     | Error(error) => Error(Error.CannotDownloadALS(error))
     | Ok(_isCached) =>

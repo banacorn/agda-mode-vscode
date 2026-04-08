@@ -390,9 +390,10 @@ module Module: {
     DownloadDescriptor.t,
     VSCode.Uri.t,
     Download.Event.t => unit,
+    ~trace: Connection__Download__Trace.t => unit=?,
     ~writeInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=?,
     ~deleteInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=?,
-    ~fetchFile: option<VSCode.Uri.t => promise<result<unit, Download.Error.t>>>=?,
+    ~fetchFile: option<(VSCode.Uri.t, ~trace: Connection__Download__Trace.t => unit=?) => promise<result<unit, Download.Error.t>>>=?,
     ~unzip: option<(VSCode.Uri.t, VSCode.Uri.t) => promise<unit>>=?,
     ~deleteZip: option<VSCode.Uri.t => promise<result<unit, string>>>=?,
   ) => promise<result<bool, Error.t>>
@@ -429,7 +430,8 @@ module Module: {
     repo: Repo.t,
     onDownload,
     downloadDescriptor: DownloadDescriptor.t,
-    ~fetchFile: option<VSCode.Uri.t => promise<result<unit, Download.Error.t>>>=None,
+    ~trace=Connection__Download__Trace.noop,
+    ~fetchFile: option<(VSCode.Uri.t, ~trace: Connection__Download__Trace.t => unit=?) => promise<result<unit, Download.Error.t>>>=None,
     ~unzip: option<(VSCode.Uri.t, VSCode.Uri.t) => promise<unit>>=None,
     ~deleteZip: option<VSCode.Uri.t => promise<result<unit, string>>>=None,
   ) => {
@@ -452,11 +454,14 @@ module Module: {
     )
     let destPath = VSCode.Uri.joinPath(repo.globalStorageUri, [downloadDescriptor.saveAsFileName])
 
-    let doFetch = fetchFile->Option.getOr(uri => Download.asFile(httpOptions, uri, onDownload))
+    let doFetch = switch fetchFile {
+    | Some(f) => f
+    | None => (uri, ~trace=Connection__Download__Trace.noop) => Download.asFile(httpOptions, uri, onDownload, ~trace)
+    }
     let doUnzip = unzip->Option.getOr((a, b) => Unzip.run(a, b))
     let doDeleteZip = deleteZip->Option.getOr(FS.delete)
 
-    let result = switch await doFetch(inFlightDownloadUri) {
+    let result = switch await doFetch(inFlightDownloadUri, ~trace=trace) {
     | Error(e) => Error(Error.CannotDownload(e))
     | Ok() =>
       // For WASM files (detected by asset name), skip unzip and save directly
@@ -515,10 +520,11 @@ module Module: {
     downloadDescriptor: DownloadDescriptor.t,
     globalStorageUri,
     reportProgress,
+    ~trace=Connection__Download__Trace.noop,
     ~writeInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=uri =>
       FS.writeFile(uri, Uint8Array.fromLength(0)),
     ~deleteInFlightSentinel: VSCode.Uri.t => promise<result<unit, string>>=FS.delete,
-    ~fetchFile: option<VSCode.Uri.t => promise<result<unit, Download.Error.t>>>=None,
+    ~fetchFile: option<(VSCode.Uri.t, ~trace: Connection__Download__Trace.t => unit=?) => promise<result<unit, Download.Error.t>>>=None,
     ~unzip: option<(VSCode.Uri.t, VSCode.Uri.t) => promise<unit>>=None,
     ~deleteZip: option<VSCode.Uri.t => promise<result<unit, string>>>=None,
   ) => {
@@ -556,7 +562,7 @@ module Module: {
           | Ok() => Ok(true)
           }
         | Error(_) =>
-          switch await downloadLanguageServer(repo, reportProgress, downloadDescriptor, ~fetchFile, ~unzip, ~deleteZip) {
+          switch await downloadLanguageServer(repo, reportProgress, downloadDescriptor, ~trace, ~fetchFile, ~unzip, ~deleteZip) {
           | Error(error) => Error(error)
           | Ok() =>
             // chmod the executable after download

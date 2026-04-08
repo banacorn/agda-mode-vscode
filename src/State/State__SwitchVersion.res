@@ -815,6 +815,7 @@ module Handler = {
       )->Promise.done
     } else {
       module PlatformOps = unpack(platformDeps)
+      let onTrace = event => state.channels.log->Chan.emit(Log.DownloadTrace(event))
       let downloadResult = switch await PlatformOps.determinePlatform() {
       | Error(_) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
       | Ok(platform) =>
@@ -824,7 +825,7 @@ module Handler = {
           switch await resolver(state.memento, state.globalStorageUri, platform) {
           | Error(e) => Error(e)
           | Ok(Connection__Download.Source.FromURL(_, _, _) as source) =>
-            await PlatformOps.download(state.globalStorageUri, source)
+            await PlatformOps.download(state.globalStorageUri, source, ~trace=onTrace)
           | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
             let release = descriptor.release
             let assets = switch variant {
@@ -849,13 +850,13 @@ module Handler = {
             )
             switch matchingSource {
             | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-            | Some(src) => await PlatformOps.download(state.globalStorageUri, src)
+            | Some(src) => await PlatformOps.download(state.globalStorageUri, src, ~trace=onTrace)
             }
           }
         | _ =>
           switch Download.sourceForVariant(platform, variant, ~channel) {
           | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-          | Some(source) => await PlatformOps.download(state.globalStorageUri, source)
+          | Some(source) => await PlatformOps.download(state.globalStorageUri, source, ~trace=onTrace)
           }
         }
       }

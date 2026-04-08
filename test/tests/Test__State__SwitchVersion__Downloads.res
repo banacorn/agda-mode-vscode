@@ -748,7 +748,7 @@ describe("State__SwitchVersion", () => {
                 )
               }
 
-          let download = (_globalStorageUri, _downloadDescriptor) =>
+          let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
           let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
@@ -798,7 +798,7 @@ describe("State__SwitchVersion", () => {
             async (_memento, _globalStorageUri, _platform) =>
               Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
 
-          let download = (_globalStorageUri, _downloadDescriptor) =>
+          let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
           let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
@@ -826,7 +826,7 @@ describe("State__SwitchVersion", () => {
             async (_memento, _globalStorageUri, _platform) =>
               Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
 
-          let download = (_globalStorageUri, _downloadDescriptor) =>
+          let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
           let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
@@ -881,7 +881,7 @@ describe("State__SwitchVersion", () => {
               | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
               }
 
-          let download = (_globalStorageUri, _downloadDescriptor) =>
+          let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
 
           let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
@@ -1254,7 +1254,7 @@ describe("State__SwitchVersion", () => {
               | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
               }
             )
-            let download = (_globalStorageUri, _) =>
+            let download = (_globalStorageUri, _, ~trace as _trace=Connection__Download__Trace.noop) =>
               Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
             let findCommand = (_command, ~timeout as _timeout=1000) =>
               Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -2392,7 +2392,7 @@ describe("State__SwitchVersion", () => {
               | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
               }
             )
-            let download = (_globalStorageUri, _source) => Promise.resolve(Ok(actualDownloadedPath))
+            let download = (_globalStorageUri, _source, ~trace as _=Connection__Download__Trace.noop) => Promise.resolve(Ok(actualDownloadedPath))
             let findCommand = (_command, ~timeout as _timeout=1000) =>
               Promise.resolve(Error(Connection__Command.Error.NotFound))
           }
@@ -2474,7 +2474,7 @@ describe("State__SwitchVersion", () => {
               | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
               }
             )
-            let download = (_globalStorageUri, _source) => Promise.resolve(Ok(actualDownloadedPath))
+            let download = (_globalStorageUri, _source, ~trace as _=Connection__Download__Trace.noop) => Promise.resolve(Ok(actualDownloadedPath))
             let findCommand = (_command, ~timeout as _timeout=1000) =>
               Promise.resolve(Error(Connection__Command.Error.NotFound))
           }
@@ -4480,7 +4480,7 @@ describe("State__SwitchVersion", () => {
               | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
               }
             )
-            let download = (_globalStorageUri, source) => {
+            let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) => {
               let channel = switch source {
               | Connection__Download.Source.FromURL(ch, _, _) => Some(ch)
               | Connection__Download.Source.FromGitHub(ch, _) => Some(ch)
@@ -4662,7 +4662,7 @@ describe("State__SwitchVersion", () => {
                 | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
                 }
               )
-              let download = (_globalStorageUri, _) =>
+              let download = (_globalStorageUri, _, ~trace as _trace=Connection__Download__Trace.noop) =>
                 Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
               let findCommand = (_command, ~timeout as _timeout=1000) =>
                 Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -4731,7 +4731,7 @@ describe("State__SwitchVersion", () => {
             let alreadyDownloaded = (_, _) => Promise.resolve(None)
             let resolveDownloadChannel = (_, _) =>
               async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-            let download = (_, _) =>
+            let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
               Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
             let askUserAboutDownloadPolicy = () =>
               Promise.resolve(Config.Connection.DownloadPolicy.Yes)
@@ -5038,7 +5038,7 @@ describe("State__SwitchVersion", () => {
           let alreadyDownloaded = (_, _) => Promise.resolve(None)
           let resolveDownloadChannel = (_, _) =>
             async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-          let download = (_, _) =>
+          let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
@@ -5072,7 +5072,7 @@ describe("State__SwitchVersion", () => {
           let alreadyDownloaded = (_, _) => Promise.resolve(None)
           let resolveDownloadChannel = (_, _) =>
             async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-          let download = (_, _) =>
+          let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
@@ -5106,7 +5106,7 @@ describe("State__SwitchVersion", () => {
           let alreadyDownloaded = (_, _) => Promise.resolve(None)
           let resolveDownloadChannel = (_, _) =>
             async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-          let download = (_, _) =>
+          let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
@@ -5145,7 +5145,7 @@ describe("State__SwitchVersion", () => {
           let alreadyDownloaded = (_, _) => Promise.resolve(None)
           let resolveDownloadChannel = (_, _) =>
             async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-          let download = (_, _) =>
+          let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)

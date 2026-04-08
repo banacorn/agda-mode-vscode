@@ -702,7 +702,7 @@ describe("Download", () => {
         let globalStorageUri = VSCode.Uri.file(tempDir)
 
         // fetchFile: pretend download succeeded by writing the downloaded file at the given URI
-        let mockFetchFile = (uri: VSCode.Uri.t) => {
+        let mockFetchFile = (uri: VSCode.Uri.t, ~trace as _=Connection__Download__Trace.noop) => {
           NodeJs.Fs.writeFileSync(VSCode.Uri.fsPath(uri), NodeJs.Buffer.fromString("mock download"))
           Promise.resolve(Ok())
         }
@@ -735,7 +735,7 @@ describe("Download", () => {
         let (_, _, descriptor) = makeFakeDescriptor("als-Agda-2.8.0-macos-arm64.zip")
         let globalStorageUri = VSCode.Uri.file(tempDir)
 
-        let mockFetchFile = (uri: VSCode.Uri.t) => {
+        let mockFetchFile = (uri: VSCode.Uri.t, ~trace as _=Connection__Download__Trace.noop) => {
           NodeJs.Fs.writeFileSync(VSCode.Uri.fsPath(uri), NodeJs.Buffer.fromString("mock download"))
           Promise.resolve(Ok())
         }
@@ -778,7 +778,7 @@ describe("Download", () => {
         let (_, _, descriptor) = makeFakeDescriptor("als-Agda-2.8.0-macos-arm64.zip")
         let globalStorageUri = VSCode.Uri.file(tempDir)
 
-        let mockFetchFile = (uri: VSCode.Uri.t) => {
+        let mockFetchFile = (uri: VSCode.Uri.t, ~trace as _=Connection__Download__Trace.noop) => {
           NodeJs.Fs.writeFileSync(VSCode.Uri.fsPath(uri), NodeJs.Buffer.fromString("mock download"))
           Promise.resolve(Ok())
         }
@@ -822,7 +822,7 @@ describe("Download", () => {
         let (_, _, descriptor) = makeFakeDescriptor("als-Agda-2.8.0-macos-wasm.zip")
         let globalStorageUri = VSCode.Uri.file(tempDir)
 
-        let mockFetchFile = (uri: VSCode.Uri.t) => {
+        let mockFetchFile = (uri: VSCode.Uri.t, ~trace as _=Connection__Download__Trace.noop) => {
           NodeJs.Fs.writeFileSync(VSCode.Uri.fsPath(uri), NodeJs.Buffer.fromString("mock download"))
           Promise.resolve(Ok())
         }
@@ -842,6 +842,185 @@ describe("Download", () => {
         let _ = await FS.deleteRecursive(globalStorageUri)
 
         Assert.deepStrictEqual(result, Ok(false))
+      },
+    )
+  })
+
+  describe("download — trace wiring", () => {
+    module Trace = Connection__Download__Trace
+    module Download = Connection__Download
+
+    let invalidUrl = "https://invalid.example.com/fake.zip"
+
+    let makeFakeDescriptor = (): GitHub.DownloadDescriptor.t => {
+      let asset: GitHub.Asset.t = {
+        url: invalidUrl,
+        id: 0, node_id: "", name: "als-Agda-2.8.0-macos-arm64.zip",
+        label: None, content_type: "application/zip", state: "uploaded",
+        size: 0, created_at: "", updated_at: "",
+        browser_download_url: invalidUrl,
+      }
+      let release: GitHub.Release.t = {
+        url: "", assets_url: "", upload_url: "", html_url: "",
+        id: 0, node_id: "", tag_name: "v1", target_commitish: "",
+        name: "v1", draft: false, prerelease: false,
+        created_at: "", published_at: "",
+        assets: [asset], tarball_url: "", zipball_url: "", body: None,
+      }
+      { release, asset, saveAsFileName: "hardcoded-als" }
+    }
+
+    // Deterministic fetchFile mock: calls trace(FetchStarted) via the injected ~trace and returns
+    // immediately without a network call, proving ~trace was forwarded from download to asFile
+    let mockFetchFile = (
+      _uri: VSCode.Uri.t,
+      ~trace=Connection__Download__Trace.noop,
+    ) => {
+      trace(Trace.FetchStarted(invalidUrl))
+      Promise.resolve(Error(Connection__Download__Util.Error.NoRedirectLocation))
+    }
+
+    Async.it(
+      "GitHub.download should forward trace to asFile",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-trace-wire-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+
+        let traces: ref<array<Trace.t>> = ref([])
+        let onTrace = event => { traces := traces.contents->Array.concat([event]) }
+
+        let descriptor = makeFakeDescriptor()
+        let _ = await GitHub.download(
+          descriptor, globalStorageUri, _ => (),
+          ~trace=onTrace,
+          ~fetchFile=Some(mockFetchFile),
+        )
+
+        let _ = await FS.deleteRecursive(globalStorageUri)
+
+        Assert.deepStrictEqual(
+          traces.contents->Array.some(t =>
+            switch t {
+            | Trace.FetchStarted(url) => url == invalidUrl
+            | _ => false
+            }
+          ),
+          true,
+        )
+      },
+    )
+
+    Async.it(
+      "Connection__Download.download should forward trace to GitHub.download",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-trace-wire2-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+
+        let descriptor = makeFakeDescriptor()
+        let source = Connection__Download.Source.FromGitHub(
+          Connection__Download.Channel.Hardcoded,
+          descriptor,
+        )
+
+        let traces: ref<array<Trace.t>> = ref([])
+        let onTrace = event => { traces := traces.contents->Array.concat([event]) }
+
+        let _ = await Download.download(globalStorageUri, source, ~trace=onTrace)
+
+        let _ = await FS.deleteRecursive(globalStorageUri)
+
+        Assert.deepStrictEqual(
+          traces.contents->Array.some(t =>
+            switch t {
+            | Trace.FetchStarted(url) => url == invalidUrl
+            | _ => false
+            }
+          ),
+          true,
+        )
+      },
+    )
+
+    Async.it(
+      "handleDownload should emit DownloadTrace to state.channels.log",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-trace-log-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let channels: State.channels = {
+          inputMethod: Chan.make(),
+          responseHandled: Chan.make(),
+          commandHandled: Chan.make(),
+          log: Chan.make(),
+        }
+        let mockEditor: VSCode.TextEditor.t = %raw(`{ document: { fileName: "test.agda" } }`)
+        let mockExtensionUri = VSCode.Uri.file(NodeJs.Process.cwd(NodeJs.Process.process))
+        let state = State.make(
+          "test-id",
+          Mock.Platform.makeBasic(),
+          channels,
+          storageUri,
+          mockExtensionUri,
+          Memento.make(None),
+          mockEditor,
+          None,
+        )
+
+        let logEvents: ref<array<Log.t>> = ref([])
+        let _ = Chan.on(state.channels.log, event => {
+          logEvents := logEvents.contents->Array.concat([event])
+        })
+
+        let platform: Platform.t = {
+          module MockPlatform = {
+            let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+            let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_ =>
+              Ok(Connection__Download.Source.FromURL(
+                Connection__Download.Channel.Hardcoded,
+                "mock://trace-test",
+                "hardcoded-als",
+              ))
+            )
+            let download = (_globalStorageUri, _source, ~trace=Connection__Download__Trace.noop) => {
+              trace(Trace.FetchStarted("mock://trace-test"))
+              Promise.resolve(Ok("/mock/path"))
+            }
+            let findCommand = (_command, ~timeout as _timeout=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+          module(MockPlatform)
+        }
+
+        await State__SwitchVersion.Handler.handleDownload(
+          state, platform,
+          State__SwitchVersion.Download.Native,
+          false, "ALS vTest",
+          ~channel=Connection__Download.Channel.Hardcoded,
+        )
+
+        let _ = await FS.deleteRecursive(storageUri)
+
+        let hasDownloadTrace = logEvents.contents->Array.some(e =>
+          switch e {
+          | Log.DownloadTrace(Trace.FetchStarted("mock://trace-test")) => true
+          | _ => false
+          }
+        )
+        Assert.deepStrictEqual(hasDownloadTrace, true)
       },
     )
   })

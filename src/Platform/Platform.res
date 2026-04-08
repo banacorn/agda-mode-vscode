@@ -27,6 +27,7 @@ module type PlatformOps = {
   let download: (
     VSCode.Uri.t,
     Connection__Download.Source.t,
+    ~trace: Connection__Download__Trace.t => unit=?,
   ) => promise<result<string, Connection__Download.Error.t>>
 
   // User interaction

@@ -301,7 +301,7 @@ describe("Connection Downloads", () => {
                 ),
               )
           }
-          let download = (_globalStorageUri, _downloadDescriptor) => {
+          let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) => {
             checkedDownload := true
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           }
@@ -343,7 +343,7 @@ describe("Connection Downloads", () => {
                 ),
               )
           }
-          let download = (_globalStorageUri, _downloadDescriptor) =>
+          let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -382,7 +382,7 @@ describe("Connection Downloads", () => {
                 ),
               )
           }
-          let download = (_globalStorageUri, _downloadDescriptor) => {
+          let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) => {
             checkedDownload := true
             Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           }
@@ -463,7 +463,7 @@ describe("Connection Downloads", () => {
               checkedResolve := true
               Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
             }
-          let download = (_globalStorageUri, source) =>
+          let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) =>
             switch source {
             | Connection__Download.Source.FromURL(Hardcoded, url, _)
               if url == Connection__Hardcoded.wasmUrl =>
@@ -527,7 +527,7 @@ describe("Connection Downloads", () => {
                     "hardcoded-als",
                   ),
                 )
-            let download = (_globalStorageUri, source) =>
+            let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) =>
               switch source {
               | Connection__Download.Source.FromURL(_, url, _) if url == nativeUrl =>
                 downloadAttempts := Array.concat(downloadAttempts.contents, ["native"])
@@ -599,7 +599,7 @@ describe("Connection Downloads", () => {
                   )
                 }
               }
-            let download = (_globalStorageUri, source) =>
+            let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) =>
               switch source {
               | Connection__Download.Source.FromURL(_, url, _)
                 if url == Connection__Hardcoded.wasmUrl =>
