@@ -134,7 +134,7 @@ let toString = log =>
   | SwitchVersionUI(event) => "[ SwitchVersion    ] " ++ SwitchVersion.toString(event)
   | Connection(event) => "[ Connection       ] " ++ Connection.toString(event)
   | Config(event) => "[ Config           ] " ++ Config.toString(event)
-  | DownloadTrace(_) => "[ DownloadTrace    ]"
+  | DownloadTrace(event) => "[ DownloadTrace    ] " ++ Connection__Download__Trace.toString(event)
   | Others(str) => str
   }
 

@@ -63,7 +63,8 @@ module Web: Platform.PlatformOps = {
     }
   }
 
-  let download = Connection__Download.download
+  let download = (globalStorageUri, channel, ~trace=Connection__Download__Trace.noop) =>
+    Connection__Download.download(globalStorageUri, channel, ~trace)
 
   // Always download, because there are no alternatives in web environment
   let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)

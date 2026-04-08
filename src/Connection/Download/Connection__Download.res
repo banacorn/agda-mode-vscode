@@ -126,7 +126,7 @@ let getReleaseManifestFromGitHub = async (memento, repo, ~useCache=true) => {
 }
 
 // Download directly from a URL without GitHub release metadata and return the path of the downloaded file
-let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName) => {
+let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName, ~trace=Connection__Download__Trace.noop, ~fetch=?) => {
   let reportProgress = await Connection__Download__Util.Progress.report(displayName)
 
   // Create directory if it doesn't exist using URI operations
@@ -170,7 +170,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
         },
       }
 
-      switch await Connection__Download__Util.asFile(httpOptions, tempFileUri, reportProgress) {
+      switch await Connection__Download__Util.asFile(httpOptions, tempFileUri, reportProgress, ~trace, ~fetch?) {
       | Error(error) =>
         // Convert Connection__Download__Util.Error.t to Connection__Download__GitHub.Error.t
         let convertedError = switch error {
@@ -266,7 +266,13 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
 }
 
 // Download the given DownloadDescriptor and return the path of the downloaded file
-let download = async (globalStorageUri, channel, ~trace=Connection__Download__Trace.noop) =>
+let download = async (
+  globalStorageUri,
+  channel,
+  ~trace=Connection__Download__Trace.noop,
+  ~fetchFile: option<(VSCode.Uri.t, ~trace: Connection__Download__Trace.t => unit=?) => promise<result<unit, Connection__Download__GitHub.Download.Error.t>>>=None,
+  ~fetch=?,
+) =>
   switch channel {
   | Source.FromGitHub(_, downloadDescriptor) =>
     let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
@@ -275,6 +281,7 @@ let download = async (globalStorageUri, channel, ~trace=Connection__Download__Tr
       globalStorageUri,
       reportProgress,
       ~trace,
+      ~fetchFile,
     ) {
     | Error(error) => Error(Error.CannotDownloadALS(error))
     | Ok(_isCached) =>
@@ -296,6 +303,8 @@ let download = async (globalStorageUri, channel, ~trace=Connection__Download__Tr
       url,
       saveAsFileName,
       "Agda Language Server",
+      ~trace,
+      ~fetch?,
     )
   }
 

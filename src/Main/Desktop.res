@@ -90,7 +90,8 @@ module Desktop: Platform.PlatformOps = {
       }
     }
   }
-  let download = Connection__Download.download
+  let download = (globalStorageUri, channel, ~trace=Connection__Download__Trace.noop) =>
+    Connection__Download.download(globalStorageUri, channel, ~trace)
 
   let askUserAboutDownloadPolicy = async () => {
     let messageOptions = {
