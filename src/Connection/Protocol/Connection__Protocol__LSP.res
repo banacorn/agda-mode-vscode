@@ -83,10 +83,17 @@ module Module: Module = {
     ->Binding.LanguageClient.onRequest(self.id, callback)
     ->Binding.Disposable.toVSCodeDisposable
 
-  let destroy = self => {
+  let destroy = async self => {
     self.errorChan->Chan.destroy
     self.notificationChan->Chan.destroy
-    Binding.LanguageClient.stop(self.client, Some(200))->fromJsPromise
+    switch await Binding.LanguageClient.stop(self.client, Some(200))->fromJsPromise {
+    | Ok(()) => Ok()
+    | _ =>
+        await Binding.LanguageClient.dispose(self.client)->Promise.then(exitCode => {
+          Js.log("[DEBUG] Disposing language client with exit code " ++ exitCode->Int.toString)
+          Promise.resolve()
+        })->fromJsPromise
+    }
   }
 
   let make = async (id, name, method, serverInitOptions, clientInitOptions) => {

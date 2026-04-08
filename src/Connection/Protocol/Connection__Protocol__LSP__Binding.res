@@ -427,7 +427,19 @@ module LanguageClient = {
         return new ctor(id, name, clientOptions, worker);
       }
 
-      return new ctor(id, name, serverOptions, clientOptions);
+      const serv = () => serverOptions().then(transport => {
+        const origDispose = client.dispose.bind(client)
+        client.dispose = async (timeout) => {
+          const ret = await transport.dispose()
+          origDispose(timeout)
+          return ret
+        }
+        return transport
+      })
+
+      const client = new ctor(id, name, serv, clientOptions);
+
+      return client;
     }
   `)
 
@@ -441,6 +453,9 @@ module LanguageClient = {
 
   // default wait time: 2 seconds
   @send external stop: (t, option<int>) => promise<unit> = "stop"
+
+  @send external dispose: t => promise<'a> = "dispose"
+
   @send
   external onNotification: (t, string, 'a) => Disposable.t = "onNotification"
   // https://github.com/microsoft/vscode-languageserver-node/blob/02806427ce7251ec8fa2ff068febd9a9e59dbd2f/client/src/common/client.ts#L811C68-L811C81
