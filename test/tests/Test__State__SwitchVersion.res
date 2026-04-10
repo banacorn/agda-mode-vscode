@@ -250,6 +250,30 @@ describe("State__SwitchVersion", () => {
         )
 
         it(
+          "should infer DevALS native metadata from source-specific cached path",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind(
+                "/path/to/dev-als/als-dev-Agda-2.8.0-macos-arm64/als",
+              ),
+              Memento.ResolvedMetadata.ALS(Native, Some(("dev", "2.8.0", None))),
+            )
+          },
+        )
+
+        it(
+          "should infer DevALS WASM metadata from source-specific cached path",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind(
+                "/path/to/dev-als/als-dev-Agda-2.8.0-wasm/als.wasm",
+              ),
+              Memento.ResolvedMetadata.ALS(WASM, Some(("dev", "2.8.0", None))),
+            )
+          },
+        )
+
+        it(
           "should handle uppercase extensions",
           () => {
             Assert.deepStrictEqual(
@@ -1008,6 +1032,79 @@ describe("State__SwitchVersion", () => {
           Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
         )
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+      },
+    )
+
+    Async.it(
+      "should refine DevALS path-derived metadata from dev placeholder to probed ALS version",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-devals-refine-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let devALSPath = NodeJs.Path.join([
+          storagePath,
+          "dev-als",
+          "als-dev-Agda-2.8.0-macos-arm64",
+          "als",
+        ])
+        let parentDir = NodeJs.Path.dirname(devALSPath)
+        let content =
+          if OS.onUnix {
+            "#!/bin/sh\necho 'Agda v2.8.0 Language Server v1.2.3'\nexit 0"
+          } else {
+            "@echo Agda v2.8.0 Language Server v1.2.3"
+          }
+
+        let _ = await FS.createDirectory(VSCode.Uri.file(parentDir))
+        NodeJs.Fs.writeFileSync(devALSPath, NodeJs.Buffer.fromString(content))
+        if OS.onUnix {
+          let _ = await NodeJs.Fs.chmod(devALSPath, ~mode=0o755)
+        }
+
+        let platform = makeMockPlatform()
+        let storageUri = VSCode.Uri.file(storagePath)
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        await Config.Connection.setAgdaPaths(state.channels.log, [devALSPath])
+
+        let preProbeItemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+          manager,
+          [],
+          ~platformDeps=Some(platform),
+        )
+        let preProbeKind =
+          preProbeItemData->Array.findMap(item =>
+            switch item {
+            | Candidate(path, _, entry, _) when path == devALSPath => Some(entry.kind)
+            | _ => None
+            }
+          )
+
+        let changed = await State__SwitchVersion.SwitchVersionManager.probeVersions(
+          manager,
+          platform,
+        )
+
+        let resolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(devALSPath),
+          resource: VSCode.Uri.file(devALSPath),
+        }
+
+        Assert.deepStrictEqual(
+          preProbeKind,
+          Some(Memento.ResolvedMetadata.ALS(Native, Some(("dev", "2.8.0", None)))),
+        )
+        Assert.deepStrictEqual(changed, true)
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, resolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.ALS(Native, Some(("1.2.3", "2.8.0", None)))),
+        )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(VSCode.Uri.file(storagePath))
       },
     )
 

@@ -296,9 +296,14 @@ module SwitchVersionManager = {
 
   // Helper function to infer candidate type from filename
   let inferCandidateKind = (raw: string) => {
-    let baseName = switch Candidate.make(raw) {
-    | Candidate.Command(command) => command->String.toLowerCase
-    | Candidate.Resource(uri) => VSCode.Uri.path(uri)->NodeJs.Path.basename->String.toLowerCase
+    let (baseName, parentDirName) = switch Candidate.make(raw) {
+    | Candidate.Command(command) => (command->String.toLowerCase, None)
+    | Candidate.Resource(uri) =>
+      let path = VSCode.Uri.path(uri)
+      (
+        path->NodeJs.Path.basename->String.toLowerCase,
+        Some(path->NodeJs.Path.dirname->NodeJs.Path.basename->String.toLowerCase),
+      )
     }
     // Remove common executable extensions
     let isWasm = baseName->String.endsWith(".wasm")
@@ -312,7 +317,15 @@ module SwitchVersionManager = {
     if cleanName == "agda" || cleanName->String.startsWith("agda-") {
       ResolvedMetadata.Agda(None)
     } else if cleanName == "als" || cleanName->String.startsWith("als-") {
-      ResolvedMetadata.ALS(isWasm ? WASM : Native, None)
+      switch parentDirName {
+      | Some(dirName) when dirName->String.startsWith("als-dev-agda-") =>
+        let agdaVersion =
+          dirName
+          ->String.replaceRegExp(%re("/als-dev-agda-/"), "")
+          ->String.replaceRegExp(%re("/-.*/"), "")
+        ResolvedMetadata.ALS(isWasm ? WASM : Native, Some(("dev", agdaVersion, None)))
+      | _ => ResolvedMetadata.ALS(isWasm ? WASM : Native, None)
+      }
     } else {
       ResolvedMetadata.Unknown
     }

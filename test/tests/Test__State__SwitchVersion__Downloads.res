@@ -250,6 +250,30 @@ describe("State__SwitchVersion", () => {
         )
 
         it(
+          "should infer DevALS native metadata from source-specific cached path",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind(
+                "/path/to/dev-als/als-dev-Agda-2.8.0-macos-arm64/als",
+              ),
+              Memento.ResolvedMetadata.ALS(Native, Some(("dev", "2.8.0", None))),
+            )
+          },
+        )
+
+        it(
+          "should infer DevALS WASM metadata from source-specific cached path",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind(
+                "/path/to/dev-als/als-dev-Agda-2.8.0-wasm/als.wasm",
+              ),
+              Memento.ResolvedMetadata.ALS(WASM, Some(("dev", "2.8.0", None))),
+            )
+          },
+        )
+
+        it(
           "should handle uppercase extensions",
           () => {
             Assert.deepStrictEqual(
