@@ -89,10 +89,10 @@ module Module: Module = {
     switch await Binding.LanguageClient.stop(self.client, Some(200))->fromJsPromise {
     | Ok(()) => Ok()
     | _ =>
-        await Binding.LanguageClient.dispose(self.client)->Promise.then(exitCode => {
-          Js.log("[DEBUG] Disposing language client with exit code " ++ exitCode->Int.toString)
-          Promise.resolve()
-        })->fromJsPromise
+      await self.client->Binding.LanguageClient.dispose->Promise.then(exitCode => {
+        Js.log2("[DEBUG] Disposing language client with result", exitCode)
+        Promise.resolve()
+      })->fromJsPromise
     }
   }
 
