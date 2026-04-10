@@ -1138,6 +1138,60 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should show DevALS WASM downloaded candidate as dev build before probing",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-devals-wasm-label-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let devALSWasmPath = NodeJs.Path.join([
+          storagePath,
+          "dev-als",
+          "als-dev-Agda-2.8.0-wasm",
+          "als.wasm",
+        ])
+        let parentDir = NodeJs.Path.dirname(devALSWasmPath)
+        let platform = makeMockPlatform()
+        let storageUri = VSCode.Uri.file(storagePath)
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        let _ = await FS.createDirectory(VSCode.Uri.file(parentDir))
+        NodeJs.Fs.writeFileSync(devALSWasmPath, NodeJs.Buffer.fromString("wasm"))
+
+        await Config.Connection.setAgdaPaths(state.channels.log, [devALSWasmPath])
+
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+          manager,
+          [],
+          ~platformDeps=Some(platform),
+        )
+        let label =
+          itemData->Array.findMap(item =>
+            switch item {
+            | Candidate(path, _, entry, _) when path == devALSWasmPath =>
+              Some(
+                State__SwitchVersion.Item.fromItemData(
+                  Candidate(path, path, entry, false),
+                  TestData.createMockExtensionUri(),
+                ).label,
+              )
+            | _ => None
+            }
+          )
+
+        Assert.deepStrictEqual(
+          label,
+          Some("$(squirrel)  Agda 2.8.0 Language Server (dev build) WASM"),
+        )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(VSCode.Uri.file(storagePath))
+      },
+    )
+
+    Async.it(
       "should treat alias-equivalent candidate selection as unchanged",
       async () => {
         let state = createTestState()
@@ -1710,6 +1764,27 @@ describe("State__SwitchVersion", () => {
             Assert.strictEqual(
               actual.label,
               "$(squirrel)  Agda 2.6.4 Language Server v1.2.3 WASM",
+            )
+          },
+        )
+
+        it(
+          "should create DevALS WASM item with dev-build label",
+          () => {
+            let entry = TestData.createMockEntry(ALS(WASM, Some(("dev", "2.8.0", None))), ())
+            let itemData: State__SwitchVersion.ItemData.t = Candidate(
+              "vscode-userdata:/global/dev-als/als-dev-Agda-2.8.0-wasm/als.wasm",
+              "vscode-userdata:/global/dev-als/als-dev-Agda-2.8.0-wasm/als.wasm",
+              entry,
+              false,
+            )
+            let actual = State__SwitchVersion.Item.fromItemData(
+              itemData,
+              VSCode.Uri.file("/extension/path"),
+            )
+            Assert.strictEqual(
+              actual.label,
+              "$(squirrel)  Agda 2.8.0 Language Server (dev build) WASM",
             )
           },
         )
