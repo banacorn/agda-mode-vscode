@@ -575,28 +575,50 @@ module Download = {
     }
   }
 
+  let expectedPathForSource = (
+    globalStorageUri: VSCode.Uri.t,
+    source: Connection__Download.Source.t,
+  ): string => Connection__Download.expectedPathForSource(globalStorageUri, source)
+
+  let isDownloadedSource = async (
+    globalStorageUri: VSCode.Uri.t,
+    source: Connection__Download.Source.t,
+  ): bool =>
+    switch await FS.stat(Connection__Download.expectedUriForSource(globalStorageUri, source)) {
+    | Ok(_) => true
+    | Error(_) => false
+    }
+
+  type sourceDownloadItem = {
+    downloaded: bool,
+    versionString: string,
+    variantTag: string,
+    source: option<Connection__Download.Source.t>,
+  }
+
   let suppressManagedVariants = async (
     globalStorageUri: VSCode.Uri.t,
     configPaths: array<string>,
-    downloadItems: array<(bool, string, string)>,
-    ~channel: Connection__Download.Channel.t=Hardcoded,
-  ): array<(bool, string, string)> => {
-    let shouldKeep = async ((_, _, variantTag)) =>
-      switch variantFromTag(variantTag) {
+    downloadItems: array<sourceDownloadItem>,
+  ): array<sourceDownloadItem> => {
+    let shouldKeep = async item => {
+      switch item.source {
       | None => true
-      | Some(variant) =>
-        let expectedPath = expectedPathForVariant(globalStorageUri, variant, ~channel)
+      | Some(source) =>
+        let expectedPath = expectedPathForSource(globalStorageUri, source)
         let expectedCandidate = Candidate.make(expectedPath)
         let inConfig = configPaths->Array.some(configPath =>
           Candidate.equal(Candidate.make(configPath), expectedCandidate))
         if !inConfig {
           true
         } else {
-          let uri = VSCode.Uri.joinPath(globalStorageUri, [channelToDirName(channel), variantFileName(variant)])
-          let fileExists = (await FS.stat(uri))->Result.isOk
+          let fileExists =
+            (await FS.stat(Connection__Download.expectedUriForSource(globalStorageUri, source)))
+            ->Result.isOk
           !fileExists
         }
       }
+    }
     let keeps = await Promise.all(downloadItems->Array.map(shouldKeep))
     downloadItems->Array.filterWithIndex((_, i) => Belt.Array.getExn(keeps, i))
   }
@@ -642,9 +664,21 @@ module Download = {
     variant: variant,
     source: Connection__Download.Source.t,
     ~channel: Connection__Download.Channel.t=Hardcoded,
-  ): (bool, string, string) => {
-    let downloaded = await isDownloaded(state.globalStorageUri, variant, ~channel)
-    (downloaded, Connection__Download.Source.toVersionString(source), variantToTag(variant))
+  ): sourceDownloadItem => {
+    let downloaded = await isDownloadedSource(state.globalStorageUri, source)
+    {
+      downloaded,
+      versionString: Connection__Download.Source.toVersionString(source),
+      variantTag: variantToTag(variant),
+      source: Some(source),
+    }
+  }
+
+  let unavailableSourceItem = (variant: variant): sourceDownloadItem => {
+    downloaded: false,
+    versionString: Constants.downloadUnavailable,
+    variantTag: variantToTag(variant),
+    source: None,
   }
 
   let unavailableItem = (variant: variant): (bool, string, string) => (
@@ -705,21 +739,21 @@ module Download = {
     module PlatformOps = unpack(platformDeps)
 
     let allItems = switch await PlatformOps.determinePlatform() {
-    | Error(_) => [unavailableItem(Native), unavailableItem(WASM)]
+    | Error(_) => [unavailableSourceItem(Native), unavailableSourceItem(WASM)]
     | Ok(Connection__Download__Platform.Web) =>
       let wasmSource = sourceForVariant(Connection__Download__Platform.Web, WASM, ~channel)
       switch wasmSource {
       | Some(source) => [await makeDownloadItem(state, WASM, source, ~channel)]
-      | None => [unavailableItem(WASM)]
+      | None => [unavailableSourceItem(WASM)]
       }
     | Ok(platform) =>
       switch channel {
       | DevALS =>
         let resolver = PlatformOps.resolveDownloadChannel(channel, true)
         switch await resolver(state.memento, state.globalStorageUri, platform) {
-        | Error(_) => [unavailableItem(Native), unavailableItem(WASM)]
+        | Error(_) => [unavailableSourceItem(Native), unavailableSourceItem(WASM)]
         | Ok(Connection__Download.Source.FromURL(_, _, _)) =>
-          [unavailableItem(Native), unavailableItem(WASM)]
+          [unavailableSourceItem(Native), unavailableSourceItem(WASM)]
         | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
           let release = descriptor.release
           let nativeAssets = Connection__DevALS.allNativeAssetsForPlatform(release, platform)
@@ -745,17 +779,22 @@ module Download = {
       | _ =>
         let nativeItem = switch sourceForVariant(platform, Native, ~channel) {
         | Some(source) => await makeDownloadItem(state, Native, source, ~channel)
-        | None => unavailableItem(Native)
+        | None => unavailableSourceItem(Native)
         }
         let wasmItem = switch sourceForVariant(platform, WASM, ~channel) {
         | Some(source) => await makeDownloadItem(state, WASM, source, ~channel)
-        | None => unavailableItem(WASM)
+        | None => unavailableSourceItem(WASM)
         }
         [nativeItem, wasmItem]
       }
     }
 
-    await suppressManagedVariants(state.globalStorageUri, Config.Connection.getAgdaPaths(), allItems, ~channel)
+    let filteredItems = await suppressManagedVariants(
+      state.globalStorageUri,
+      Config.Connection.getAgdaPaths(),
+      allItems,
+    )
+    filteredItems->Array.map(item => (item.downloaded, item.versionString, item.variantTag))
   }
 }
 

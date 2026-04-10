@@ -117,6 +117,29 @@ let uriToPath = (uri: VSCode.Uri.t): string =>
     VSCode.Uri.toString(uri)
   }
 
+let expectedUriForSource = (globalStorageUri: VSCode.Uri.t, source: Source.t): VSCode.Uri.t => {
+  let fileName = switch source {
+  | Source.FromGitHub(_, descriptor) =>
+    if descriptor.asset.name->String.includes("wasm") {
+      "als.wasm"
+    } else {
+      "als"
+    }
+  | Source.FromURL(_, url, _) => if url->String.endsWith(".wasm") { "als.wasm" } else { "als" }
+  }
+
+  let directoryParts = switch source {
+  | Source.FromGitHub(_, descriptor) =>
+    Connection__Download__GitHub.downloadDirectoryParts(descriptor)
+  | Source.FromURL(_, _, saveAsFileName) => [saveAsFileName]
+  }
+
+  VSCode.Uri.joinPath(globalStorageUri, Array.concat(directoryParts, [fileName]))
+}
+
+let expectedPathForSource = (globalStorageUri: VSCode.Uri.t, source: Source.t): string =>
+  expectedUriForSource(globalStorageUri, source)->uriToPath
+
 // Get release manifest from cache if available, otherwise fetch from GitHub
 let getReleaseManifestFromGitHub = async (memento, repo, ~useCache=true) => {
   switch await Connection__Download__GitHub.ReleaseManifest.fetch(memento, repo, ~useCache) {
@@ -286,16 +309,7 @@ let download = async (
     | Error(error) => Error(Error.CannotDownloadALS(error))
     | Ok(_isCached) =>
       // For WASM assets (detected by filename), use als.wasm, otherwise als
-      let fileName = if downloadDescriptor.asset.name->String.includes("wasm") {
-        "als.wasm"
-      } else {
-        "als"
-      }
-      let destUri = VSCode.Uri.joinPath(
-        globalStorageUri,
-        [downloadDescriptor.saveAsFileName, fileName],
-      )
-      Ok(uriToPath(destUri))
+      Ok(expectedPathForSource(globalStorageUri, channel))
     }
   | Source.FromURL(_, url, saveAsFileName) =>
     await downloadFromURL(
@@ -313,6 +327,37 @@ let download = async (
 // Platform-specific implementations (Desktop, Web) should override this
 // to avoid platform mismatches (e.g., web finding native binaries).
 let alreadyDownloaded = async (globalStorageUri, channel) => {
+  let findNestedDownloaded = async (rootUri: VSCode.Uri.t, fileName: string): option<string> =>
+    switch await FS.readDirectory(rootUri) {
+    | Error(_) => None
+    | Ok(entries) =>
+      let sortedEntries = entries->Array.toSorted(((a, _), (b, _)) =>
+        if a > b {
+          -1.
+        } else if a < b {
+          1.
+        } else {
+          0.
+        }
+      )
+      let rec loop = async i =>
+        if i >= Array.length(sortedEntries) {
+          None
+        } else {
+          let (name, fileType) = Belt.Array.getExn(sortedEntries, i)
+          if fileType != VSCode.FileType.Directory {
+            await loop(i + 1)
+          } else {
+            let candidateUri = VSCode.Uri.joinPath(rootUri, [name, fileName])
+            switch await FS.stat(candidateUri) {
+            | Ok(_) => Some(uriToPath(candidateUri))
+            | Error(_) => await loop(i + 1)
+            }
+          }
+        }
+      await loop(0)
+    }
+
   switch channel {
   | Channel.LatestALS => {
       let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
@@ -331,7 +376,11 @@ let alreadyDownloaded = async (globalStorageUri, channel) => {
         let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als"])
         switch await FS.stat(alsUri) {
         | Ok(_) => Some(alsUri->VSCode.Uri.fsPath)
-        | Error(_) => None
+        | Error(_) =>
+          switch await findNestedDownloaded(VSCode.Uri.joinPath(globalStorageUri, ["dev-als"]), "als.wasm") {
+          | Some(path) => Some(path)
+          | None => await findNestedDownloaded(VSCode.Uri.joinPath(globalStorageUri, ["dev-als"]), "als")
+          }
         }
       }
     }

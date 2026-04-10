@@ -8,6 +8,37 @@ module Desktop: Platform.PlatformOps = {
   let findCommand = Connection__Command.search
 
   let alreadyDownloaded = async (globalStorageUri, channel) => {
+    let findNestedDownloaded = async (rootUri: VSCode.Uri.t, fileName: string): option<string> =>
+      switch await FS.readDirectory(rootUri) {
+      | Error(_) => None
+      | Ok(entries) =>
+        let sortedEntries = entries->Array.toSorted(((a, _), (b, _)) =>
+          if a > b {
+            -1.
+          } else if a < b {
+            1.
+          } else {
+            0.
+          }
+        )
+        let rec loop = async i =>
+          if i >= Array.length(sortedEntries) {
+            None
+          } else {
+            let (name, fileType) = Belt.Array.getExn(sortedEntries, i)
+            if fileType != VSCode.FileType.Directory {
+              await loop(i + 1)
+            } else {
+              let candidateUri = VSCode.Uri.joinPath(rootUri, [name, fileName])
+              switch await FS.stat(candidateUri) {
+              | Ok(_) => Some(VSCode.Uri.fsPath(candidateUri))
+              | Error(_) => await loop(i + 1)
+              }
+            }
+          }
+        await loop(0)
+      }
+
     switch channel {
     | Connection__Download.Channel.LatestALS => {
         let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
@@ -28,8 +59,14 @@ module Desktop: Platform.PlatformOps = {
           Util.log("[ debug ] alreadyDownloaded DevALS: found", alsUri->VSCode.Uri.fsPath)
           Some(alsUri->VSCode.Uri.fsPath)
         | Error(_) =>
-          Util.log("[ debug ] alreadyDownloaded DevALS: not found", alsUri->VSCode.Uri.fsPath)
-          None
+          switch await findNestedDownloaded(VSCode.Uri.joinPath(globalStorageUri, ["dev-als"]), "als") {
+          | Some(path) =>
+            Util.log("[ debug ] alreadyDownloaded DevALS: nested found", path)
+            Some(path)
+          | None =>
+            Util.log("[ debug ] alreadyDownloaded DevALS: not found", alsUri->VSCode.Uri.fsPath)
+            None
+          }
         }
       }
     | Connection__Download.Channel.Hardcoded => {

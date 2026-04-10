@@ -4647,6 +4647,15 @@ describe("State__SwitchVersion", () => {
         }
       }
 
+      let makeDevSource = (assetName: string): Connection__Download.Source.t => {
+        let release = makeDevRelease()
+        Connection__Download.Source.FromGitHub(Connection__Download.Channel.DevALS, {
+          Connection__Download__GitHub.DownloadDescriptor.asset: makeDevAsset(assetName),
+          release,
+          saveAsFileName: "dev-als",
+        })
+      }
+
       let makeDevALSPlatform = (): Platform.t => {
         let devDescriptor = makeDevDescriptor()
         {
@@ -4675,18 +4684,8 @@ describe("State__SwitchVersion", () => {
         }
       }
 
-      // Intentional red-contract helper:
-      // different DevALS assets must not collide in one shared dev-als/als cache path.
-      // The exact path policy can change later, but it must be source-specific.
-      let expectedDevALSAssetDir = (storageUri: VSCode.Uri.t, assetStem: string) =>
-        VSCode.Uri.joinPath(storageUri, ["dev-als/" ++ assetStem])
-
-      let expectedDevALSAssetPath = (
-        storageUri: VSCode.Uri.t,
-        assetStem: string,
-        fileName: string,
-      ) =>
-        VSCode.Uri.joinPath(expectedDevALSAssetDir(storageUri, assetStem), [fileName])
+      let fileParentUri = (fileUri: VSCode.Uri.t): VSCode.Uri.t =>
+        VSCode.Uri.file(NodeJs.Path.dirname(VSCode.Uri.fsPath(fileUri)))
 
       Async.it(
         "should return 6 items (3 native + 3 wasm) for MacOS_Arm with 3 Agda versions",
@@ -4719,16 +4718,15 @@ describe("State__SwitchVersion", () => {
             "agda-devals-source-downloaded-" ++ string_of_int(int_of_float(Js.Date.now())),
           ])
           let storageUri = VSCode.Uri.file(storagePath)
-          let downloadedDir = expectedDevALSAssetDir(
-            storageUri,
-            "als-dev-Agda-2.8.0-macos-arm64",
+          let downloadedSource = makeDevSource("als-dev-Agda-2.8.0-macos-arm64.zip")
+          let otherSource = makeDevSource("als-dev-Agda-2.7.0.1-macos-arm64.zip")
+          let downloadedNative = Connection__Download.expectedUriForSource(storageUri, downloadedSource)
+          let downloadedDir = fileParentUri(downloadedNative)
+          Assert.notDeepStrictEqual(
+            Connection__Download.expectedPathForSource(storageUri, downloadedSource),
+            Connection__Download.expectedPathForSource(storageUri, otherSource),
           )
           let _ = await FS.createDirectory(downloadedDir)
-          let downloadedNative = expectedDevALSAssetPath(
-            storageUri,
-            "als-dev-Agda-2.8.0-macos-arm64",
-            "als",
-          )
           let _ = await FS.writeFile(downloadedNative, Uint8Array.fromLength(0))
 
           let state = createTestStateWithPlatformAndStorage(platform, storageUri)
@@ -4760,22 +4758,16 @@ describe("State__SwitchVersion", () => {
             "agda-devals-source-suppress-" ++ string_of_int(int_of_float(Js.Date.now())),
           ])
           let storageUri = VSCode.Uri.file(storagePath)
-          let downloadedDir = expectedDevALSAssetDir(
-            storageUri,
-            "als-dev-Agda-2.8.0-macos-arm64",
-          )
+          let downloadedSource = makeDevSource("als-dev-Agda-2.8.0-macos-arm64.zip")
+          let downloadedNative = Connection__Download.expectedUriForSource(storageUri, downloadedSource)
+          let downloadedDir = fileParentUri(downloadedNative)
           let _ = await FS.createDirectory(downloadedDir)
-          let downloadedNative = expectedDevALSAssetPath(
-            storageUri,
-            "als-dev-Agda-2.8.0-macos-arm64",
-            "als",
-          )
           let _ = await FS.writeFile(downloadedNative, Uint8Array.fromLength(0))
 
           let state = createTestStateWithPlatformAndStorage(platform, storageUri)
           let previousPaths = Config.Connection.getAgdaPaths()
           await Config.Connection.setAgdaPaths(state.channels.log, [
-            VSCode.Uri.fsPath(downloadedNative),
+            Connection__Download.expectedPathForSource(storageUri, downloadedSource),
           ])
 
           let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(

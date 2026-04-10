@@ -391,6 +391,7 @@ module ReleaseManifest: {
 }
 
 module Module: {
+  let downloadDirectoryParts: DownloadDescriptor.t => array<string>
   let download: (
     DownloadDescriptor.t,
     VSCode.Uri.t,
@@ -404,6 +405,16 @@ module Module: {
   ) => promise<result<bool, Error.t>>
   let isDownloading: VSCode.Uri.t => promise<bool>
 } = {
+  let assetStem = (asset: Asset.t): string =>
+    asset.name->String.replaceRegExp(%re("/\\.(zip|wasm)$/"), "")
+
+  let downloadDirectoryParts = (downloadDescriptor: DownloadDescriptor.t): array<string> =>
+    if downloadDescriptor.saveAsFileName == "dev-als" {
+      [downloadDescriptor.saveAsFileName, assetStem(downloadDescriptor.asset)]
+    } else {
+      [downloadDescriptor.saveAsFileName]
+    }
+
   let inFlightDownloadFileName = "in-flight.download"
 
   // in-flight download will be named as "in-flight.download"
@@ -457,7 +468,10 @@ module Module: {
       repo.globalStorageUri,
       [inFlightDownloadFileName ++ ".zip"],
     )
-    let destPath = VSCode.Uri.joinPath(repo.globalStorageUri, [downloadDescriptor.saveAsFileName])
+    let destPath = VSCode.Uri.joinPath(
+      repo.globalStorageUri,
+      downloadDirectoryParts(downloadDescriptor),
+    )
 
     let doFetch = switch fetchFile {
     | Some(f) => f
@@ -552,7 +566,10 @@ module Module: {
       | Error(e) => Error(Error.CannotWriteInFlightFile(e))
       | Ok() =>
         // don't download from GitHub if the binary already exists
-        let destUri = VSCode.Uri.joinPath(repo.globalStorageUri, [downloadDescriptor.saveAsFileName])
+        let destUri = VSCode.Uri.joinPath(
+          repo.globalStorageUri,
+          downloadDirectoryParts(downloadDescriptor),
+        )
         let fileName = if downloadDescriptor.asset.name->String.includes("wasm") {
           "als.wasm"
         } else {
