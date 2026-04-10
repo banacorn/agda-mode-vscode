@@ -4586,90 +4586,112 @@ describe("State__SwitchVersion", () => {
     )
 
     describe("getAllAvailableDownloads — DevALS", () => {
+      let makeDevAsset = (name): Connection__Download__GitHub.Asset.t => {
+        url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+        id: 0,
+        node_id: "",
+        name,
+        label: Some(""),
+        content_type: "application/zip",
+        state: "uploaded",
+        size: 1000000,
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+        browser_download_url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+      }
+
+      let makeDevRelease = (): Connection__Download__GitHub.Release.t => {
+        url: "https://api.github.com/repos/agda/agda-language-server/releases/dev",
+        assets_url: "https://api.github.com/repos/agda/agda-language-server/releases/dev/assets",
+        upload_url: "https://uploads.github.com/repos/agda/agda-language-server/releases/dev/assets",
+        html_url: "https://github.com/agda/agda-language-server/releases/tag/dev",
+        id: 1,
+        node_id: "dev",
+        tag_name: "dev",
+        target_commitish: "main",
+        name: "dev",
+        draft: false,
+        prerelease: true,
+        created_at: "2024-01-01T00:00:00Z",
+        published_at: "2024-01-01T00:00:00Z",
+        assets: [
+          makeDevAsset("als-dev-Agda-2.8.0-macos-arm64.zip"),
+          makeDevAsset("als-dev-Agda-2.8.0-macos-x64.zip"),
+          makeDevAsset("als-dev-Agda-2.8.0-ubuntu.zip"),
+          makeDevAsset("als-dev-Agda-2.8.0-windows.zip"),
+          makeDevAsset("als-dev-Agda-2.8.0-wasm.wasm"),
+          makeDevAsset("als-dev-Agda-2.7.0.1-macos-arm64.zip"),
+          makeDevAsset("als-dev-Agda-2.7.0.1-macos-x64.zip"),
+          makeDevAsset("als-dev-Agda-2.7.0.1-ubuntu.zip"),
+          makeDevAsset("als-dev-Agda-2.7.0.1-windows.zip"),
+          makeDevAsset("als-dev-Agda-2.7.0.1-wasm.wasm"),
+          makeDevAsset("als-dev-Agda-2.6.4.3-macos-arm64.zip"),
+          makeDevAsset("als-dev-Agda-2.6.4.3-macos-x64.zip"),
+          makeDevAsset("als-dev-Agda-2.6.4.3-ubuntu.zip"),
+          makeDevAsset("als-dev-Agda-2.6.4.3-windows.zip"),
+          makeDevAsset("als-dev-Agda-2.6.4.3-wasm.wasm"),
+        ],
+        tarball_url: "https://api.github.com/repos/agda/agda-language-server/tarball/dev",
+        zipball_url: "https://api.github.com/repos/agda/agda-language-server/zipball/dev",
+        body: Some("Dev build"),
+      }
+
+      let makeDevDescriptor = (): Connection__Download__GitHub.DownloadDescriptor.t => {
+        let release = makeDevRelease()
+        {
+          Connection__Download__GitHub.DownloadDescriptor.asset: makeDevAsset(
+            "als-dev-Agda-2.8.0-macos-arm64.zip",
+          ),
+          release,
+          saveAsFileName: "dev-als",
+        }
+      }
+
+      let makeDevALSPlatform = (): Platform.t => {
+        let devDescriptor = makeDevDescriptor()
+        {
+          module MockDevALSPlatform = {
+            let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+            let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+              switch channel {
+              | Connection__Download.Channel.DevALS =>
+                Ok(
+                  Connection__Download.Source.FromGitHub(
+                    Connection__Download.Channel.DevALS,
+                    devDescriptor,
+                  ),
+                )
+              | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              }
+            )
+            let download = (_globalStorageUri, _, ~trace as _trace=Connection__Download__Trace.noop) =>
+              Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            let findCommand = (_command, ~timeout as _timeout=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+          module(MockDevALSPlatform)
+        }
+      }
+
+      // Intentional red-contract helper:
+      // different DevALS assets must not collide in one shared dev-als/als cache path.
+      // The exact path policy can change later, but it must be source-specific.
+      let expectedDevALSAssetDir = (storageUri: VSCode.Uri.t, assetStem: string) =>
+        VSCode.Uri.joinPath(storageUri, ["dev-als/" ++ assetStem])
+
+      let expectedDevALSAssetPath = (
+        storageUri: VSCode.Uri.t,
+        assetStem: string,
+        fileName: string,
+      ) =>
+        VSCode.Uri.joinPath(expectedDevALSAssetDir(storageUri, assetStem), [fileName])
+
       Async.it(
         "should return 6 items (3 native + 3 wasm) for MacOS_Arm with 3 Agda versions",
         async () => {
-          let makeDevAsset = (name): Connection__Download__GitHub.Asset.t => {
-            url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
-            id: 0,
-            node_id: "",
-            name,
-            label: Some(""),
-            content_type: "application/zip",
-            state: "uploaded",
-            size: 1000000,
-            created_at: "2024-01-01T00:00:00Z",
-            updated_at: "2024-01-01T00:00:00Z",
-            browser_download_url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
-          }
-
-          let devRelease: Connection__Download__GitHub.Release.t = {
-            url: "https://api.github.com/repos/agda/agda-language-server/releases/dev",
-            assets_url: "https://api.github.com/repos/agda/agda-language-server/releases/dev/assets",
-            upload_url: "https://uploads.github.com/repos/agda/agda-language-server/releases/dev/assets",
-            html_url: "https://github.com/agda/agda-language-server/releases/tag/dev",
-            id: 1,
-            node_id: "dev",
-            tag_name: "dev",
-            target_commitish: "main",
-            name: "dev",
-            draft: false,
-            prerelease: true,
-            created_at: "2024-01-01T00:00:00Z",
-            published_at: "2024-01-01T00:00:00Z",
-            assets: [
-              makeDevAsset("als-dev-Agda-2.8.0-macos-arm64.zip"),
-              makeDevAsset("als-dev-Agda-2.8.0-macos-x64.zip"),
-              makeDevAsset("als-dev-Agda-2.8.0-ubuntu.zip"),
-              makeDevAsset("als-dev-Agda-2.8.0-windows.zip"),
-              makeDevAsset("als-dev-Agda-2.8.0-wasm.wasm"),
-              makeDevAsset("als-dev-Agda-2.7.0.1-macos-arm64.zip"),
-              makeDevAsset("als-dev-Agda-2.7.0.1-macos-x64.zip"),
-              makeDevAsset("als-dev-Agda-2.7.0.1-ubuntu.zip"),
-              makeDevAsset("als-dev-Agda-2.7.0.1-windows.zip"),
-              makeDevAsset("als-dev-Agda-2.7.0.1-wasm.wasm"),
-              makeDevAsset("als-dev-Agda-2.6.4.3-macos-arm64.zip"),
-              makeDevAsset("als-dev-Agda-2.6.4.3-macos-x64.zip"),
-              makeDevAsset("als-dev-Agda-2.6.4.3-ubuntu.zip"),
-              makeDevAsset("als-dev-Agda-2.6.4.3-windows.zip"),
-              makeDevAsset("als-dev-Agda-2.6.4.3-wasm.wasm"),
-            ],
-            tarball_url: "https://api.github.com/repos/agda/agda-language-server/tarball/dev",
-            zipball_url: "https://api.github.com/repos/agda/agda-language-server/zipball/dev",
-            body: Some("Dev build"),
-          }
-
-          let devDescriptor: Connection__Download__GitHub.DownloadDescriptor.t = {
-            asset: makeDevAsset("als-dev-Agda-2.8.0-macos-arm64.zip"),
-            release: devRelease,
-            saveAsFileName: "dev-als",
-          }
-
-          let platform: Platform.t = {
-            module MockDevALSPlatform = {
-              let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
-              let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
-              let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
-              let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
-                switch channel {
-                | Connection__Download.Channel.DevALS =>
-                  Ok(
-                    Connection__Download.Source.FromGitHub(
-                      Connection__Download.Channel.DevALS,
-                      devDescriptor,
-                    ),
-                  )
-                | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-                }
-              )
-              let download = (_globalStorageUri, _, ~trace as _trace=Connection__Download__Trace.noop) =>
-                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-              let findCommand = (_command, ~timeout as _timeout=1000) =>
-                Promise.resolve(Error(Connection__Command.Error.NotFound))
-            }
-            module(MockDevALSPlatform)
-          }
-
+          let platform = makeDevALSPlatform()
           let state = createTestStateWithPlatform(platform)
           let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
             state,
@@ -4679,6 +4701,93 @@ describe("State__SwitchVersion", () => {
 
           Assert.deepStrictEqual(downloadItems, [
             (false, "Agda v2.8.0 Language Server (dev build)", "native"),
+            (false, "Agda v2.7.0.1 Language Server (dev build)", "native"),
+            (false, "Agda v2.6.4.3 Language Server (dev build)", "native"),
+            (false, "Agda v2.8.0 Language Server (dev build)", "wasm"),
+            (false, "Agda v2.7.0.1 Language Server (dev build)", "wasm"),
+            (false, "Agda v2.6.4.3 Language Server (dev build)", "wasm"),
+          ])
+        },
+      )
+
+      Async.it(
+        "should mark only the matching DevALS native source as downloaded",
+        async () => {
+          let platform = makeDevALSPlatform()
+          let storagePath = NodeJs.Path.join([
+            NodeJs.Os.tmpdir(),
+            "agda-devals-source-downloaded-" ++ string_of_int(int_of_float(Js.Date.now())),
+          ])
+          let storageUri = VSCode.Uri.file(storagePath)
+          let downloadedDir = expectedDevALSAssetDir(
+            storageUri,
+            "als-dev-Agda-2.8.0-macos-arm64",
+          )
+          let _ = await FS.createDirectory(downloadedDir)
+          let downloadedNative = expectedDevALSAssetPath(
+            storageUri,
+            "als-dev-Agda-2.8.0-macos-arm64",
+            "als",
+          )
+          let _ = await FS.writeFile(downloadedNative, Uint8Array.fromLength(0))
+
+          let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+          let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+            state,
+            platform,
+            ~channel=Connection__Download.Channel.DevALS,
+          )
+
+          let _ = await FS.deleteRecursive(storageUri)
+
+          Assert.deepStrictEqual(downloadItems, [
+            (true, "Agda v2.8.0 Language Server (dev build)", "native"),
+            (false, "Agda v2.7.0.1 Language Server (dev build)", "native"),
+            (false, "Agda v2.6.4.3 Language Server (dev build)", "native"),
+            (false, "Agda v2.8.0 Language Server (dev build)", "wasm"),
+            (false, "Agda v2.7.0.1 Language Server (dev build)", "wasm"),
+            (false, "Agda v2.6.4.3 Language Server (dev build)", "wasm"),
+          ])
+        },
+      )
+
+      Async.it(
+        "should suppress only the configured matching DevALS native source",
+        async () => {
+          let platform = makeDevALSPlatform()
+          let storagePath = NodeJs.Path.join([
+            NodeJs.Os.tmpdir(),
+            "agda-devals-source-suppress-" ++ string_of_int(int_of_float(Js.Date.now())),
+          ])
+          let storageUri = VSCode.Uri.file(storagePath)
+          let downloadedDir = expectedDevALSAssetDir(
+            storageUri,
+            "als-dev-Agda-2.8.0-macos-arm64",
+          )
+          let _ = await FS.createDirectory(downloadedDir)
+          let downloadedNative = expectedDevALSAssetPath(
+            storageUri,
+            "als-dev-Agda-2.8.0-macos-arm64",
+            "als",
+          )
+          let _ = await FS.writeFile(downloadedNative, Uint8Array.fromLength(0))
+
+          let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+          let previousPaths = Config.Connection.getAgdaPaths()
+          await Config.Connection.setAgdaPaths(state.channels.log, [
+            VSCode.Uri.fsPath(downloadedNative),
+          ])
+
+          let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+            state,
+            platform,
+            ~channel=Connection__Download.Channel.DevALS,
+          )
+
+          await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+          let _ = await FS.deleteRecursive(storageUri)
+
+          Assert.deepStrictEqual(downloadItems, [
             (false, "Agda v2.7.0.1 Language Server (dev build)", "native"),
             (false, "Agda v2.6.4.3 Language Server (dev build)", "native"),
             (false, "Agda v2.8.0 Language Server (dev build)", "wasm"),
