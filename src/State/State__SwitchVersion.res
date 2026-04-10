@@ -439,7 +439,17 @@ module SwitchVersionManager = {
           )
           Some(path)
         | Ok((resolved, IsALSWASM(_))) =>
-          await Memento.ResolvedMetadata.setKind(self.memento, resolved, ALS(WASM, None))
+          let kind = switch Memento.ResolvedMetadata.get(self.memento, resolved) {
+          | Some({kind: ResolvedMetadata.ALS(WASM, Some(versionInfo))}) =>
+            ResolvedMetadata.ALS(WASM, Some(versionInfo))
+          | _ =>
+            switch inferCandidateKind(path) {
+            | ResolvedMetadata.ALS(WASM, Some(versionInfo)) =>
+              ResolvedMetadata.ALS(WASM, Some(versionInfo))
+            | _ => ResolvedMetadata.ALS(WASM, None)
+            }
+          }
+          await Memento.ResolvedMetadata.setKind(self.memento, resolved, kind)
           Some(path)
         | Error(error) =>
           let (_, errorBody) = Connection__Error.toString(Establish(error))
