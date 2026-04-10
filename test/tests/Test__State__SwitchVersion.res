@@ -1192,6 +1192,51 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should preserve DevALS WASM path-derived metadata during background probing",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-devals-wasm-probe-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let devALSWasmPath = NodeJs.Path.join([
+          storagePath,
+          "dev-als",
+          "als-dev-Agda-2.8.0-wasm",
+          "als.wasm",
+        ])
+        let parentDir = NodeJs.Path.dirname(devALSWasmPath)
+        let platform = makeMockPlatform()
+        let storageUri = VSCode.Uri.file(storagePath)
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+        let resolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(devALSWasmPath),
+          resource: VSCode.Uri.file(devALSWasmPath),
+        }
+
+        let _ = await FS.createDirectory(VSCode.Uri.file(parentDir))
+        NodeJs.Fs.writeFileSync(devALSWasmPath, NodeJs.Buffer.fromString("wasm"))
+
+        await Config.Connection.setAgdaPaths(state.channels.log, [devALSWasmPath])
+
+        let changed = await State__SwitchVersion.SwitchVersionManager.probeVersions(
+          manager,
+          platform,
+        )
+
+        Assert.deepStrictEqual(changed, true)
+        Assert.deepStrictEqual(
+          Memento.ResolvedMetadata.get(state.memento, resolved)->Option.map(entry => entry.kind),
+          Some(Memento.ResolvedMetadata.ALS(WASM, Some(("dev", "2.8.0", None)))),
+        )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(VSCode.Uri.file(storagePath))
+      },
+    )
+
+    Async.it(
       "should treat alias-equivalent candidate selection as unchanged",
       async () => {
         let state = createTestState()

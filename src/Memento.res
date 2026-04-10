@@ -125,9 +125,17 @@ module Module: {
       | Agda(Some(version)) => "Agda v" ++ version
       | Agda(None) => "Agda (version unknown)"
       | ALS(Native, Some((alsVersion, agdaVersion, _lspOptions))) =>
-        "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
+        if alsVersion == "dev" {
+          "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
+        } else {
+          "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
+        }
       | ALS(WASM, Some((alsVersion, agdaVersion, _lspOptions))) =>
-        "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion ++ " WASM"
+        if alsVersion == "dev" {
+          "Agda v" ++ agdaVersion ++ " Language Server (dev build) WASM"
+        } else {
+          "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion ++ " WASM"
+        }
       | ALS(Native, None) => "Agda Language Server (version unknown)"
       | ALS(WASM, None) => "Agda Language Server (version unknown) WASM"
       | Unknown => "Unknown"

@@ -69,19 +69,18 @@ module ItemData = {
     switch (entry.kind, entry.error) {
     | (Agda(Some(version)), _) => (Constants.agdaVersionPrefix ++ version, None)
     | (Agda(None), _) => ("Agda (version unknown)", None)
-    | (ALS(Native, Some((alsVersion, agdaVersion, _))), _) => (
-        Constants.alsWithSquirrel ++
-        agdaVersion ++
-        " Language Server v" ++
-        alsVersion,
+    | (ALS(Native, Some((alsVersion, agdaVersion, _))), _) =>
+      (
+        alsVersion == "dev"
+          ? Constants.alsWithSquirrel ++ agdaVersion ++ " Language Server (dev build)"
+          : Constants.alsWithSquirrel ++ agdaVersion ++ " Language Server v" ++ alsVersion,
         None,
       )
-    | (ALS(WASM, Some((alsVersion, agdaVersion, _))), _) => (
-        Constants.alsWithSquirrel ++
-        agdaVersion ++
-        " Language Server v" ++
-        alsVersion ++
-        " WASM",
+    | (ALS(WASM, Some((alsVersion, agdaVersion, _))), _) =>
+      (
+        alsVersion == "dev"
+          ? Constants.alsWithSquirrel ++ agdaVersion ++ " Language Server (dev build) WASM"
+          : Constants.alsWithSquirrel ++ agdaVersion ++ " Language Server v" ++ alsVersion ++ " WASM",
         None,
       )
     | (ALS(Native, None), _) => ("$(squirrel)  Agda Language Server (version unknown)", None)
