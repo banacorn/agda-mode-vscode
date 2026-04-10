@@ -109,9 +109,11 @@ module Module: Module = {
         | Error(error) => Error(Error.CommWithALS(error))
         | Ok(_) => Ok()
         }
-      | ALSWASM(_) =>
-        // TODO: implement WASM connection destruction
-        Ok()
+      | ALSWASM(conn, _, _, _) =>
+        switch await ALS.destroy(conn) {
+        | Error(error) => Error(Error.CommWithALS(error))
+        | Ok(_) => Ok()
+        }
       }
     }
 
