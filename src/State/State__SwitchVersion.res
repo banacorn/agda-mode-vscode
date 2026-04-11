@@ -73,14 +73,19 @@ module ItemData = {
       (
         alsVersion == "dev"
           ? Constants.alsWithSquirrel ++ agdaVersion ++ " Language Server (dev build)"
-          : Constants.alsWithSquirrel ++ agdaVersion ++ " Language Server v" ++ alsVersion,
+          : Constants.alsWithSquirrel ++
+            agdaVersion ++
+            " Language Server " ++ Connection__Download.DownloadArtifact.versionLabel(alsVersion),
         None,
       )
     | (ALS(WASM, Some((alsVersion, agdaVersion, _))), _) =>
       (
         alsVersion == "dev"
           ? Constants.alsWithSquirrel ++ agdaVersion ++ " Language Server (dev build) WASM"
-          : Constants.alsWithSquirrel ++ agdaVersion ++ " Language Server v" ++ alsVersion ++ " WASM",
+          : Constants.alsWithSquirrel ++
+            agdaVersion ++
+            " Language Server " ++
+            Connection__Download.DownloadArtifact.versionLabel(alsVersion) ++ " WASM",
         None,
       )
     | (ALS(Native, None), _) => ("$(squirrel)  Agda Language Server (version unknown)", None)
@@ -295,13 +300,20 @@ module SwitchVersionManager = {
 
   // Helper function to infer candidate type from filename
   let inferCandidateKind = (raw: string) => {
-    let (baseName, parentDirName) = switch Candidate.make(raw) {
-    | Candidate.Command(command) => (command->String.toLowerCase, None)
+    let (baseName, parentDirName, releaseDirName, isUnderManagedReleases) = switch Candidate.make(
+      raw,
+    ) {
+    | Candidate.Command(command) => (command->String.toLowerCase, None, None, false)
     | Candidate.Resource(uri) =>
       let path = VSCode.Uri.path(uri)
+      let parentPath = path->NodeJs.Path.dirname
+      let releasePath = parentPath->NodeJs.Path.dirname
+      let releasesPath = releasePath->NodeJs.Path.dirname
       (
         path->NodeJs.Path.basename->String.toLowerCase,
-        Some(path->NodeJs.Path.dirname->NodeJs.Path.basename->String.toLowerCase),
+        Some(parentPath->NodeJs.Path.basename),
+        Some(releasePath->NodeJs.Path.basename),
+        releasesPath->NodeJs.Path.basename == "releases",
       )
     }
     // Remove common executable extensions
@@ -318,13 +330,22 @@ module SwitchVersionManager = {
     } else if cleanName == "als" || cleanName->String.startsWith("als-") {
       switch parentDirName {
       | Some(dirName) =>
-        switch Connection__Download.AssetName.parse(dirName) {
-        | Some(parsed) =>
-          ResolvedMetadata.ALS(
-            isWasm ? WASM : Native,
-            Some((parsed.alsVersion, parsed.agdaVersion, None)),
-          )
-        | None => ResolvedMetadata.ALS(isWasm ? WASM : Native, None)
+        switch Connection__Download.DownloadArtifact.parseName(dirName) {
+        | Some(artifact) =>
+          switch releaseDirName {
+          | Some(releaseDirName)
+              if isUnderManagedReleases && releaseDirName != artifact.releaseTag =>
+            ResolvedMetadata.Unknown
+          | _ =>
+            ResolvedMetadata.ALS(
+              isWasm ? WASM : Native,
+              Some((artifact.releaseTag, artifact.agdaVersion, None)),
+            )
+          }
+        | None =>
+          isUnderManagedReleases
+            ? ResolvedMetadata.Unknown
+            : ResolvedMetadata.ALS(isWasm ? WASM : Native, None)
         }
       | _ => ResolvedMetadata.ALS(isWasm ? WASM : Native, None)
       }
@@ -688,7 +709,6 @@ module Download = {
     state: State.t,
     variant: variant,
     source: Connection__Download.Source.t,
-    ~channel: Connection__Download.Channel.t=Hardcoded,
   ): sourceDownloadItem => {
     let downloaded = await isDownloadedSource(state.globalStorageUri, source)
     {
@@ -768,7 +788,7 @@ module Download = {
     | Ok(Connection__Download__Platform.Web) =>
       let wasmSource = sourceForVariant(Connection__Download__Platform.Web, WASM, ~channel)
       switch wasmSource {
-      | Some(source) => [await makeDownloadItem(state, WASM, source, ~channel)]
+      | Some(source) => [await makeDownloadItem(state, WASM, source)]
       | None => [unavailableSourceItem(WASM)]
       }
     | Ok(platform) =>
@@ -791,23 +811,23 @@ module Download = {
             })
           let nativeItems = await Promise.all(
             nativeAssets->Array.map(async asset =>
-              await makeDownloadItem(state, Native, makeSource(asset), ~channel)
+              await makeDownloadItem(state, Native, makeSource(asset))
             ),
           )
           let wasmItems = await Promise.all(
             wasmAssets->Array.map(async asset =>
-              await makeDownloadItem(state, WASM, makeSource(asset), ~channel)
+              await makeDownloadItem(state, WASM, makeSource(asset))
             ),
           )
           Array.concat(nativeItems, wasmItems)
         }
       | _ =>
         let nativeItem = switch sourceForVariant(platform, Native, ~channel) {
-        | Some(source) => await makeDownloadItem(state, Native, source, ~channel)
+        | Some(source) => await makeDownloadItem(state, Native, source)
         | None => unavailableSourceItem(Native)
         }
         let wasmItem = switch sourceForVariant(platform, WASM, ~channel) {
-        | Some(source) => await makeDownloadItem(state, WASM, source, ~channel)
+        | Some(source) => await makeDownloadItem(state, WASM, source)
         | None => unavailableSourceItem(WASM)
         }
         [nativeItem, wasmItem]

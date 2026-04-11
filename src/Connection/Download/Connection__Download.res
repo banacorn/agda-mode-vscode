@@ -9,31 +9,100 @@ module Channel = {
     | LatestALS => "Latest Agda Language Server"
     | DevALS => "Development Agda Language Server"
     | Hardcoded => "Hardcoded Agda Language Server"
-    }
+  }
 }
 
-module AssetName = {
-  type parsed = {
-    alsVersion: string,
-    agdaVersion: string,
-    platform: string,
+module DownloadArtifact = {
+  module Platform = {
+    type t =
+      | Wasm
+      | Ubuntu
+      | MacOSArm64
+      | MacOSX64
+      | Windows
+
+    let parse = tag =>
+      switch tag {
+      | "wasm" => Some(Wasm)
+      | "ubuntu" => Some(Ubuntu)
+      | "macos-arm64" => Some(MacOSArm64)
+      | "macos-x64" => Some(MacOSX64)
+      | "windows" => Some(Windows)
+      | _ => None
+      }
+
+    let toAssetTag = platform =>
+      switch platform {
+      | Wasm => "wasm"
+      | Ubuntu => "ubuntu"
+      | MacOSArm64 => "macos-arm64"
+      | MacOSX64 => "macos-x64"
+      | Windows => "windows"
+      }
+
+    let isWasm = platform =>
+      switch platform {
+      | Wasm => true
+      | _ => false
+      }
+
+    let matchesDownloadPlatform = (artifactPlatform, downloadPlatform) =>
+      switch (artifactPlatform, downloadPlatform) {
+      | (Windows, Connection__Download__Platform.Windows) => true
+      | (Ubuntu, Connection__Download__Platform.Ubuntu) => true
+      | (MacOSArm64, Connection__Download__Platform.MacOS_Arm) => true
+      | (MacOSX64, Connection__Download__Platform.MacOS_Intel) => true
+      | (Wasm, Connection__Download__Platform.Web) => true
+      | _ => false
+      }
   }
 
-  let stripKnownExtension = raw =>
-    if raw->String.endsWith(".wasm") {
-      raw->String.slice(~start=0, ~end=String.length(raw) - 5)
-    } else if raw->String.endsWith(".zip") {
-      raw->String.slice(~start=0, ~end=String.length(raw) - 4)
-    } else {
-      raw
+  type t = {
+    releaseTag: string,
+    agdaVersion: string,
+    platform: Platform.t,
+  }
+
+  let extensionMatchesPlatform = (platform, extension) =>
+    switch (platform, extension) {
+    | (_, None) => true
+    | (Platform.Wasm, Some("wasm")) => true
+    | (Platform.Wasm, Some(_)) => false
+    | (_, Some("zip")) => true
+    | (_, Some(_)) => false
     }
 
-  let parse = (raw: string): option<parsed> =>
-    switch String.match(stripKnownExtension(raw), %re("/^als-([^-]+)-agda-([0-9]+(?:\.[0-9]+)*)-(.+)$/i")) {
-    | Some([_, Some(alsVersion), Some(agdaVersion), Some(platform)]) =>
-      platform->String.includes(".") ? None : Some({alsVersion, agdaVersion, platform})
+  let parseName = (raw: string): option<t> =>
+    switch String.match(
+      raw,
+      %re("/^als-([A-Za-z0-9.]+)-Agda-([0-9]+(?:\.[0-9]+)*)-(wasm|ubuntu|macos-arm64|macos-x64|windows)(?:\.(wasm|zip))?$/"),
+    ) {
+    | Some([_, Some(releaseTag), Some(agdaVersion), Some(platformTag), extension]) =>
+      switch Platform.parse(platformTag) {
+      | Some(platform) if extensionMatchesPlatform(platform, extension) =>
+        Some({releaseTag, agdaVersion, platform})
+      | _ => None
+      }
     | _ => None
     }
+
+  let cacheName = artifact =>
+    "als-" ++
+    artifact.releaseTag ++
+    "-Agda-" ++ artifact.agdaVersion ++ "-" ++ Platform.toAssetTag(artifact.platform)
+
+  let versionLabel = releaseTag =>
+    releaseTag->String.startsWith("v") ? releaseTag : "v" ++ releaseTag
+
+  let managedExecutableUri = (globalStorageUri: VSCode.Uri.t, artifact: t): VSCode.Uri.t => {
+    let executableName = Platform.isWasm(artifact.platform) ? "als.wasm" : "als"
+    VSCode.Uri.joinPath(globalStorageUri, [
+      "releases",
+      artifact.releaseTag,
+      cacheName(artifact),
+      executableName,
+    ])
+  }
 }
 
 module Source = {
@@ -56,12 +125,16 @@ module Source = {
       let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
         switch abstractChannel {
         | Channel.LatestALS =>
-          asset.name
-          ->String.replaceRegExp(%re("/als-Agda-/"), "")
-          ->String.replaceRegExp(%re("/-.*/"), "")
+          switch DownloadArtifact.parseName(asset.name) {
+          | Some(artifact) => artifact.agdaVersion
+          | None =>
+            asset.name
+            ->String.replaceRegExp(%re("/als-Agda-/"), "")
+            ->String.replaceRegExp(%re("/-.*/"), "")
+          }
         | Channel.DevALS =>
-          switch AssetName.parse(asset.name) {
-          | Some(parsed) => parsed.agdaVersion
+          switch DownloadArtifact.parseName(asset.name) {
+          | Some(artifact) => artifact.agdaVersion
           | None =>
             asset.name
             ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
@@ -78,11 +151,17 @@ module Source = {
       switch abstractChannel {
       | Channel.LatestALS =>
         let alsVersion =
-          descriptor.release.name
-          ->String.split(".")
-          ->Array.last
-          ->Option.getOr(descriptor.release.name)
-        "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
+          switch DownloadArtifact.parseName(descriptor.asset.name) {
+          | Some(artifact) => artifact.releaseTag
+          | None =>
+            descriptor.release.name
+            ->String.split(".")
+            ->Array.last
+            ->Option.getOr(descriptor.release.name)
+          }
+        "Agda v" ++ agdaVersion ++ " Language Server " ++ DownloadArtifact.versionLabel(
+          alsVersion,
+        )
       | Channel.DevALS =>
         "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
       | Channel.Hardcoded =>
@@ -91,7 +170,9 @@ module Source = {
           ->String.split(".")
           ->Array.last
           ->Option.getOr(descriptor.release.name)
-        "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
+        "Agda v" ++ agdaVersion ++ " Language Server " ++ DownloadArtifact.versionLabel(
+          alsVersion,
+        )
       }
     | FromURL(abstractChannel, url, _) =>
       switch abstractChannel {

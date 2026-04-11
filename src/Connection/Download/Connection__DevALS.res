@@ -9,18 +9,24 @@ let makeRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
 let chooseAssetByPlatform = (release: Connection__Download__GitHub.Release.t, platform): array<
   Connection__Download__GitHub.Asset.t,
 > => {
-  let assetName = Connection__Download__Platform.toAssetName(platform)
   release.assets->Array.filter(asset =>
     asset.name->String.endsWith(".zip") &&
-      switch Connection__Download.AssetName.parse(asset.name) {
-      | Some(parsed) => parsed.platform == assetName
+      switch Connection__Download.DownloadArtifact.parseName(asset.name) {
+      | Some(artifact) =>
+        Connection__Download.DownloadArtifact.Platform.matchesDownloadPlatform(
+          artifact.platform,
+          platform,
+        )
       | None => false
       }
   )
 }
 
 let getAgdaVersionFromAssetName = (asset: Connection__Download__GitHub.Asset.t) =>
-  Connection__Download.AssetName.parse(asset.name)->Option.mapOr("", parsed => parsed.agdaVersion)
+  Connection__Download.DownloadArtifact.parseName(asset.name)->Option.mapOr(
+    "",
+    artifact => artifact.agdaVersion,
+  )
 
 let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>, platform) => {
   // target the specific "dev" release
@@ -55,12 +61,15 @@ let allNativeAssetsForPlatform = (
   release: Connection__Download__GitHub.Release.t,
   platform,
 ): array<Connection__Download__GitHub.Asset.t> => {
-  let assetName = Connection__Download__Platform.toAssetName(platform)
   release.assets
   ->Array.filter(asset =>
     asset.name->String.endsWith(".zip") &&
-      switch Connection__Download.AssetName.parse(asset.name) {
-      | Some(parsed) => parsed.platform == assetName
+      switch Connection__Download.DownloadArtifact.parseName(asset.name) {
+      | Some(artifact) =>
+        Connection__Download.DownloadArtifact.Platform.matchesDownloadPlatform(
+          artifact.platform,
+          platform,
+        )
       | None => false
       }
   )
@@ -75,8 +84,8 @@ let allWasmAssets = (
   release.assets
   ->Array.filter(asset =>
     asset.name->String.endsWith(".wasm") &&
-      switch Connection__Download.AssetName.parse(asset.name) {
-      | Some(parsed) => parsed.platform == "wasm"
+      switch Connection__Download.DownloadArtifact.parseName(asset.name) {
+      | Some(artifact) => artifact.platform == Connection__Download.DownloadArtifact.Platform.Wasm
       | None => false
       }
   )
