@@ -317,12 +317,15 @@ module SwitchVersionManager = {
       ResolvedMetadata.Agda(None)
     } else if cleanName == "als" || cleanName->String.startsWith("als-") {
       switch parentDirName {
-      | Some(dirName) when dirName->String.startsWith("als-dev-agda-") =>
-        let agdaVersion =
-          dirName
-          ->String.replaceRegExp(%re("/als-dev-agda-/"), "")
-          ->String.replaceRegExp(%re("/-.*/"), "")
-        ResolvedMetadata.ALS(isWasm ? WASM : Native, Some(("dev", agdaVersion, None)))
+      | Some(dirName) =>
+        switch Connection__Download.AssetName.parse(dirName) {
+        | Some(parsed) =>
+          ResolvedMetadata.ALS(
+            isWasm ? WASM : Native,
+            Some((parsed.alsVersion, parsed.agdaVersion, None)),
+          )
+        | None => ResolvedMetadata.ALS(isWasm ? WASM : Native, None)
+        }
       | _ => ResolvedMetadata.ALS(isWasm ? WASM : Native, None)
       }
     } else {

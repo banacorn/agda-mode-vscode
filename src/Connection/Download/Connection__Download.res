@@ -12,6 +12,30 @@ module Channel = {
     }
 }
 
+module AssetName = {
+  type parsed = {
+    alsVersion: string,
+    agdaVersion: string,
+    platform: string,
+  }
+
+  let stripKnownExtension = raw =>
+    if raw->String.endsWith(".wasm") {
+      raw->String.slice(~start=0, ~end=String.length(raw) - 5)
+    } else if raw->String.endsWith(".zip") {
+      raw->String.slice(~start=0, ~end=String.length(raw) - 4)
+    } else {
+      raw
+    }
+
+  let parse = (raw: string): option<parsed> =>
+    switch String.match(stripKnownExtension(raw), %re("/^als-([^-]+)-agda-([0-9]+(?:\.[0-9]+)*)-(.+)$/i")) {
+    | Some([_, Some(alsVersion), Some(agdaVersion), Some(platform)]) =>
+      platform->String.includes(".") ? None : Some({alsVersion, agdaVersion, platform})
+    | _ => None
+    }
+}
+
 module Source = {
   type t =
     | FromGitHub(Channel.t, Connection__Download__GitHub.DownloadDescriptor.t)
