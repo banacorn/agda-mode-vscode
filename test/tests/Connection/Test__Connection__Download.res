@@ -48,6 +48,206 @@ describe("Download", () => {
     })
   })
 
+  describe("DownloadArtifact", () => {
+    let expectParsed = (raw, releaseTag, agdaVersion, platform) =>
+      switch Connection__Download.DownloadArtifact.parseName(raw) {
+      | Some(parsed) =>
+        Assert.deepStrictEqual(parsed.releaseTag, releaseTag)
+        Assert.deepStrictEqual(parsed.agdaVersion, agdaVersion)
+        Assert.deepStrictEqual(parsed.platform, platform)
+      | None => Assert.fail("expected DownloadArtifact to parse: " ++ raw)
+      }
+
+    let expectRejected = raw =>
+      Assert.deepStrictEqual(Connection__Download.DownloadArtifact.parseName(raw), None)
+
+    it("should parse canonical WASM artifact filenames with typed platform", () => {
+      expectParsed(
+        "als-dev-Agda-2.8.0-wasm.wasm",
+        "dev",
+        "2.8.0",
+        Connection__Download.DownloadArtifact.Platform.Wasm,
+      )
+      expectParsed(
+        "als-v6-Agda-2.8.0-wasm.wasm",
+        "v6",
+        "2.8.0",
+        Connection__Download.DownloadArtifact.Platform.Wasm,
+      )
+    })
+
+    it("should parse canonical native artifact filenames with typed platform", () => {
+      expectParsed(
+        "als-v6-Agda-2.8.0-ubuntu.zip",
+        "v6",
+        "2.8.0",
+        Connection__Download.DownloadArtifact.Platform.Ubuntu,
+      )
+      expectParsed(
+        "als-v6-Agda-2.8.0-macos-arm64.zip",
+        "v6",
+        "2.8.0",
+        Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+      )
+      expectParsed(
+        "als-v6-Agda-2.8.0-macos-x64.zip",
+        "v6",
+        "2.8.0",
+        Connection__Download.DownloadArtifact.Platform.MacOSX64,
+      )
+      expectParsed(
+        "als-v6-Agda-2.8.0-windows.zip",
+        "v6",
+        "2.8.0",
+        Connection__Download.DownloadArtifact.Platform.Windows,
+      )
+    })
+
+    it("should parse canonical artifact directory names without extension", () => {
+      expectParsed(
+        "als-dev-Agda-2.8.0-wasm",
+        "dev",
+        "2.8.0",
+        Connection__Download.DownloadArtifact.Platform.Wasm,
+      )
+      expectParsed(
+        "als-v6-Agda-2.8.0-macos-arm64",
+        "v6",
+        "2.8.0",
+        Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+      )
+    })
+
+    it("should allow dotted release tags", () => {
+      expectParsed(
+        "als-v6.1-Agda-2.8.0-wasm.wasm",
+        "v6.1",
+        "2.8.0",
+        Connection__Download.DownloadArtifact.Platform.Wasm,
+      )
+    })
+
+    it("should reject non-canonical names", () => {
+      expectRejected("als-v6-agda-2.8.0-wasm.wasm")
+      expectRejected("als-v6-Agda-2.8.0-freebsd.zip")
+      expectRejected("als-v6-Agda-2.8.0-wasm.zip")
+      expectRejected("als-v6-Agda-2.8.0-ubuntu.wasm")
+      expectRejected("/tmp/releases/v6/als-v6-Agda-2.8.0-wasm/als.wasm")
+      expectRejected("als-v6-beta-Agda-2.8.0-wasm.wasm")
+      expectRejected("als-v6/dev-Agda-2.8.0-wasm.wasm")
+    })
+
+    it("should derive the artifact directory name from the artifact identity", () => {
+      let artifact = switch Connection__Download.DownloadArtifact.parseName(
+        "als-v6.1-Agda-2.8.0-macos-arm64.zip",
+      ) {
+      | Some(artifact) => artifact
+      | None => raise(Failure("expected artifact to parse"))
+      }
+
+      Assert.deepStrictEqual(
+        Connection__Download.DownloadArtifact.cacheName(artifact),
+        "als-v6.1-Agda-2.8.0-macos-arm64",
+      )
+    })
+
+    it("should construct release-based managed executable URIs", () => {
+      let globalStorageUri = VSCode.Uri.file("/tmp/agda-mode-global-storage")
+      let wasmArtifact = switch Connection__Download.DownloadArtifact.parseName(
+        "als-v6-Agda-2.8.0-wasm.wasm",
+      ) {
+      | Some(artifact) => artifact
+      | None => raise(Failure("expected artifact to parse"))
+      }
+      let nativeArtifact = switch Connection__Download.DownloadArtifact.parseName(
+        "als-v6-Agda-2.8.0-macos-arm64.zip",
+      ) {
+      | Some(artifact) => artifact
+      | None => raise(Failure("expected artifact to parse"))
+      }
+
+      Assert.deepStrictEqual(
+        VSCode.Uri.fsPath(
+          Connection__Download.DownloadArtifact.managedExecutableUri(
+            globalStorageUri,
+            wasmArtifact,
+          ),
+        ),
+        NodeJs.Path.join([
+          "/tmp/agda-mode-global-storage",
+          "releases",
+          "v6",
+          "als-v6-Agda-2.8.0-wasm",
+          "als.wasm",
+        ]),
+      )
+      Assert.deepStrictEqual(
+        VSCode.Uri.fsPath(
+          Connection__Download.DownloadArtifact.managedExecutableUri(
+            globalStorageUri,
+            nativeArtifact,
+          ),
+        ),
+        NodeJs.Path.join([
+          "/tmp/agda-mode-global-storage",
+          "releases",
+          "v6",
+          "als-v6-Agda-2.8.0-macos-arm64",
+          "als",
+        ]),
+      )
+    })
+  })
+
+  describe("Source.toVersionString with release artifacts", () => {
+    it("should use the concrete release tag for LatestALS sources", () => {
+      let asset: GitHub.Asset.t = {
+        url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-wasm.wasm",
+        id: 0,
+        node_id: "",
+        name: "als-v6-Agda-2.8.0-wasm.wasm",
+        label: None,
+        content_type: "application/wasm",
+        state: "uploaded",
+        size: 0,
+        created_at: "",
+        updated_at: "",
+        browser_download_url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-wasm.wasm",
+      }
+      let release: GitHub.Release.t = {
+        url: "",
+        assets_url: "",
+        upload_url: "",
+        html_url: "https://github.com/agda/agda-language-server/releases/tag/v6",
+        id: 0,
+        node_id: "",
+        tag_name: "v6",
+        target_commitish: "",
+        name: "v6",
+        draft: false,
+        prerelease: false,
+        created_at: "",
+        published_at: "",
+        assets: [asset],
+        tarball_url: "",
+        zipball_url: "",
+        body: None,
+      }
+      let descriptor: GitHub.DownloadDescriptor.t = {
+        release,
+        asset,
+        saveAsFileName: "latest-als",
+      }
+
+      Assert.deepStrictEqual(
+        Connection__Download.Source.toVersionString(
+          Connection__Download.Source.FromGitHub(LatestALS, descriptor),
+        ),
+        "Agda v2.8.0 Language Server v6",
+      )
+    })
+  })
+
   describe("alreadyDownloaded", () => {
     Async.it(
       "should return None when dev ALS not downloaded",

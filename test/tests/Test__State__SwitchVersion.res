@@ -298,6 +298,36 @@ describe("State__SwitchVersion", () => {
         )
 
         it(
+          "should infer stable release metadata from release-based managed storage",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind(
+                "/path/to/globalStorage/releases/v6/als-v6-Agda-2.8.0-wasm/als.wasm",
+              ),
+              Memento.ResolvedMetadata.ALS(WASM, Some(("v6", "2.8.0", None))),
+            )
+          },
+        )
+
+        it(
+          "should ignore malformed managed release artifact paths",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind(
+                "/path/to/globalStorage/releases/v6/als-v6-agda-2.8.0-wasm/als.wasm",
+              ),
+              Memento.ResolvedMetadata.Unknown,
+            )
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind(
+                "/path/to/globalStorage/releases/v6/als-v6-Agda-2.8.0-freebsd/als",
+              ),
+              Memento.ResolvedMetadata.Unknown,
+            )
+          },
+        )
+
+        it(
           "should handle uppercase extensions",
           () => {
             Assert.deepStrictEqual(
@@ -1854,6 +1884,27 @@ describe("State__SwitchVersion", () => {
             Assert.strictEqual(
               actual.label,
               "$(squirrel)  Agda 2.8.0 Language Server (dev build) WASM",
+            )
+          },
+        )
+
+        it(
+          "should create stable release WASM item with release tag label before probing",
+          () => {
+            let entry = TestData.createMockEntry(ALS(WASM, Some(("v6", "2.8.0", None))), ())
+            let itemData: State__SwitchVersion.ItemData.t = Candidate(
+              "vscode-userdata:/global/releases/v6/als-v6-Agda-2.8.0-wasm/als.wasm",
+              "vscode-userdata:/global/releases/v6/als-v6-Agda-2.8.0-wasm/als.wasm",
+              entry,
+              false,
+            )
+            let actual = State__SwitchVersion.Item.fromItemData(
+              itemData,
+              VSCode.Uri.file("/extension/path"),
+            )
+            Assert.strictEqual(
+              actual.label,
+              "$(squirrel)  Agda 2.8.0 Language Server v6 WASM",
             )
           },
         )
