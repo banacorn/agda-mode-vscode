@@ -210,6 +210,100 @@ describe("Download", () => {
     })
   })
 
+  describe("expectedPathForSource with release artifacts", () => {
+    let makeSource = (
+      ~channel: Connection__Download.Channel.t,
+      ~releaseTag,
+      ~assetName,
+    ) => {
+      let asset: GitHub.Asset.t = {
+        url: "https://github.com/agda/agda-language-server/releases/download/" ++
+        releaseTag ++ "/" ++ assetName,
+        id: 0,
+        node_id: "",
+        name: assetName,
+        label: None,
+        content_type: "",
+        state: "uploaded",
+        size: 0,
+        created_at: "",
+        updated_at: "",
+        browser_download_url: "https://github.com/agda/agda-language-server/releases/download/" ++
+        releaseTag ++ "/" ++ assetName,
+      }
+      let release: GitHub.Release.t = {
+        url: "",
+        assets_url: "",
+        upload_url: "",
+        html_url: "https://github.com/agda/agda-language-server/releases/tag/" ++ releaseTag,
+        id: 0,
+        node_id: "",
+        tag_name: releaseTag,
+        target_commitish: "",
+        name: releaseTag,
+        draft: false,
+        prerelease: false,
+        created_at: "",
+        published_at: "",
+        assets: [asset],
+        tarball_url: "",
+        zipball_url: "",
+        body: None,
+      }
+      let descriptor: GitHub.DownloadDescriptor.t = {
+        release,
+        asset,
+        saveAsFileName: switch channel {
+        | DevALS => "dev-als"
+        | LatestALS => "latest-als"
+        | Hardcoded => "hardcoded-als"
+        },
+      }
+
+      Connection__Download.Source.FromGitHub(channel, descriptor)
+    }
+
+    it("should use release-based managed storage for DevALS native artifacts", () => {
+      let globalStorageUri = VSCode.Uri.file("/tmp/agda-mode-global-storage")
+      let source = makeSource(
+        ~channel=DevALS,
+        ~releaseTag="dev",
+        ~assetName="als-dev-Agda-2.8.0-macos-arm64.zip",
+      )
+
+      Assert.deepStrictEqual(
+        Connection__Download.expectedPathForSource(globalStorageUri, source),
+        NodeJs.Path.join([
+          "/tmp/agda-mode-global-storage",
+          "releases",
+          "dev",
+          "als-dev-Agda-2.8.0-macos-arm64",
+          "als",
+        ]),
+      )
+    })
+
+    it("should use release-based managed storage for DevALS WASM artifacts", () => {
+      let globalStorageUri = VSCode.Uri.file("/tmp/agda-mode-global-storage")
+      let source = makeSource(
+        ~channel=DevALS,
+        ~releaseTag="dev",
+        ~assetName="als-dev-Agda-2.8.0-wasm.wasm",
+      )
+
+      Assert.deepStrictEqual(
+        Connection__Download.expectedPathForSource(globalStorageUri, source),
+        NodeJs.Path.join([
+          "/tmp/agda-mode-global-storage",
+          "releases",
+          "dev",
+          "als-dev-Agda-2.8.0-wasm",
+          "als.wasm",
+        ]),
+      )
+    })
+  })
+
   describe("alreadyDownloaded", () => {
     Async.it(
       "should return None when dev ALS not downloaded",
