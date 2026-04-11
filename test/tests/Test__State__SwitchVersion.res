@@ -274,6 +274,30 @@ describe("State__SwitchVersion", () => {
         )
 
         it(
+          "should infer stable release native metadata from source-specific cached path",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind(
+                "/path/to/stable-als/als-v6-Agda-2.8.0-macos-arm64/als",
+              ),
+              Memento.ResolvedMetadata.ALS(Native, Some(("v6", "2.8.0", None))),
+            )
+          },
+        )
+
+        it(
+          "should infer stable release WASM metadata from source-specific cached path",
+          () => {
+            Assert.deepStrictEqual(
+              State__SwitchVersion.SwitchVersionManager.inferCandidateKind(
+                "/path/to/stable-als/als-v6-Agda-2.8.0-wasm/als.wasm",
+              ),
+              Memento.ResolvedMetadata.ALS(WASM, Some(("v6", "2.8.0", None))),
+            )
+          },
+        )
+
+        it(
           "should handle uppercase extensions",
           () => {
             Assert.deepStrictEqual(

@@ -10,6 +10,44 @@ module Unzip = Connection__Download__Unzip
 describe("Download", () => {
   This.timeout(10000)
 
+  describe("AssetName", () => {
+    it("should parse DevALS WASM asset names", () => {
+      switch Connection__Download.AssetName.parse("als-dev-Agda-2.8.0-wasm.wasm") {
+      | Some(parsed) =>
+        Assert.deepStrictEqual(parsed.alsVersion, "dev")
+        Assert.deepStrictEqual(parsed.agdaVersion, "2.8.0")
+        Assert.deepStrictEqual(parsed.platform, "wasm")
+      | None => Assert.fail("expected asset name to parse")
+      }
+    })
+
+    it("should parse stable release WASM asset names", () => {
+      switch Connection__Download.AssetName.parse("als-v6-Agda-2.8.0-wasm.wasm") {
+      | Some(parsed) =>
+        Assert.deepStrictEqual(parsed.alsVersion, "v6")
+        Assert.deepStrictEqual(parsed.agdaVersion, "2.8.0")
+        Assert.deepStrictEqual(parsed.platform, "wasm")
+      | None => Assert.fail("expected asset name to parse")
+      }
+    })
+
+    it("should parse stable release native asset names", () => {
+      switch Connection__Download.AssetName.parse("als-v6-Agda-2.8.0-macos-arm64.zip") {
+      | Some(parsed) =>
+        Assert.deepStrictEqual(parsed.alsVersion, "v6")
+        Assert.deepStrictEqual(parsed.agdaVersion, "2.8.0")
+        Assert.deepStrictEqual(parsed.platform, "macos-arm64")
+      | None => Assert.fail("expected asset name to parse")
+      }
+    })
+
+    it("should reject malformed release asset names", () => {
+      Assert.deepStrictEqual(Connection__Download.AssetName.parse("als-v6-2.8.0-wasm.wasm"), None)
+      Assert.deepStrictEqual(Connection__Download.AssetName.parse("als-Agda-2.8.0-wasm.wasm"), None)
+      Assert.deepStrictEqual(Connection__Download.AssetName.parse("agda-2.8.0-wasm.wasm"), None)
+    })
+  })
+
   describe("alreadyDownloaded", () => {
     Async.it(
       "should return None when dev ALS not downloaded",
