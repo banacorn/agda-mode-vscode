@@ -60,9 +60,13 @@ module Source = {
           ->String.replaceRegExp(%re("/als-Agda-/"), "")
           ->String.replaceRegExp(%re("/-.*/"), "")
         | Channel.DevALS =>
-          asset.name
-          ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
-          ->String.replaceRegExp(%re("/-.*/"), "")
+          switch AssetName.parse(asset.name) {
+          | Some(parsed) => parsed.agdaVersion
+          | None =>
+            asset.name
+            ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
+            ->String.replaceRegExp(%re("/-.*/"), "")
+          }
         | Channel.Hardcoded =>
           asset.name
           ->String.replaceRegExp(%re("/als-Agda-/"), "")

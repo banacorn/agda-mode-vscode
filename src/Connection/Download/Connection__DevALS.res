@@ -10,8 +10,17 @@ let chooseAssetByPlatform = (release: Connection__Download__GitHub.Release.t, pl
   Connection__Download__GitHub.Asset.t,
 > => {
   let assetName = Connection__Download__Platform.toAssetName(platform)
-  release.assets->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
+  release.assets->Array.filter(asset =>
+    asset.name->String.endsWith(".zip") &&
+      switch Connection__Download.AssetName.parse(asset.name) {
+      | Some(parsed) => parsed.platform == assetName
+      | None => false
+      }
+  )
 }
+
+let getAgdaVersionFromAssetName = (asset: Connection__Download__GitHub.Asset.t) =>
+  Connection__Download.AssetName.parse(asset.name)->Option.mapOr("", parsed => parsed.agdaVersion)
 
 let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>, platform) => {
   // target the specific "dev" release
@@ -20,16 +29,14 @@ let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>, 
   switch devRelease {
   | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
   | Some(devRelease) =>
-    let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
-      asset.name
-      ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
-      ->String.replaceRegExp(%re("/-.*/"), "")
     // choose the assets of the corresponding platform
     let assets = chooseAssetByPlatform(devRelease, platform)
     // choose the asset with the latest Agda version
     let result =
       assets
-      ->Array.toSorted((a, b) => Util.Version.compare(getAgdaVersion(b), getAgdaVersion(a)))
+      ->Array.toSorted((a, b) =>
+        Util.Version.compare(getAgdaVersionFromAssetName(b), getAgdaVersionFromAssetName(a))
+      )
       ->Array.map(asset => {
         Connection__Download__GitHub.DownloadDescriptor.release: devRelease,
         asset,
@@ -44,18 +51,19 @@ let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>, 
   }
 }
 
-let getAgdaVersionFromAssetName = (asset: Connection__Download__GitHub.Asset.t) =>
-  asset.name
-  ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
-  ->String.replaceRegExp(%re("/-.*/"), "")
-
 let allNativeAssetsForPlatform = (
   release: Connection__Download__GitHub.Release.t,
   platform,
 ): array<Connection__Download__GitHub.Asset.t> => {
   let assetName = Connection__Download__Platform.toAssetName(platform)
   release.assets
-  ->Array.filter(asset => asset.name->String.endsWith(assetName ++ ".zip"))
+  ->Array.filter(asset =>
+    asset.name->String.endsWith(".zip") &&
+      switch Connection__Download.AssetName.parse(asset.name) {
+      | Some(parsed) => parsed.platform == assetName
+      | None => false
+      }
+  )
   ->Array.toSorted((a, b) =>
     Util.Version.compare(getAgdaVersionFromAssetName(b), getAgdaVersionFromAssetName(a))
   )
@@ -65,7 +73,13 @@ let allWasmAssets = (
   release: Connection__Download__GitHub.Release.t,
 ): array<Connection__Download__GitHub.Asset.t> => {
   release.assets
-  ->Array.filter(asset => asset.name->String.endsWith("-wasm.wasm"))
+  ->Array.filter(asset =>
+    asset.name->String.endsWith(".wasm") &&
+      switch Connection__Download.AssetName.parse(asset.name) {
+      | Some(parsed) => parsed.platform == "wasm"
+      | None => false
+      }
+  )
   ->Array.toSorted((a, b) =>
     Util.Version.compare(getAgdaVersionFromAssetName(b), getAgdaVersionFromAssetName(a))
   )
