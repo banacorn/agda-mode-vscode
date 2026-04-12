@@ -91,17 +91,17 @@ module DownloadArtifact = {
     artifact.releaseTag ++
     "-Agda-" ++ artifact.agdaVersion ++ "-" ++ Platform.toAssetTag(artifact.platform)
 
+  let directoryParts = artifact => ["releases", artifact.releaseTag, cacheName(artifact)]
+
+  let executableName = artifact => Platform.isWasm(artifact.platform) ? "als.wasm" : "als"
+
   let versionLabel = releaseTag =>
     releaseTag->String.startsWith("v") ? releaseTag : "v" ++ releaseTag
 
   let managedExecutableUri = (globalStorageUri: VSCode.Uri.t, artifact: t): VSCode.Uri.t => {
-    let executableName = Platform.isWasm(artifact.platform) ? "als.wasm" : "als"
-    VSCode.Uri.joinPath(globalStorageUri, [
-      "releases",
-      artifact.releaseTag,
-      cacheName(artifact),
-      executableName,
-    ])
+    VSCode.Uri.joinPath(globalStorageUri, Array.concat(directoryParts(artifact), [
+      executableName(artifact),
+    ]))
   }
 }
 
@@ -226,24 +226,29 @@ let uriToPath = (uri: VSCode.Uri.t): string =>
     VSCode.Uri.toString(uri)
   }
 
-let expectedUriForSource = (globalStorageUri: VSCode.Uri.t, source: Source.t): VSCode.Uri.t => {
-  let fileName = switch source {
-  | Source.FromGitHub(_, descriptor) =>
-    if descriptor.asset.name->String.includes("wasm") {
-      "als.wasm"
-    } else {
-      "als"
+let downloadDestinationForDescriptor = (
+  descriptor: Connection__Download__GitHub.DownloadDescriptor.t,
+): Connection__Download__GitHub.downloadDestination =>
+  switch DownloadArtifact.parseName(descriptor.asset.name) {
+  | Some(artifact) => {
+      directoryParts: DownloadArtifact.directoryParts(artifact),
+      executableName: DownloadArtifact.executableName(artifact),
+      isWasm: DownloadArtifact.Platform.isWasm(artifact.platform),
     }
-  | Source.FromURL(_, url, _) => if url->String.endsWith(".wasm") { "als.wasm" } else { "als" }
+  | None => Connection__Download__GitHub.downloadDestination(descriptor)
   }
 
-  let directoryParts = switch source {
+let expectedUriForSource = (globalStorageUri: VSCode.Uri.t, source: Source.t): VSCode.Uri.t => {
+  let destinationParts = switch source {
   | Source.FromGitHub(_, descriptor) =>
-    Connection__Download__GitHub.downloadDirectoryParts(descriptor)
-  | Source.FromURL(_, _, saveAsFileName) => [saveAsFileName]
+    let destination = downloadDestinationForDescriptor(descriptor)
+    Array.concat(destination.directoryParts, [destination.executableName])
+  | Source.FromURL(_, url, saveAsFileName) =>
+    let executableName = if url->String.endsWith(".wasm") { "als.wasm" } else { "als" }
+    [saveAsFileName, executableName]
   }
 
-  VSCode.Uri.joinPath(globalStorageUri, Array.concat(directoryParts, [fileName]))
+  VSCode.Uri.joinPath(globalStorageUri, destinationParts)
 }
 
 let expectedPathForSource = (globalStorageUri: VSCode.Uri.t, source: Source.t): string =>
@@ -414,6 +419,7 @@ let download = async (
       reportProgress,
       ~trace,
       ~fetchFile,
+      ~downloadDestinationForDescriptor=downloadDestinationForDescriptor,
     ) {
     | Error(error) => Error(Error.CannotDownloadALS(error))
     | Ok(_isCached) =>

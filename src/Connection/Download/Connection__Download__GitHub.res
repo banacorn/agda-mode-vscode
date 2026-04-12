@@ -391,7 +391,12 @@ module ReleaseManifest: {
 }
 
 module Module: {
-  let downloadDirectoryParts: DownloadDescriptor.t => array<string>
+  type downloadDestination = {
+    directoryParts: array<string>,
+    executableName: string,
+    isWasm: bool,
+  }
+  let downloadDestination: DownloadDescriptor.t => downloadDestination
   let download: (
     DownloadDescriptor.t,
     VSCode.Uri.t,
@@ -402,18 +407,34 @@ module Module: {
     ~fetchFile: option<fetchFile>=?,
     ~unzip: option<(VSCode.Uri.t, VSCode.Uri.t) => promise<unit>>=?,
     ~deleteZip: option<VSCode.Uri.t => promise<result<unit, string>>>=?,
+    ~downloadDestinationForDescriptor: DownloadDescriptor.t => downloadDestination=?,
   ) => promise<result<bool, Error.t>>
   let isDownloading: VSCode.Uri.t => promise<bool>
 } = {
+  type downloadDestination = {
+    directoryParts: array<string>,
+    executableName: string,
+    isWasm: bool,
+  }
+
   let assetStem = (asset: Asset.t): string =>
     asset.name->String.replaceRegExp(%re("/\\.(zip|wasm)$/"), "")
 
-  let downloadDirectoryParts = (downloadDescriptor: DownloadDescriptor.t): array<string> =>
+  let legacyDownloadDirectoryParts = (downloadDescriptor: DownloadDescriptor.t): array<string> =>
     if downloadDescriptor.saveAsFileName == "dev-als" {
       [downloadDescriptor.saveAsFileName, assetStem(downloadDescriptor.asset)]
     } else {
       [downloadDescriptor.saveAsFileName]
     }
+
+  let downloadDestination = (downloadDescriptor: DownloadDescriptor.t): downloadDestination => {
+    let isWasm = downloadDescriptor.asset.name->String.includes("wasm")
+    {
+      directoryParts: legacyDownloadDirectoryParts(downloadDescriptor),
+      executableName: isWasm ? "als.wasm" : "als",
+      isWasm,
+    }
+  }
 
   let inFlightDownloadFileName = "in-flight.download"
 
@@ -450,6 +471,7 @@ module Module: {
     ~fetchFile: option<fetchFile>=None,
     ~unzip: option<(VSCode.Uri.t, VSCode.Uri.t) => promise<unit>>=None,
     ~deleteZip: option<VSCode.Uri.t => promise<result<unit, string>>>=None,
+    ~downloadDestinationForDescriptor=downloadDestination,
   ) => {
     // Use GitHub API URL with Accept: application/octet-stream to avoid CORS issues
     // on web when browser_download_url redirects to release-assets.githubusercontent.com
@@ -468,9 +490,10 @@ module Module: {
       repo.globalStorageUri,
       [inFlightDownloadFileName ++ ".zip"],
     )
+    let destination = downloadDestinationForDescriptor(downloadDescriptor)
     let destPath = VSCode.Uri.joinPath(
       repo.globalStorageUri,
-      downloadDirectoryParts(downloadDescriptor),
+      destination.directoryParts,
     )
 
     let doFetch = switch fetchFile {
@@ -483,8 +506,8 @@ module Module: {
     let result = switch await doFetch(inFlightDownloadUri, ~trace=trace) {
     | Error(e) => Error(Error.CannotDownload(e))
     | Ok() =>
-      // For WASM files (detected by asset name), skip unzip and save directly
-      if downloadDescriptor.asset.name->String.includes("wasm") {
+      // For WASM files, skip unzip and save directly.
+      if destination.isWasm {
         // WASM - raw binary, no unzipping needed
         // Create destination directory
         switch await FS.createDirectory(destPath) {
@@ -493,7 +516,7 @@ module Module: {
         }
 
         // Move file directly to final location as als.wasm
-        let wasmDestUri = VSCode.Uri.joinPath(destPath, ["als.wasm"])
+        let wasmDestUri = VSCode.Uri.joinPath(destPath, [destination.executableName])
         switch await FS.rename(inFlightDownloadUri, wasmDestUri) {
         | Error(e) => Error(Error.CannotRenameFile(e))
         | Ok() => Ok()
@@ -507,7 +530,7 @@ module Module: {
           // unzip the downloaded file
           await doUnzip(inFlightDownloadZipUri, destPath)
           // verify the binary was actually extracted
-          let execUri = VSCode.Uri.joinPath(destPath, ["als"])
+          let execUri = VSCode.Uri.joinPath(destPath, [destination.executableName])
           let execPath = VSCode.Uri.fsPath(execUri)
           switch await FS.stat(execUri) {
           | Error(_) => Error(Error.BinaryMissingAfterExtraction(execPath))
@@ -546,6 +569,7 @@ module Module: {
     ~fetchFile: option<fetchFile>=None,
     ~unzip: option<(VSCode.Uri.t, VSCode.Uri.t) => promise<unit>>=None,
     ~deleteZip: option<VSCode.Uri.t => promise<result<unit, string>>>=None,
+    ~downloadDestinationForDescriptor=downloadDestination,
   ) => {
     let repo: Repo.t = {
       username: "agda",
@@ -566,16 +590,12 @@ module Module: {
       | Error(e) => Error(Error.CannotWriteInFlightFile(e))
       | Ok() =>
         // don't download from GitHub if the binary already exists
+        let destination = downloadDestinationForDescriptor(downloadDescriptor)
         let destUri = VSCode.Uri.joinPath(
           repo.globalStorageUri,
-          downloadDirectoryParts(downloadDescriptor),
+          destination.directoryParts,
         )
-        let fileName = if downloadDescriptor.asset.name->String.includes("wasm") {
-          "als.wasm"
-        } else {
-          "als"
-        }
-        let destFileUri = VSCode.Uri.joinPath(destUri, [fileName])
+        let destFileUri = VSCode.Uri.joinPath(destUri, [destination.executableName])
         switch await FS.stat(destFileUri) {
         | Ok(_) =>
           // Cache hit: release the sentinel
@@ -584,13 +604,22 @@ module Module: {
           | Ok() => Ok(true)
           }
         | Error(_) =>
-          switch await downloadLanguageServer(repo, reportProgress, downloadDescriptor, ~trace, ~fetchFile, ~unzip, ~deleteZip) {
+          switch await downloadLanguageServer(
+            repo,
+            reportProgress,
+            downloadDescriptor,
+            ~trace,
+            ~fetchFile,
+            ~unzip,
+            ~deleteZip,
+            ~downloadDestinationForDescriptor,
+          ) {
           | Error(error) => Error(error)
           | Ok() =>
             // chmod the executable after download
             // (no need to chmod if it's on Windows)
             let destPath = VSCode.Uri.fsPath(destUri)
-            let execPath = NodeJs.Path.join2(destPath, "als")
+            let execPath = NodeJs.Path.join2(destPath, destination.executableName)
             let shouldChmod = OS.onUnix
             if shouldChmod {
               let _ = await chmodExecutable(execPath)
