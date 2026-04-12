@@ -324,6 +324,9 @@ let findReleaseManagedDownloadedForDesktopPlatform = async (
   }
 }
 
+let managedDeleteRoots = (globalStorageUri: VSCode.Uri.t): array<VSCode.Uri.t> =>
+  [VSCode.Uri.joinPath(globalStorageUri, ["releases"])]
+
 let downloadDestinationForDescriptor = (
   descriptor: Connection__Download__GitHub.DownloadDescriptor.t,
 ): Connection__Download__GitHub.downloadDestination =>

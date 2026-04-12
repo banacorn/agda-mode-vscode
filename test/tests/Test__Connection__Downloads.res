@@ -1054,7 +1054,7 @@ describe("Connection Downloads", () => {
       )
 
       Async.it(
-        "should continue deleting other managed directories when one managed directory fails to delete",
+        "should preserve release-managed artifacts when releases directory fails to delete",
         async () => {
           let storageUri = await createStorageUri("agda-delete-downloads-fs-partial")
           let storagePath = storageUri->VSCode.Uri.fsPath

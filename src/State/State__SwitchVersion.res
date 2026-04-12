@@ -845,10 +845,6 @@ module Download = {
 
 // Event handlers module for testability and debugging
 module Handler = {
-  let downloadDirectoryNames = ["releases"]
-
-  let cleanupRoots = (globalStorageUri: VSCode.Uri.t): array<VSCode.Uri.t> => [globalStorageUri]
-
   let handleDownload = async (
     state: State.t,
     platformDeps: Platform.t,
@@ -1016,9 +1012,8 @@ module Handler = {
             Util.log("[ debug ] user clicked: Delete Downloads", "")
             view->View.destroy
             let cleanedDirectories = ref([])
-            let failedDirectoryNames = ref([])
-            let deleteDir = async (root: VSCode.Uri.t, dirName) => {
-              let uri = VSCode.Uri.joinPath(root, [dirName])
+            let failedUris = ref([])
+            let deleteRoot = async (uri: VSCode.Uri.t) => {
               Util.log(
                 "[ debug ] delete downloads: deleting managed directory",
                 VSCode.Uri.toString(uri),
@@ -1041,7 +1036,7 @@ module Handler = {
                     "[ debug ] delete downloads: directory still exists after failed delete",
                     VSCode.Uri.toString(uri),
                   )
-                  failedDirectoryNames := Array.concat(failedDirectoryNames.contents, [dirName])
+                  failedUris := Array.concat(failedUris.contents, [uri])
                 | Error(_) =>
                   // Missing directories are already clean from the perspective of Delete Downloads.
                   Util.log(
@@ -1052,41 +1047,27 @@ module Handler = {
                 }
               }
             }
-            let roots = cleanupRoots(state.globalStorageUri)
+            let managedRoots = Connection__Download.managedDeleteRoots(state.globalStorageUri)
             Util.log(
               "[ debug ] delete downloads: globalStorageUri",
               VSCode.Uri.toString(state.globalStorageUri),
             )
             Util.log(
-              "[ debug ] delete downloads: cleanup roots",
-              roots->Array.map(root => VSCode.Uri.toString(root))->Array.join(" | "),
+              "[ debug ] delete downloads: managed roots",
+              managedRoots->Array.map(root => VSCode.Uri.toString(root))->Array.join(" | "),
             )
-            Util.log(
-              "[ debug ] delete downloads: managed directory names",
-              downloadDirectoryNames->Array.join(", "),
-            )
-            let rec deleteDirsForRoot = async (root: VSCode.Uri.t, dirIndex: int): unit => {
-              if dirIndex < Array.length(downloadDirectoryNames) {
-                await deleteDir(root, Belt.Array.getExn(downloadDirectoryNames, dirIndex))
-                await deleteDirsForRoot(root, dirIndex + 1)
-              }
-            }
-            let rec deleteAllRoots = async (rootIndex: int): unit => {
-              if rootIndex < Array.length(roots) {
-                let root = Belt.Array.getExn(roots, rootIndex)
-                await deleteDirsForRoot(root, 0)
-                await deleteAllRoots(rootIndex + 1)
+            let rec deleteAllRoots = async (index: int): unit => {
+              if index < Array.length(managedRoots) {
+                await deleteRoot(Belt.Array.getExn(managedRoots, index))
+                await deleteAllRoots(index + 1)
               }
             }
             await deleteAllRoots(0)
-            // Delete orphaned in-flight temp files at each cleanup root
-            let deleteInFlightFiles = async (root: VSCode.Uri.t) => {
-              let inFlightUri = VSCode.Uri.joinPath(root, ["in-flight.download"])
-              let inFlightZipUri = VSCode.Uri.joinPath(root, ["in-flight.download.zip"])
-              let _ = await FS.delete(inFlightUri)
-              let _ = await FS.delete(inFlightZipUri)
-            }
-            let _ = await Promise.all(roots->Array.map(deleteInFlightFiles))
+            // Delete orphaned in-flight temp files at globalStorageUri
+            let inFlightUri = VSCode.Uri.joinPath(state.globalStorageUri, ["in-flight.download"])
+            let inFlightZipUri = VSCode.Uri.joinPath(state.globalStorageUri, ["in-flight.download.zip"])
+            let _ = await FS.delete(inFlightUri)
+            let _ = await FS.delete(inFlightZipUri)
             // Clear cache for all repositories
             await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
             await Memento.ALSReleaseCache.clear(state.memento, "banacorn", "agda-language-server")
@@ -1097,8 +1078,8 @@ module Handler = {
               ->Array.join(" | "),
             )
             Util.log(
-              "[ debug ] delete downloads: failed directory names",
-              failedDirectoryNames.contents->Array.join(", "),
+              "[ debug ] delete downloads: failed uris",
+              failedUris.contents->Array.map(uri => VSCode.Uri.toString(uri))->Array.join(", "),
             )
             await Memento.ResolvedMetadata.clearUnderDirectories(
               state.memento,
@@ -1146,14 +1127,14 @@ module Handler = {
             )
             await Config.Connection.setAgdaPaths(state.channels.log, filteredPaths)
             state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-            if failedDirectoryNames.contents->Array.length == 0 {
+            if failedUris.contents->Array.length == 0 {
               VSCode.Window.showInformationMessage(
                 "All downloads and cache deleted",
                 [],
               )->Promise.done
             } else {
               VSCode.Window.showWarningMessage(
-                "Some downloads could not be deleted: " ++ failedDirectoryNames.contents->Array.join(", "),
+                "Some downloads could not be deleted: " ++ failedUris.contents->Array.map(uri => VSCode.Uri.toString(uri))->Array.join(", "),
                 [],
               )->Promise.done
             }

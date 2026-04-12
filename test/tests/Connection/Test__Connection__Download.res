@@ -1781,4 +1781,51 @@ describe("Download", () => {
       },
     )
   })
+
+  describe("managedDeleteRoots", () => {
+    it("should return only <globalStorage>/releases", () => {
+      let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+      let roots = Connection__Download.managedDeleteRoots(globalStorageUri)
+      Assert.deepStrictEqual(
+        roots->Array.map(uri => VSCode.Uri.toString(uri)),
+        ["file:///tmp/test-storage/releases"],
+      )
+    })
+
+    it("should not include hardcoded-als, latest-als, dev-als, or dev-wasm-als", () => {
+      let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
+      let roots = Connection__Download.managedDeleteRoots(globalStorageUri)
+      let rootStrings = roots->Array.map(uri => VSCode.Uri.toString(uri))
+      Assert.deepStrictEqual(
+        rootStrings->Array.some(s => String.includes(s, "hardcoded-als")),
+        false,
+      )
+      Assert.deepStrictEqual(
+        rootStrings->Array.some(s => String.includes(s, "latest-als")),
+        false,
+      )
+      Assert.deepStrictEqual(
+        rootStrings->Array.some(s => String.includes(s, "dev-als")),
+        false,
+      )
+      Assert.deepStrictEqual(
+        rootStrings->Array.some(s => String.includes(s, "dev-wasm-als")),
+        false,
+      )
+    })
+
+    it("should not include sibling or migration globalStorage roots", () => {
+      let globalStorageUri = VSCode.Uri.file(
+        "/tmp/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode",
+      )
+      let roots = Connection__Download.managedDeleteRoots(globalStorageUri)
+      Assert.deepStrictEqual(Array.length(roots), 1)
+      Assert.deepStrictEqual(
+        roots->Array.map(uri => VSCode.Uri.toString(uri)),
+        [
+          "file:///tmp/Library/Application%20Support/Code/User/globalStorage/banacorn.agda-mode/releases",
+        ],
+      )
+    })
+  })
 })
