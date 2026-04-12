@@ -226,6 +226,104 @@ let uriToPath = (uri: VSCode.Uri.t): string =>
     VSCode.Uri.toString(uri)
   }
 
+let sortDirectoryEntries = entries =>
+  entries->Array.toSorted(((a, _), (b, _)) =>
+    if a > b {
+      -1.
+    } else if a < b {
+      1.
+    } else {
+      0.
+    }
+  )
+
+let findReleaseManagedDownloaded = async (
+  globalStorageUri: VSCode.Uri.t,
+  acceptArtifact,
+  toPath,
+): option<string> => {
+  let releasesUri = VSCode.Uri.joinPath(globalStorageUri, ["releases"])
+
+  let rec findInArtifacts = async (releaseName, artifacts, i) => {
+    if i >= Array.length(artifacts) {
+      None
+    } else {
+      let (artifactName, fileType) = Belt.Array.getExn(artifacts, i)
+      if fileType != VSCode.FileType.Directory {
+        await findInArtifacts(releaseName, artifacts, i + 1)
+      } else {
+        switch DownloadArtifact.parseName(artifactName) {
+        | Some(artifact) if artifact.releaseTag == releaseName && acceptArtifact(artifact) =>
+          let executableUri = VSCode.Uri.joinPath(releasesUri, [
+            releaseName,
+            artifactName,
+            DownloadArtifact.executableName(artifact),
+          ])
+          switch await FS.stat(executableUri) {
+          | Ok(_) => Some(toPath(executableUri))
+          | Error(_) => await findInArtifacts(releaseName, artifacts, i + 1)
+          }
+        | _ => await findInArtifacts(releaseName, artifacts, i + 1)
+        }
+      }
+    }
+  }
+
+  let rec findInReleases = async (releases, i) => {
+    if i >= Array.length(releases) {
+      None
+    } else {
+      let (releaseName, fileType) = Belt.Array.getExn(releases, i)
+      if fileType != VSCode.FileType.Directory {
+        await findInReleases(releases, i + 1)
+      } else {
+        let releaseUri = VSCode.Uri.joinPath(releasesUri, [releaseName])
+        switch await FS.readDirectory(releaseUri) {
+        | Error(_) => await findInReleases(releases, i + 1)
+        | Ok(artifacts) =>
+          switch await findInArtifacts(releaseName, sortDirectoryEntries(artifacts), 0) {
+          | Some(path) => Some(path)
+          | None => await findInReleases(releases, i + 1)
+          }
+        }
+      }
+    }
+  }
+
+  switch await FS.readDirectory(releasesUri) {
+  | Error(_) => None
+  | Ok(releases) => await findInReleases(sortDirectoryEntries(releases), 0)
+  }
+}
+
+let findReleaseManagedDownloadedForDesktopPlatform = async (
+  globalStorageUri: VSCode.Uri.t,
+  platform: Connection__Download__Platform.t,
+): option<string> => {
+  switch platform {
+  | Web =>
+    await findReleaseManagedDownloaded(
+      globalStorageUri,
+      artifact => DownloadArtifact.Platform.isWasm(artifact.platform),
+      uri => VSCode.Uri.toString(uri),
+    )
+  | _ =>
+    switch await findReleaseManagedDownloaded(
+      globalStorageUri,
+      artifact => DownloadArtifact.Platform.matchesDownloadPlatform(artifact.platform, platform),
+      uri => VSCode.Uri.fsPath(uri),
+    ) {
+    | Some(path) => Some(path)
+    | None =>
+      await findReleaseManagedDownloaded(
+        globalStorageUri,
+        artifact => DownloadArtifact.Platform.isWasm(artifact.platform),
+        uri => VSCode.Uri.toString(uri),
+      )
+    }
+  }
+}
+
 let downloadDestinationForDescriptor = (
   descriptor: Connection__Download__GitHub.DownloadDescriptor.t,
 ): Connection__Download__GitHub.downloadDestination =>
@@ -437,42 +535,7 @@ let download = async (
     )
   }
 
-// Check if something is already downloaded
-// NOTE: This is a general-purpose fallback implementation used by tests.
-// Platform-specific implementations (Desktop, Web) should override this
-// to avoid platform mismatches (e.g., web finding native binaries).
 let alreadyDownloaded = async (globalStorageUri, channel) => {
-  let findNestedDownloaded = async (rootUri: VSCode.Uri.t, fileName: string): option<string> =>
-    switch await FS.readDirectory(rootUri) {
-    | Error(_) => None
-    | Ok(entries) =>
-      let sortedEntries = entries->Array.toSorted(((a, _), (b, _)) =>
-        if a > b {
-          -1.
-        } else if a < b {
-          1.
-        } else {
-          0.
-        }
-      )
-      let rec loop = async i =>
-        if i >= Array.length(sortedEntries) {
-          None
-        } else {
-          let (name, fileType) = Belt.Array.getExn(sortedEntries, i)
-          if fileType != VSCode.FileType.Directory {
-            await loop(i + 1)
-          } else {
-            let candidateUri = VSCode.Uri.joinPath(rootUri, [name, fileName])
-            switch await FS.stat(candidateUri) {
-            | Ok(_) => Some(uriToPath(candidateUri))
-            | Error(_) => await loop(i + 1)
-            }
-          }
-        }
-      await loop(0)
-    }
-
   switch channel {
   | Channel.LatestALS => {
       let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
@@ -482,22 +545,7 @@ let alreadyDownloaded = async (globalStorageUri, channel) => {
       }
     }
   | Channel.DevALS => {
-      // Check for WASM first (for web platform)
-      let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als.wasm"])
-      switch await FS.stat(wasmUri) {
-      | Ok(_) => Some(VSCode.Uri.toString(wasmUri)) // Use URI string for WASM
-      | Error(_) =>
-        // Check for native binary (als or als.exe)
-        let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als"])
-        switch await FS.stat(alsUri) {
-        | Ok(_) => Some(alsUri->VSCode.Uri.fsPath)
-        | Error(_) =>
-          switch await findNestedDownloaded(VSCode.Uri.joinPath(globalStorageUri, ["dev-als"]), "als.wasm") {
-          | Some(path) => Some(path)
-          | None => await findNestedDownloaded(VSCode.Uri.joinPath(globalStorageUri, ["dev-als"]), "als")
-          }
-        }
-      }
+      await findReleaseManagedDownloaded(globalStorageUri, _ => true, uriToPath)
     }
   | Channel.Hardcoded => {
       // Check for native binary first

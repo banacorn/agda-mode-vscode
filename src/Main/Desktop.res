@@ -8,37 +8,6 @@ module Desktop: Platform.PlatformOps = {
   let findCommand = Connection__Command.search
 
   let alreadyDownloaded = async (globalStorageUri, channel) => {
-    let findNestedDownloaded = async (rootUri: VSCode.Uri.t, fileName: string): option<string> =>
-      switch await FS.readDirectory(rootUri) {
-      | Error(_) => None
-      | Ok(entries) =>
-        let sortedEntries = entries->Array.toSorted(((a, _), (b, _)) =>
-          if a > b {
-            -1.
-          } else if a < b {
-            1.
-          } else {
-            0.
-          }
-        )
-        let rec loop = async i =>
-          if i >= Array.length(sortedEntries) {
-            None
-          } else {
-            let (name, fileType) = Belt.Array.getExn(sortedEntries, i)
-            if fileType != VSCode.FileType.Directory {
-              await loop(i + 1)
-            } else {
-              let candidateUri = VSCode.Uri.joinPath(rootUri, [name, fileName])
-              switch await FS.stat(candidateUri) {
-              | Ok(_) => Some(VSCode.Uri.fsPath(candidateUri))
-              | Error(_) => await loop(i + 1)
-              }
-            }
-          }
-        await loop(0)
-      }
-
     switch channel {
     | Connection__Download.Channel.LatestALS => {
         let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
@@ -52,22 +21,27 @@ module Desktop: Platform.PlatformOps = {
         }
       }
     | Connection__Download.Channel.DevALS => {
-        // Desktop: Only check for native binary (als or als.exe), not WASM
-        let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als"])
-        switch await FS.stat(alsUri) {
-        | Ok(_) =>
-          Util.log("[ debug ] alreadyDownloaded DevALS: found", alsUri->VSCode.Uri.fsPath)
-          Some(alsUri->VSCode.Uri.fsPath)
+        let result = switch await Connection__Download__Platform.determine() {
+        | Ok(platform) =>
+          await Connection__Download.findReleaseManagedDownloadedForDesktopPlatform(
+            globalStorageUri,
+            platform,
+          )
         | Error(_) =>
-          switch await findNestedDownloaded(VSCode.Uri.joinPath(globalStorageUri, ["dev-als"]), "als") {
-          | Some(path) =>
-            Util.log("[ debug ] alreadyDownloaded DevALS: nested found", path)
-            Some(path)
-          | None =>
-            Util.log("[ debug ] alreadyDownloaded DevALS: not found", alsUri->VSCode.Uri.fsPath)
-            None
-          }
+          await Connection__Download.findReleaseManagedDownloaded(
+            globalStorageUri,
+            artifact =>
+              Connection__Download.DownloadArtifact.Platform.isWasm(artifact.platform),
+            uri => VSCode.Uri.toString(uri),
+          )
         }
+        switch result {
+        | Some(path) =>
+          Util.log("[ debug ] alreadyDownloaded DevALS: release-managed found", path)
+        | None =>
+          Util.log("[ debug ] alreadyDownloaded DevALS: release-managed not found", "")
+        }
+        result
       }
     | Connection__Download.Channel.Hardcoded => {
         // Desktop: Prefer native, then fall back to WASM cache.
