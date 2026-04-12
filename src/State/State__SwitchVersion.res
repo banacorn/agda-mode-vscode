@@ -845,37 +845,9 @@ module Download = {
 
 // Event handlers module for testability and debugging
 module Handler = {
-  let downloadDirectoryNames = ["hardcoded-als", "latest-als", "dev-als", "dev-wasm-als"]
+  let downloadDirectoryNames = ["releases"]
 
-  let cleanupRoots = (globalStorageUri: VSCode.Uri.t): array<VSCode.Uri.t> => {
-    let uriString = globalStorageUri->VSCode.Uri.toString
-    let candidateRoots =
-      if String.includes(uriString, "/User/globalStorage/") {
-        [
-          uriString,
-          String.replace(uriString, "/User/globalStorage/", "/Users/globalStorage/"),
-        ]
-      } else if String.includes(uriString, "/Users/globalStorage/") {
-        [
-          uriString,
-          String.replace(uriString, "/Users/globalStorage/", "/User/globalStorage/"),
-        ]
-      } else {
-        [uriString]
-      }
-
-    candidateRoots
-    ->Array.map(uriString => VSCode.Uri.parse(uriString))
-    ->Array.reduce([], (roots, root) => {
-      let alreadyIncluded =
-        roots->Array.some(existing => VSCode.Uri.toString(existing) == VSCode.Uri.toString(root))
-      if alreadyIncluded {
-        roots
-      } else {
-        Array.concat(roots, [root])
-      }
-    })
-  }
+  let cleanupRoots = (globalStorageUri: VSCode.Uri.t): array<VSCode.Uri.t> => [globalStorageUri]
 
   let handleDownload = async (
     state: State.t,
