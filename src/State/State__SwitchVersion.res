@@ -690,10 +690,34 @@ module Download = {
     | _ => None
     }
 
+  type channelPickerItem = {
+    label: string,
+    description: string,
+    detail: string,
+  }
+
+  let channelPickerItem = (
+    channel: Connection__Download.Channel.t,
+    ~selectedChannel: Connection__Download.Channel.t,
+  ): channelPickerItem => {
+    ignore(selectedChannel)
+    switch channel {
+    | LatestALS => {label: "LatestALS", description: "", detail: ""}
+    | DevALS => {label: "DevALS", description: "", detail: ""}
+    }
+  }
+
+  let channelPickerItems = (
+    ~selectedChannel: Connection__Download.Channel.t,
+  ): array<channelPickerItem> => {
+    open Connection__Download.Channel
+    [DevALS, LatestALS]->Array.map(ch => channelPickerItem(ch, ~selectedChannel))
+  }
+
   let getAvailableChannels = async (_platformDeps: Platform.t): array<
     Connection__Download.Channel.t,
   > => {
-    [DevALS]
+    [DevALS, LatestALS]
   }
 
   // Create placeholder download items to prevent UI jitter.
@@ -958,6 +982,17 @@ module Handler = {
     updateUI,
     view: View.t,
     selectedItems: array<Item.t>,
+    ~showChannelPicker: (
+      array<Download.channelPickerItem>,
+      string,
+    ) => promise<option<string>>=async (items, placeHolder) => {
+      let channelLabels = items->Array.map(i => i.label)
+      await VSCode.Window.showQuickPickWithStringItems(
+        VSCode.PromiseOr.make(Others(channelLabels)),
+        {placeHolder, canPickMany: false},
+        None,
+      )
+    },
   ) => {
     let _ = (
       async () => {
@@ -968,17 +1003,10 @@ module Handler = {
           | DownloadAction(_, versionString, _) when versionString == Constants.checkingAvailability =>
             ()
           | SelectOtherChannels =>
-            let channelLabels = availableChannels.contents->Array.map(Download.channelToLabel)
+            let pickerItems = Download.channelPickerItems(~selectedChannel=selectedChannel.contents)
             view.suppressHide = true
             try {
-              let channelResult = await VSCode.Window.showQuickPickWithStringItems(
-                VSCode.PromiseOr.make(Others(channelLabels)),
-                {
-                  placeHolder: "Select download channel",
-                  canPickMany: false,
-                },
-                None,
-              )
+              let channelResult = await showChannelPicker(pickerItems, "Select download channel")
               view.suppressHide = false
               switch channelResult {
               | Some(label) =>

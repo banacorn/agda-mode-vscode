@@ -802,10 +802,13 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should expose only DevALS channel",
+      "should expose DevALS and LatestALS channels",
       async () => {
         let channels = await State__SwitchVersion.Download.getAvailableChannels(makeMockPlatform())
-        Assert.deepStrictEqual(channels, [Connection__Download.Channel.DevALS])
+        Assert.deepStrictEqual(channels, [
+          Connection__Download.Channel.DevALS,
+          Connection__Download.Channel.LatestALS,
+        ])
       },
     )
 
@@ -1257,29 +1260,102 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should switch channel to DevALS via onSelection when showQuickPick returns a label",
+      "should call channel picker with correct items when DevALS is selected",
       async () => {
-        // Bug: showQuickPick with canPickMany:false returns a single string,
-        // but the binding types it as array<string>. The code does selection[0]
-        // which on a string returns just the first character (e.g. "DevALS"[0] = "D"),
-        // so channelFromLabel("D") returns None and the switch silently fails.
-
         let state = createTestState()
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
 
-        // Mock showQuickPick to return a single string "DevALS" (as real VS Code does
-        // when canPickMany is false), saving the original for restore.
-        let mockShowQuickPick: unit => unit = %raw(`function() {
-          globalThis.__savedShowQuickPick = require("vscode").window.showQuickPick;
-          require("vscode").window.showQuickPick = () => Promise.resolve("DevALS");
-        }`)
-        let restoreShowQuickPick: unit => unit = %raw(`function() {
-          require("vscode").window.showQuickPick = globalThis.__savedShowQuickPick;
-          delete globalThis.__savedShowQuickPick;
-        }`)
-        mockShowQuickPick()
+        let capturedItems: ref<array<State__SwitchVersion.Download.channelPickerItem>> = ref([])
+        let capturedPlaceholder: ref<string> = ref("")
+        let resolvePickerCalled = ref((_: unit) => ())
+        let pickerCalled = Promise.make((resolve, _) => resolvePickerCalled := resolve)
+
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.LatestALS, Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.DevALS),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+          ~showChannelPicker=async (items, placeholder) => {
+            capturedItems := items
+            capturedPlaceholder := placeholder
+            resolvePickerCalled.contents()
+            None
+          },
+        )
+
+        await pickerCalled
+
+        Assert.deepStrictEqual(Array.length(capturedItems.contents), 2)
+        Assert.deepStrictEqual(
+          capturedItems.contents,
+          [
+            {label: "Latest", description: "", detail: "Tracks the latest stable release"},
+            {
+              label: "Development",
+              description: "selected",
+              detail: "Tracks the latest commit of the master branch",
+            },
+          ],
+        )
+        Assert.deepStrictEqual(capturedPlaceholder.contents, "Select download channel")
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should call channel picker with description 'selected' on LatestALS when it is the active channel",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let capturedItems: ref<array<State__SwitchVersion.Download.channelPickerItem>> = ref([])
+        let resolvePickerCalled = ref((_: unit) => ())
+        let pickerCalled = Promise.make((resolve, _) => resolvePickerCalled := resolve)
+
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.LatestALS, Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.LatestALS),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+          ~showChannelPicker=async (items, _placeholder) => {
+            capturedItems := items
+            resolvePickerCalled.contents()
+            None
+          },
+        )
+
+        await pickerCalled
+
+        Assert.deepStrictEqual(Array.length(capturedItems.contents), 2)
+        Assert.deepStrictEqual(
+          capturedItems.contents->Array.map(i => i.description),
+          ["selected", ""],
+        )
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should switch channel from LatestALS to DevALS via onSelection when showChannelPicker returns Development label",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let selectedChannel = ref(Connection__Download.Channel.LatestALS)
 
         let downloadHeaderCapture = ref("")
         let _ = state.channels.log->Chan.on(logEvent =>
@@ -1289,13 +1365,27 @@ describe("State__SwitchVersion", () => {
           }
         )
 
+        let resolvePickerCalled = ref((_: unit) => ())
+        let pickerCalled = Promise.make((resolve, _) => resolvePickerCalled := resolve)
+
+        // view.show is the final step in all onSelection branches — use it as completion signal
+        let resolveViewShown = ref((_: unit) => ())
+        let viewShown = Promise.make((resolve, _) => resolveViewShown := resolve)
+        let patchShow: (State__SwitchVersion.View.t, unit => unit) => unit = %raw(`
+          function(view, resolve) {
+            var orig = view.quickPick.show.bind(view.quickPick);
+            view.quickPick.show = function() { resolve(undefined); return orig(); };
+          }
+        `)
+        patchShow(view, resolveViewShown.contents)
+
         let selectedItem = makePickerItem(state, SelectOtherChannels)
 
         State__SwitchVersion.Handler.onSelection(
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.DevALS]),
+          ref([Connection__Download.Channel.LatestALS, Connection__Download.Channel.DevALS]),
           selectedChannel,
           async _downloadItems => {
             let downloadHeader =
@@ -1305,12 +1395,15 @@ describe("State__SwitchVersion", () => {
           },
           view,
           [selectedItem],
+          ~showChannelPicker=async (_items, _placeholder) => {
+            resolvePickerCalled.contents()
+            Some("Development")
+          },
         )
 
-        await Test__Util.wait(200)
-        restoreShowQuickPick()
+        await pickerCalled
+        await viewShown
 
-        // The channel should have switched to DevALS
         Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
         Assert.deepStrictEqual(downloadHeaderCapture.contents, "Download (channel: DevALS)")
 
@@ -1319,47 +1412,50 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should persist channel selection in memento via onSelection when showQuickPick returns a label",
+      "should persist DevALS in memento when switching from LatestALS via onSelection",
       async () => {
-        // Same root cause: showQuickPick returns a string, not an array.
-        // Verify that memento is updated after channel switch via onSelection path.
-
         let state = createTestState()
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let selectedChannel = ref(Connection__Download.Channel.LatestALS)
 
-        // Precondition: no channel in memento
         Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
 
-        // Mock showQuickPick to return "DevALS" as a plain string
-        let mockShowQuickPick: unit => unit = %raw(`function() {
-          globalThis.__savedShowQuickPick = require("vscode").window.showQuickPick;
-          require("vscode").window.showQuickPick = () => Promise.resolve("DevALS");
-        }`)
-        let restoreShowQuickPick: unit => unit = %raw(`function() {
-          require("vscode").window.showQuickPick = globalThis.__savedShowQuickPick;
-          delete globalThis.__savedShowQuickPick;
-        }`)
-        mockShowQuickPick()
-
         let selectedItem = makePickerItem(state, SelectOtherChannels)
+
+        let resolvePickerCalled = ref((_: unit) => ())
+        let pickerCalled = Promise.make((resolve, _) => resolvePickerCalled := resolve)
+
+        // Resolve when onSelection's fire-and-forget reaches view.show (final step)
+        let resolveViewShown = ref((_: unit) => ())
+        let viewShown = Promise.make((resolve, _) => resolveViewShown := resolve)
+        let patchShow: (State__SwitchVersion.View.t, unit => unit) => unit = %raw(`
+          function(view, resolve) {
+            var orig = view.quickPick.show.bind(view.quickPick);
+            view.quickPick.show = function() { resolve(undefined); return orig(); };
+          }
+        `)
+        patchShow(view, resolveViewShown.contents)
 
         State__SwitchVersion.Handler.onSelection(
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.DevALS]),
+          ref([Connection__Download.Channel.LatestALS, Connection__Download.Channel.DevALS]),
           selectedChannel,
           async _downloadItems => (),
           view,
           [selectedItem],
+          ~showChannelPicker=async (_items, _placeholder) => {
+            resolvePickerCalled.contents()
+            Some("Development")
+          },
         )
 
-        await Test__Util.wait(200)
-        restoreShowQuickPick()
+        await pickerCalled
+        await viewShown
 
-        // Memento should have the selected channel
+        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
         Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("DevALS"))
 
         view->State__SwitchVersion.View.destroy
@@ -1395,22 +1491,6 @@ describe("State__SwitchVersion", () => {
           }
         )
 
-        // Mock showQuickPick to simulate VS Code hiding the main QuickPick
-        // when a secondary picker opens, then returning "DevALS"
-        let mockShowQuickPick: unit => unit = %raw(`function() {
-          globalThis.__savedShowQuickPick = require("vscode").window.showQuickPick;
-          require("vscode").window.showQuickPick = () => {
-            // Simulate VS Code hiding the main QuickPick when secondary picker opens
-            view.quickPick.hide();
-            return Promise.resolve("DevALS");
-          };
-        }`)
-        let restoreShowQuickPick: unit => unit = %raw(`function() {
-          require("vscode").window.showQuickPick = globalThis.__savedShowQuickPick;
-          delete globalThis.__savedShowQuickPick;
-        }`)
-        mockShowQuickPick()
-
         let selectedItem = makePickerItem(state, SelectOtherChannels)
 
         State__SwitchVersion.Handler.onSelection(
@@ -1422,10 +1502,14 @@ describe("State__SwitchVersion", () => {
           async _downloadItems => (),
           view,
           [selectedItem],
+          ~showChannelPicker=async (_items, _placeholder) => {
+            // Simulate VS Code hiding the main QuickPick when secondary picker opens
+            view.quickPick->VSCode.QuickPick.hide
+            Some("DevALS")
+          },
         )
 
         await Test__Util.wait(200)
-        restoreShowQuickPick()
 
         // View MUST NOT be destroyed during channel selection
         Assert.deepStrictEqual(sawDestroyed.contents, false)
@@ -2359,14 +2443,10 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should clamp restored channel to DevALS when stored channel is unavailable",
+      "should restore LatestALS channel from memento on activation",
       async () => {
-        // Set memento to LatestALS (not available — only DevALS is)
         let state = createTestState()
-        await Memento.SelectedChannel.set(
-          state.memento,
-          State__SwitchVersion.Download.channelToLabel(Connection__Download.Channel.LatestALS),
-        )
+        await Memento.SelectedChannel.set(state.memento, "LatestALS")
 
         let loggedHeaders = []
         let _ = state.channels.log->Chan.on(logEvent =>
@@ -2391,16 +2471,19 @@ describe("State__SwitchVersion", () => {
 
         Assert.ok(Array.length(loggedHeaders) > 0)
         let header = loggedHeaders[0]->Option.getExn
-        Assert.deepStrictEqual(header, "Download (channel: DevALS)")
+        Assert.deepStrictEqual(header, "Download (channel: LatestALS)")
       },
     )
 
     Async.it(
-      "should expose only DevALS channel on Desktop",
+      "should expose DevALS and LatestALS channels on Desktop",
       async () => {
         let platform = makeMockPlatform()
         let channels = await State__SwitchVersion.Download.getAvailableChannels(platform)
-        Assert.deepStrictEqual(channels, [Connection__Download.Channel.DevALS])
+        Assert.deepStrictEqual(channels, [
+          Connection__Download.Channel.DevALS,
+          Connection__Download.Channel.LatestALS,
+        ])
       },
     )
 
@@ -2723,6 +2806,105 @@ describe("State__SwitchVersion", () => {
     })
   })
 
+
+  describe("Channel picker items", () => {
+    it("labels should be exactly Latest and Development", () => {
+      let items = State__SwitchVersion.Download.channelPickerItems(
+        ~selectedChannel=Connection__Download.Channel.DevALS,
+      )
+      Assert.deepStrictEqual(
+        items->Array.map(i => i.label),
+        ["Latest", "Development"],
+      )
+    })
+
+    it("order should be Latest then Development", () => {
+      let items = State__SwitchVersion.Download.channelPickerItems(
+        ~selectedChannel=Connection__Download.Channel.LatestALS,
+      )
+      Assert.deepStrictEqual(
+        items->Array.map(i => i.label),
+        ["Latest", "Development"],
+      )
+    })
+
+    it("selected channel should have description 'selected', other should be empty", () => {
+      let itemsDevSelected = State__SwitchVersion.Download.channelPickerItems(
+        ~selectedChannel=Connection__Download.Channel.DevALS,
+      )
+      Assert.deepStrictEqual(
+        itemsDevSelected->Array.map(i => i.description),
+        ["", "selected"],
+      )
+
+      let itemsLatestSelected = State__SwitchVersion.Download.channelPickerItems(
+        ~selectedChannel=Connection__Download.Channel.LatestALS,
+      )
+      Assert.deepStrictEqual(
+        itemsLatestSelected->Array.map(i => i.description),
+        ["selected", ""],
+      )
+    })
+
+    it("Latest should have detail 'Tracks the latest stable release'", () => {
+      let items = State__SwitchVersion.Download.channelPickerItems(
+        ~selectedChannel=Connection__Download.Channel.DevALS,
+      )
+      let latestItem = items->Array.find(i => i.label == "Latest")
+      Assert.deepStrictEqual(
+        latestItem->Option.map(i => i.detail),
+        Some("Tracks the latest stable release"),
+      )
+    })
+
+    it("Development should have detail 'Tracks the latest commit of the master branch'", () => {
+      let items = State__SwitchVersion.Download.channelPickerItems(
+        ~selectedChannel=Connection__Download.Channel.LatestALS,
+      )
+      let devItem = items->Array.find(i => i.label == "Development")
+      Assert.deepStrictEqual(
+        devItem->Option.map(i => i.detail),
+        Some("Tracks the latest commit of the master branch"),
+      )
+    })
+
+    describe("channelFromLabel", () => {
+      it("should parse 'Latest' to LatestALS", () => {
+        Assert.deepStrictEqual(
+          State__SwitchVersion.Download.channelFromLabel("Latest"),
+          Some(Connection__Download.Channel.LatestALS),
+        )
+      })
+
+      it("should parse 'Development' to DevALS", () => {
+        Assert.deepStrictEqual(
+          State__SwitchVersion.Download.channelFromLabel("Development"),
+          Some(Connection__Download.Channel.DevALS),
+        )
+      })
+
+      it("should parse internal memento label 'DevALS' to DevALS", () => {
+        Assert.deepStrictEqual(
+          State__SwitchVersion.Download.channelFromLabel("DevALS"),
+          Some(Connection__Download.Channel.DevALS),
+        )
+      })
+
+      it("should parse internal memento label 'LatestALS' to LatestALS", () => {
+        Assert.deepStrictEqual(
+          State__SwitchVersion.Download.channelFromLabel("LatestALS"),
+          Some(Connection__Download.Channel.LatestALS),
+        )
+      })
+
+      it("should reject garbage input", () => {
+        Assert.deepStrictEqual(
+          State__SwitchVersion.Download.channelFromLabel("garbage"),
+          None,
+        )
+      })
+    })
+  })
 
   describe("ItemCreation", () => {
     describe(
