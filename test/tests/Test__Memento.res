@@ -138,10 +138,10 @@ describe("Memento", () => {
 
     Async.it("should clear only entries under the given directories", async () => {
       let memento = Memento.make(None)
-      let managedDir = VSCode.Uri.file("/tmp/hardcoded-als")
+      let managedDir = VSCode.Uri.file("/tmp/dev-als")
       let managedResolved = makeResolved(
-        "/tmp/hardcoded-als/als",
-        VSCode.Uri.file("/tmp/hardcoded-als/als"),
+        "/tmp/dev-als/als",
+        VSCode.Uri.file("/tmp/dev-als/als"),
       )
       let keptResolved = makeResolved(
         "/usr/local/bin/agda",

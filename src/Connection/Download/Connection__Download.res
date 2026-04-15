@@ -2,13 +2,11 @@ module Channel = {
   type t =
     | LatestALS
     | DevALS
-    | Hardcoded
 
   let toString = channel =>
     switch channel {
     | LatestALS => "Latest Agda Language Server"
     | DevALS => "Development Agda Language Server"
-    | Hardcoded => "Hardcoded Agda Language Server"
   }
 }
 
@@ -140,10 +138,6 @@ module Source = {
             ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
             ->String.replaceRegExp(%re("/-.*/"), "")
           }
-        | Channel.Hardcoded =>
-          asset.name
-          ->String.replaceRegExp(%re("/als-Agda-/"), "")
-          ->String.replaceRegExp(%re("/-.*/"), "")
         }
 
       let agdaVersion = getAgdaVersion(descriptor.asset)
@@ -164,27 +158,9 @@ module Source = {
         )
       | Channel.DevALS =>
         "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
-      | Channel.Hardcoded =>
-        let alsVersion =
-          descriptor.release.name
-          ->String.split(".")
-          ->Array.last
-          ->Option.getOr(descriptor.release.name)
-        "Agda v" ++ agdaVersion ++ " Language Server " ++ DownloadArtifact.versionLabel(
-          alsVersion,
-        )
       }
-    | FromURL(abstractChannel, url, _) =>
-      switch abstractChannel {
-      | Channel.Hardcoded =>
-        if url->String.endsWith(".wasm") {
-          "Agda v" ++ Connection__Hardcoded.wasmAgdaVersion ++ " Language Server (WASM)"
-        } else {
-          "Agda v" ++ Connection__Hardcoded.agdaVersion ++ " Language Server v" ++ Connection__Hardcoded.alsVersion
-        }
-      | _ =>
-        Channel.toString(abstractChannel)
-      }
+    | FromURL(abstractChannel, _, _) =>
+      Channel.toString(abstractChannel)
     }
 }
 
@@ -549,20 +525,6 @@ let alreadyDownloaded = async (globalStorageUri, channel) => {
     }
   | Channel.DevALS => {
       await findReleaseManagedDownloaded(globalStorageUri, _ => true, uriToPath)
-    }
-  | Channel.Hardcoded => {
-      // Check for native binary first
-      let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als"])
-      switch await FS.stat(alsUri) {
-      | Ok(_) => Some(alsUri->VSCode.Uri.fsPath)
-      | Error(_) =>
-        // Check for WASM
-        let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als.wasm"])
-        switch await FS.stat(wasmUri) {
-        | Ok(_) => Some(VSCode.Uri.toString(wasmUri))
-        | Error(_) => None
-        }
-      }
     }
   }
 }

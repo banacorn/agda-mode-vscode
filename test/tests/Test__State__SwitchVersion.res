@@ -729,8 +729,8 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.Hardcoded]),
-          ref(Connection__Download.Channel.Hardcoded),
+          ref([Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [selectedItem],
@@ -748,7 +748,7 @@ describe("State__SwitchVersion", () => {
         let state = createTestState()
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
+        let selectedChannel = ref(Connection__Download.Channel.DevALS)
 
         // Register onHide handler (same as onActivate does)
         view->State__SwitchVersion.View.onHide(() =>
@@ -792,7 +792,7 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.Hardcoded, Connection__Download.Channel.DevALS]),
+          ref([Connection__Download.Channel.DevALS]),
           selectedChannel,
           async _downloadItems => (),
           view,
@@ -1039,8 +1039,8 @@ describe("State__SwitchVersion", () => {
             state,
             platform,
             manager,
-            ref([Connection__Download.Channel.Hardcoded]),
-            ref(Connection__Download.Channel.Hardcoded),
+            ref([Connection__Download.Channel.DevALS]),
+            ref(Connection__Download.Channel.DevALS),
             _downloadInfo => Promise.resolve(),
             view,
             [selectedItem],
@@ -1296,8 +1296,8 @@ describe("State__SwitchVersion", () => {
         let state = createTestState()
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let fsPath = "/tmp/hardcoded-als/als.wasm"
-        let uriPath = "file:///tmp/hardcoded-als/als.wasm"
+        let fsPath = "/tmp/dev-als/als.wasm"
+        let uriPath = "file:///tmp/dev-als/als.wasm"
 
         await Memento.PreferredCandidate.set(state.memento, Some(uriPath))
 
@@ -1325,8 +1325,8 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.Hardcoded]),
-          ref(Connection__Download.Channel.Hardcoded),
+          ref([Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [selectedItem],
@@ -1377,8 +1377,8 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.Hardcoded]),
-          ref(Connection__Download.Channel.Hardcoded),
+          ref([Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [selectedItem],
@@ -1412,8 +1412,24 @@ describe("State__SwitchVersion", () => {
               ? State__SwitchVersion.Download.WASM
               : State__SwitchVersion.Download.Native
 
-          let expectedDownloadPath =
-            State__SwitchVersion.Download.expectedPathForVariant(state.globalStorageUri, selectedVariant)
+          let expectedDownloadPath = switch selectedVariant {
+          | State__SwitchVersion.Download.Native =>
+            NodeJs.Path.join([
+              VSCode.Uri.fsPath(state.globalStorageUri),
+              "releases",
+              "dev",
+              "als-dev-Agda-2.8.0-macos-arm64",
+              "als",
+            ])
+          | State__SwitchVersion.Download.WASM =>
+            NodeJs.Path.join([
+              VSCode.Uri.fsPath(state.globalStorageUri),
+              "releases",
+              "dev",
+              "als-dev-Agda-2.8.0-wasm",
+              "als.wasm",
+            ])
+          }
 
           let previouslyPicked = Some("/usr/bin/agda")
           await Memento.PreferredCandidate.set(state.memento, previouslyPicked)
@@ -1456,8 +1472,8 @@ describe("State__SwitchVersion", () => {
             state,
             Mock.Platform.makeWithSuccessfulDownload(expectedDownloadPath),
             manager,
-            ref([Connection__Download.Channel.Hardcoded]),
-            ref(Connection__Download.Channel.Hardcoded),
+            ref([Connection__Download.Channel.DevALS]),
+            ref(Connection__Download.Channel.DevALS),
             _downloadItems => Promise.resolve(),
             view,
             [selectedItem],
@@ -1512,8 +1528,8 @@ describe("State__SwitchVersion", () => {
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
         let previousPaths = Config.Connection.getAgdaPaths()
 
-        let fsPath = "/tmp/hardcoded-als/als.wasm"
-        let uriPath = "file:///tmp/hardcoded-als/als.wasm"
+        let fsPath = "/tmp/dev-als/als.wasm"
+        let uriPath = "file:///tmp/dev-als/als.wasm"
 
         // Set PreferredCandidate to the URI form
         await Memento.PreferredCandidate.set(state.memento, Some(uriPath))

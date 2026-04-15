@@ -40,6 +40,58 @@ module DownloadDescriptor = {
     saveAsFileName: "als-Agda-2.6.3-Windows-x64",
   }
 
+  // DevALS mock descriptor: asset name produces toVersionString "Agda v2.8.0 Language Server (dev build)"
+  let mockDevALSDescriptorNativeAsset = {
+    Connection__Download__GitHub.Asset.url: "https://github.com/agda/agda-language-server/releases/download/dev/als-dev-Agda-2.8.0-macos-arm64.zip",
+    id: 0,
+    node_id: "",
+    name: "als-dev-Agda-2.8.0-macos-arm64.zip",
+    label: Some(""),
+    content_type: "application/zip",
+    state: "uploaded",
+    size: 1000000,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+    browser_download_url: "https://github.com/agda/agda-language-server/releases/download/dev/als-dev-Agda-2.8.0-macos-arm64.zip",
+  }
+  let mockDevALSDescriptorWasmAsset = {
+    Connection__Download__GitHub.Asset.url: "https://github.com/agda/agda-language-server/releases/download/dev/als-dev-Agda-2.8.0-wasm.wasm",
+    id: 1,
+    node_id: "",
+    name: "als-dev-Agda-2.8.0-wasm.wasm",
+    label: Some(""),
+    content_type: "application/octet-stream",
+    state: "uploaded",
+    size: 5000000,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+    browser_download_url: "https://github.com/agda/agda-language-server/releases/download/dev/als-dev-Agda-2.8.0-wasm.wasm",
+  }
+  let mockDevALSDescriptorRelease = {
+    Connection__Download__GitHub.Release.url: "",
+    assets_url: "",
+    upload_url: "",
+    html_url: "",
+    id: 1,
+    node_id: "dev",
+    tag_name: "dev",
+    target_commitish: "main",
+    name: "dev",
+    draft: false,
+    prerelease: true,
+    created_at: "2024-01-01T00:00:00Z",
+    published_at: "2024-01-01T00:00:00Z",
+    assets: [mockDevALSDescriptorNativeAsset, mockDevALSDescriptorWasmAsset],
+    tarball_url: "",
+    zipball_url: "",
+    body: None,
+  }
+  let mockDevALSDescriptor = {
+    Connection__Download__GitHub.DownloadDescriptor.asset: mockDevALSDescriptorNativeAsset,
+    release: mockDevALSDescriptorRelease,
+    saveAsFileName: "dev-als",
+  }
+
   let mockWith = (
     f: Connection__Download.Channel.t => result<
       Connection__Download.Source.t,
@@ -142,10 +194,8 @@ module Platform = {
         switch channel {
         | Connection__Download.Channel.LatestALS =>
           Ok(FromGitHub(channel, DownloadDescriptor.mockLatestALS))
-        | Connection__Download.Channel.Hardcoded =>
-          Ok(FromURL(Hardcoded, "mock-url", "hardcoded-als"))
         | Connection__Download.Channel.DevALS =>
-          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          Ok(FromGitHub(channel, DownloadDescriptor.mockDevALSDescriptor))
         }
       )
       let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) => Promise.resolve(Ok(downloadedPath))
@@ -191,10 +241,8 @@ module Platform = {
         switch channel {
         | Connection__Download.Channel.LatestALS =>
           Ok(FromGitHub(channel, DownloadDescriptor.mockLatestALS))
-        | Connection__Download.Channel.Hardcoded =>
-          Ok(FromURL(Hardcoded, "mock-url", "hardcoded-als"))
         | Connection__Download.Channel.DevALS =>
-          Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          Ok(FromURL(DevALS, "mock-url", "dev-als"))
         }
       )
       let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) => {
@@ -260,16 +308,40 @@ module Platform = {
     module(MockPlatform)
   }
 
-  // Mock platform that fails hardcoded native download and succeeds on hardcoded WASM fallback
-  let makeWithHardcodedNativeFailureAndWASMSuccess = (
+  // Mock platform that fails DevALS native download and succeeds on WASM fallback
+  let makeWithNativeFailureAndWASMSuccess = (
     downloadedPath: string,
     checkedCacheFlag: ref<bool>,
     checkedNativeDownloadFlag: ref<bool>,
     checkedWasmDownloadFlag: ref<bool>,
   ): Platform.t => {
-    let nativeUrl = switch Connection__Hardcoded.nativeUrlForPlatform(Ubuntu) {
-    | Some(url) => url
-    | None => failwith("Expected hardcoded native URL for Ubuntu")
+    let makeAsset = (name): Connection__Download__GitHub.Asset.t => {
+      url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+      id: 0,
+      node_id: "",
+      name,
+      label: Some(""),
+      content_type: "application/zip",
+      state: "uploaded",
+      size: 1000000,
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+      browser_download_url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+    }
+    let nativeAssetName = "als-dev-Agda-2.8.0-ubuntu.zip"
+    let wasmAssetName = "als-dev-Agda-2.8.0-wasm.wasm"
+    let devRelease: Connection__Download__GitHub.Release.t = {
+      url: "", assets_url: "", upload_url: "", html_url: "",
+      id: 1, node_id: "dev", tag_name: "dev", target_commitish: "main", name: "dev",
+      draft: false, prerelease: true,
+      created_at: "2024-01-01T00:00:00Z", published_at: "2024-01-01T00:00:00Z",
+      assets: [makeAsset(nativeAssetName), makeAsset(wasmAssetName)],
+      tarball_url: "", zipball_url: "", body: None,
+    }
+    let nativeDescriptor: Connection__Download__GitHub.DownloadDescriptor.t = {
+      asset: makeAsset(nativeAssetName),
+      release: devRelease,
+      saveAsFileName: "dev-als",
     }
 
     module MockPlatform = {
@@ -282,12 +354,11 @@ module Platform = {
       }
       let resolveDownloadChannel = DownloadDescriptor.mockWith(channel =>
         switch channel {
-        | Hardcoded =>
+        | Connection__Download.Channel.DevALS =>
           Ok(
-            Connection__Download.Source.FromURL(
-              Connection__Download.Channel.Hardcoded,
-              nativeUrl,
-              "hardcoded-als",
+            Connection__Download.Source.FromGitHub(
+              Connection__Download.Channel.DevALS,
+              nativeDescriptor,
             ),
           )
         | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
@@ -295,14 +366,14 @@ module Platform = {
       )
       let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) =>
         switch source {
-        | Connection__Download.Source.FromURL(Connection__Download.Channel.Hardcoded, url, _)
-          if url == nativeUrl =>
-          checkedNativeDownloadFlag := true
-          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-        | Connection__Download.Source.FromURL(Connection__Download.Channel.Hardcoded, url, _)
-          if url == Connection__Hardcoded.wasmUrl =>
-          checkedWasmDownloadFlag := true
-          Promise.resolve(Ok(downloadedPath))
+        | Connection__Download.Source.FromGitHub(Connection__Download.Channel.DevALS, descriptor) =>
+          if descriptor.asset.name->String.includes("wasm") {
+            checkedWasmDownloadFlag := true
+            Promise.resolve(Ok(downloadedPath))
+          } else {
+            checkedNativeDownloadFlag := true
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          }
         | _ =>
           Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
         }

@@ -397,7 +397,7 @@ describe("State__SwitchVersion", () => {
             Assert.deepStrictEqual(Array.length(itemData), 3) // Download separator + Select other channel + Delete downloads
 
             switch itemData[0] {
-            | Some(Separator("Download (channel: Hardcoded)")) => () // Expected
+            | Some(Separator("Download (channel: DevALS)")) => () // Expected
             | _ => Assert.fail("Expected Download separator")
             }
 
@@ -437,7 +437,7 @@ describe("State__SwitchVersion", () => {
             }
 
             switch itemData[3] {
-            | Some(Separator("Download (channel: Hardcoded)")) => () // Expected
+            | Some(Separator("Download (channel: DevALS)")) => () // Expected
             | _ => Assert.fail("Expected Download separator")
             }
 
@@ -471,7 +471,7 @@ describe("State__SwitchVersion", () => {
             let downloadSeparator = itemData->Array.find(
               data =>
                 switch data {
-                | Separator("Download (channel: Hardcoded)") => true
+                | Separator("Download (channel: DevALS)") => true
                 | _ => false
                 },
             )
@@ -505,7 +505,7 @@ describe("State__SwitchVersion", () => {
             let channelAwareDownloadSeparator = itemData->Array.find(
               data =>
                 switch data {
-                | Separator("Download (channel: Hardcoded)") => true
+                | Separator("Download (channel: DevALS)") => true
                 | _ => false
                 },
             )
@@ -527,13 +527,13 @@ describe("State__SwitchVersion", () => {
               entries,
               None,
               [],
-              ~downloadHeader="Download (channel: Hardcoded)",
+              ~downloadHeader="Download (channel: DevALS)",
             )
 
             let hasDownloadSeparator = itemData->Array.some(
               data =>
                 switch data {
-                | Separator("Download (channel: Hardcoded)") => true
+                | Separator("Download (channel: DevALS)") => true
                 | _ => false
                 },
             )
@@ -769,14 +769,6 @@ describe("State__SwitchVersion", () => {
                     "dev-als",
                   ),
                 )
-              | Connection__Download.Channel.Hardcoded =>
-                Ok(
-                  Connection__Download.Source.FromURL(
-                    Connection__Download.Channel.Hardcoded,
-                    "https://example.invalid/hardcoded-als.wasm",
-                    "hardcoded-als",
-                  ),
-                )
               }
 
           let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
@@ -810,64 +802,16 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should expose Hardcoded and DevALS channels on Desktop, only Hardcoded on Web",
+      "should expose only DevALS channel",
       async () => {
-        let desktopChannels = await State__SwitchVersion.Download.getAvailableChannels(
-          makeMockPlatform(),
-        )
-        Assert.deepStrictEqual(desktopChannels, [Connection__Download.Channel.Hardcoded, Connection__Download.Channel.DevALS])
-
-        module MockWebPlatform = {
-          let determinePlatform = () => Promise.resolve(Ok(Connection__Download__Platform.Web))
-
-          let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound))
-
-          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
-
-          let resolveDownloadChannel = (_channel, _useCache) =>
-            async (_memento, _globalStorageUri, _platform) =>
-              Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-
-          let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-
-          let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
-        }
-
-        let webChannels = await State__SwitchVersion.Download.getAvailableChannels(
-          module(MockWebPlatform),
-        )
-        Assert.deepStrictEqual(webChannels, [Connection__Download.Channel.Hardcoded])
+        let channels = await State__SwitchVersion.Download.getAvailableChannels(makeMockPlatform())
+        Assert.deepStrictEqual(channels, [Connection__Download.Channel.DevALS])
       },
     )
 
     Async.it(
-      "should render channel switch item even when only Hardcoded is available on Web",
+      "should render channel switch item when only unavailable downloads are present",
       async () => {
-        module MockWebPlatform = {
-          let determinePlatform = () => Promise.resolve(Ok(Connection__Download__Platform.Web))
-
-          let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound))
-
-          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
-
-          let resolveDownloadChannel = (_channel, _useCache) =>
-            async (_memento, _globalStorageUri, _platform) =>
-              Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-
-          let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-
-          let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
-        }
-
-        let availableChannels = await State__SwitchVersion.Download.getAvailableChannels(
-          module(MockWebPlatform),
-        )
-        Assert.deepStrictEqual(availableChannels, [Connection__Download.Channel.Hardcoded])
-
         let itemData: array<State__SwitchVersion.ItemData.t> =
           State__SwitchVersion.ItemData.entriesToItemData(
             [],
@@ -890,37 +834,11 @@ describe("State__SwitchVersion", () => {
     Async.it(
       "should expose download variants instead of channel-tagged latest/dev items",
       async () => {
-        module MockDesktopHardcodedOnly = {
-          let determinePlatform = () => Promise.resolve(Ok(Connection__Download__Platform.Ubuntu))
-
-          let findCommand = (_command, ~timeout as _timeout=1000) =>
-            Promise.resolve(Error(Connection__Command.Error.NotFound))
-
-          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
-
-          let resolveDownloadChannel = (channel, _useCache) =>
-            async (_memento, _globalStorageUri, _platform) =>
-              switch channel {
-              | Connection__Download.Channel.Hardcoded =>
-                Ok(
-                  Connection__Download.Source.FromURL(
-                    Connection__Download.Channel.Hardcoded,
-                    "https://example.invalid/hardcoded-native",
-                    "hardcoded-als",
-                  ),
-                )
-              | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-              }
-
-          let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-
-          let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
-        }
-
-        let platform: Platform.t = module(MockDesktopHardcodedOnly)
-        let state = createTestStateWithPlatform(platform)
-        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
+        let state = createTestStateWithPlatform(makeMockPlatform())
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          makeMockPlatform(),
+        )
 
         let hasChannelTaggedItems =
           downloadItems->Array.some(((_, _, downloadType)) =>
@@ -931,8 +849,54 @@ describe("State__SwitchVersion", () => {
       },
     )
 
+    // Helper: create a DevALS mock platform returning a specific release descriptor
+    let makeDevALSPlatformWith = (assetName): Platform.t => {
+      let makeDevAsset = (name): Connection__Download__GitHub.Asset.t => {
+        url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+        id: 0,
+        node_id: "",
+        name,
+        label: Some(""),
+        content_type: "application/zip",
+        state: "uploaded",
+        size: 1000000,
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+        browser_download_url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+      }
+      let devRelease: Connection__Download__GitHub.Release.t = {
+        url: "", assets_url: "", upload_url: "", html_url: "",
+        id: 1, node_id: "dev", tag_name: "dev", target_commitish: "main", name: "dev",
+        draft: false, prerelease: true,
+        created_at: "2024-01-01T00:00:00Z", published_at: "2024-01-01T00:00:00Z",
+        assets: [makeDevAsset(assetName)], tarball_url: "", zipball_url: "", body: None,
+      }
+      let devDescriptor: Connection__Download__GitHub.DownloadDescriptor.t = {
+        asset: makeDevAsset(assetName),
+        release: devRelease,
+        saveAsFileName: "dev-als",
+      }
+      module MockDevALS = {
+        let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+        let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+        let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+        let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+          switch channel {
+          | Connection__Download.Channel.DevALS =>
+            Ok(Connection__Download.Source.FromGitHub(Connection__Download.Channel.DevALS, devDescriptor))
+          | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          }
+        )
+        let download = (_globalStorageUri, _, ~trace as _=Connection__Download__Trace.noop) =>
+          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+        let findCommand = (_command, ~timeout as _=1000) =>
+          Promise.resolve(Error(Connection__Command.Error.NotFound))
+      }
+      module(MockDevALS)
+    }
+
     Async.it(
-      "should hide native download variant when its managed path is already in connection.paths",
+      "should hide native download variant when its release-managed path is already in connection.paths",
       async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -941,29 +905,26 @@ describe("State__SwitchVersion", () => {
         let storageUri = VSCode.Uri.file(storagePath)
         let _ = await FS.createDirectory(storageUri)
 
-        let platform = makeMockPlatform()
+        let platform = makeDevALSPlatformWith("als-dev-Agda-2.8.0-macos-arm64.zip")
         let state = createTestStateWithPlatformAndStorage(platform, storageUri)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
         let previousPaths = Config.Connection.getAgdaPaths()
 
-        let nativeManagedPath = State__SwitchVersion.Download.expectedPathForVariant(
-          state.globalStorageUri,
-          State__SwitchVersion.Download.Native,
+        // Release-managed native path: releases/dev/als-dev-Agda-2.8.0-macos-arm64/als
+        let nativePath = VSCode.Uri.fsPath(
+          VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als"]),
         )
-        let nativeDir = NodeJs.Path.dirname(nativeManagedPath)
+        let nativeDir = NodeJs.Path.dirname(nativePath)
         await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
-        NodeJs.Fs.writeFileSync(nativeManagedPath, NodeJs.Buffer.fromString(""))
-        await Config.Connection.setAgdaPaths(state.channels.log, [nativeManagedPath])
+        NodeJs.Fs.writeFileSync(nativePath, NodeJs.Buffer.fromString(""))
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativePath])
 
         let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
         let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
 
         let hasNativeDownloadAction =
           itemData->Array.some(item =>
-            switch item {
-            | DownloadAction(_, _, "native") => true
-            | _ => false
-            }
+            switch item { | DownloadAction(_, _, "native") => true | _ => false }
           )
 
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
@@ -973,7 +934,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should hide native download variant when its managed path is present as file:// URI in connection.paths",
+      "should hide native download variant when its release-managed path is present as file:// URI in connection.paths",
       async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -982,30 +943,26 @@ describe("State__SwitchVersion", () => {
         let storageUri = VSCode.Uri.file(storagePath)
         let _ = await FS.createDirectory(storageUri)
 
-        let platform = makeMockPlatform()
+        let platform = makeDevALSPlatformWith("als-dev-Agda-2.8.0-macos-arm64.zip")
         let state = createTestStateWithPlatformAndStorage(platform, storageUri)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
         let previousPaths = Config.Connection.getAgdaPaths()
 
-        let nativeManagedPath = State__SwitchVersion.Download.expectedPathForVariant(
-          state.globalStorageUri,
-          State__SwitchVersion.Download.Native,
+        let nativePath = VSCode.Uri.fsPath(
+          VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als"]),
         )
-        let nativeDir = NodeJs.Path.dirname(nativeManagedPath)
+        let nativeDir = NodeJs.Path.dirname(nativePath)
         await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
-        NodeJs.Fs.writeFileSync(nativeManagedPath, NodeJs.Buffer.fromString(""))
-        let nativeManagedUri = VSCode.Uri.file(nativeManagedPath)->VSCode.Uri.toString
-        await Config.Connection.setAgdaPaths(state.channels.log, [nativeManagedUri])
+        NodeJs.Fs.writeFileSync(nativePath, NodeJs.Buffer.fromString(""))
+        let nativeUri = VSCode.Uri.file(nativePath)->VSCode.Uri.toString
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativeUri])
 
         let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
         let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
 
         let hasNativeDownloadAction =
           itemData->Array.some(item =>
-            switch item {
-            | DownloadAction(_, _, "native") => true
-            | _ => false
-            }
+            switch item { | DownloadAction(_, _, "native") => true | _ => false }
           )
 
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
@@ -1015,7 +972,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should show native download variant when its managed path is in config but file no longer exists on disk",
+      "should show native download variant when its release-managed path is in config but file no longer exists on disk",
       async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1024,42 +981,28 @@ describe("State__SwitchVersion", () => {
         let storageUri = VSCode.Uri.file(storagePath)
         let _ = await FS.createDirectory(storageUri)
 
-        let platform = makeMockPlatform()
+        let platform = makeDevALSPlatformWith("als-dev-Agda-2.8.0-macos-arm64.zip")
         let state = createTestStateWithPlatformAndStorage(platform, storageUri)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
         let previousPaths = Config.Connection.getAgdaPaths()
 
-        // Add the expected native path to config, but do NOT create the file on disk
-        let nativeManagedPath = State__SwitchVersion.Download.expectedPathForVariant(
-          state.globalStorageUri,
-          State__SwitchVersion.Download.Native,
+        // Add release-managed native path to config, but do NOT create the file
+        let nativePath = VSCode.Uri.fsPath(
+          VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als"]),
         )
-        await Config.Connection.setAgdaPaths(state.channels.log, [nativeManagedPath])
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativePath])
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativePath), false)
 
-        // Verify the file does not exist on disk
-        Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativeManagedPath), false)
-
-        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
-          state,
-          platform,
-        )
-        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
-          manager,
-          downloadItems,
-        )
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
 
         let hasNativeDownloadAction =
           itemData->Array.some(item =>
-            switch item {
-            | DownloadAction(_, _, "native") => true
-            | _ => false
-            }
+            switch item { | DownloadAction(_, _, "native") => true | _ => false }
           )
 
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
         let _ = await FS.deleteRecursive(storageUri)
-
-        // File is gone — download option MUST still be shown
         Assert.deepStrictEqual(hasNativeDownloadAction, true)
       },
     )
@@ -1074,48 +1017,34 @@ describe("State__SwitchVersion", () => {
         let storageUri = VSCode.Uri.file(storagePath)
         let _ = await FS.createDirectory(storageUri)
 
-        let platform = makeMockPlatform()
+        let platform = makeDevALSPlatformWith("als-dev-Agda-2.8.0-macos-arm64.zip")
         let state = createTestStateWithPlatformAndStorage(platform, storageUri)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
         let previousPaths = Config.Connection.getAgdaPaths()
 
-        let nativeManagedPath = State__SwitchVersion.Download.expectedPathForVariant(
-          state.globalStorageUri,
-          State__SwitchVersion.Download.Native,
+        let nativePath = VSCode.Uri.fsPath(
+          VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als"]),
         )
-        // Store as file:// URI alias — same canonical candidate, different spelling
-        let nativeManagedUri = VSCode.Uri.file(nativeManagedPath)->VSCode.Uri.toString
-        await Config.Connection.setAgdaPaths(state.channels.log, [nativeManagedUri])
+        let nativeUri = VSCode.Uri.file(nativePath)->VSCode.Uri.toString
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativeUri])
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativePath), false)
 
-        // File does NOT exist on disk
-        Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativeManagedPath), false)
-
-        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
-          state,
-          platform,
-        )
-        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
-          manager,
-          downloadItems,
-        )
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
 
         let hasNativeDownloadAction =
           itemData->Array.some(item =>
-            switch item {
-            | DownloadAction(_, _, "native") => true
-            | _ => false
-            }
+            switch item { | DownloadAction(_, _, "native") => true | _ => false }
           )
 
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
         let _ = await FS.deleteRecursive(storageUri)
-
         Assert.deepStrictEqual(hasNativeDownloadAction, true)
       },
     )
 
     Async.it(
-      "should show WASM download variant when its managed path is in config but file no longer exists on disk",
+      "should show WASM download variant when its release-managed path is in config but file no longer exists on disk",
       async () => {
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
@@ -1124,100 +1053,29 @@ describe("State__SwitchVersion", () => {
         let storageUri = VSCode.Uri.file(storagePath)
         let _ = await FS.createDirectory(storageUri)
 
-        let platform = makeMockPlatform()
+        let platform = makeDevALSPlatformWith("als-dev-Agda-2.8.0-wasm.wasm")
         let state = createTestStateWithPlatformAndStorage(platform, storageUri)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
         let previousPaths = Config.Connection.getAgdaPaths()
 
-        let wasmManagedPath = State__SwitchVersion.Download.expectedPathForVariant(
-          state.globalStorageUri,
-          State__SwitchVersion.Download.WASM,
+        // WASM release-managed path: releases/dev/als-dev-Agda-2.8.0-wasm/als.wasm
+        let wasmPath = VSCode.Uri.toString(
+          VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm"]),
         )
-        await Config.Connection.setAgdaPaths(state.channels.log, [wasmManagedPath])
+        await Config.Connection.setAgdaPaths(state.channels.log, [wasmPath])
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(VSCode.Uri.fsPath(VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm"]))), false)
 
-        // WASM file does NOT exist on disk
-        let wasmFsPath = VSCode.Uri.fsPath(
-          VSCode.Uri.joinPath(storageUri, ["hardcoded-als", "als.wasm"]),
-        )
-        Assert.deepStrictEqual(NodeJs.Fs.existsSync(wasmFsPath), false)
-
-        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
-          state,
-          platform,
-        )
-        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
-          manager,
-          downloadItems,
-        )
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
 
         let hasWasmDownloadAction =
           itemData->Array.some(item =>
-            switch item {
-            | DownloadAction(_, _, "wasm") => true
-            | _ => false
-            }
+            switch item { | DownloadAction(_, _, "wasm") => true | _ => false }
           )
 
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
         let _ = await FS.deleteRecursive(storageUri)
-
         Assert.deepStrictEqual(hasWasmDownloadAction, true)
-      },
-    )
-
-    Async.it(
-      "should show download action when managed path is in config but artifact is missing via unregistered URI scheme (regression guard against existsSync logic)",
-      async () => {
-        // Use an unregistered URI scheme as globalStorageUri.
-        // For Native: expectedPathForVariant returns Uri.fsPath, which is the path component.
-        // We create the real file at that fsPath so existsSync() would return true.
-        // FS.stat on the unregistered-scheme URI throws "No file system provider" → Error.
-        // Correct implementation (FS.stat) must NOT suppress. Broken implementation (existsSync) would.
-        let uniqueDir = "agda-suppress-unreg-" ++ string_of_int(int_of_float(Js.Date.now()))
-        let realFsPath = NodeJs.Path.join([NodeJs.Os.tmpdir(), uniqueDir])
-        // memfs: is not a registered VS Code file system provider
-        let storageUri = VSCode.Uri.parse("memfs:" ++ realFsPath)
-
-        let platform = makeMockPlatform()
-        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
-        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let previousPaths = Config.Connection.getAgdaPaths()
-
-        let nativeManagedPath = State__SwitchVersion.Download.expectedPathForVariant(
-          state.globalStorageUri,
-          State__SwitchVersion.Download.Native,
-        )
-
-        // Create the file at the real filesystem path so existsSync returns true
-        let nativeDir = NodeJs.Path.dirname(nativeManagedPath)
-        await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
-        NodeJs.Fs.writeFileSync(nativeManagedPath, NodeJs.Buffer.fromString("mock binary"))
-        Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativeManagedPath), true)
-
-        await Config.Connection.setAgdaPaths(state.channels.log, [nativeManagedPath])
-
-        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
-          state,
-          platform,
-        )
-        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
-          manager,
-          downloadItems,
-        )
-
-        let hasNativeDownloadAction =
-          itemData->Array.some(item =>
-            switch item {
-            | DownloadAction(_, _, "native") => true
-            | _ => false
-            }
-          )
-
-        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
-        let _ = await FS.deleteRecursive(VSCode.Uri.file(realFsPath))
-
-        // existsSync sees the file; FS.stat(memfs:...) fails with no provider — must show download
-        Assert.deepStrictEqual(hasNativeDownloadAction, true)
       },
     )
 
@@ -1296,12 +1154,12 @@ describe("State__SwitchVersion", () => {
         let state = createTestStateWithPlatformAndStorage(platform, storageUri)
         let previousPaths = Config.Connection.getAgdaPaths()
 
-        // Add the DevALS native managed path to config, but do NOT create the file
-        let devAlsNativePath = VSCode.Uri.fsPath(
-          VSCode.Uri.joinPath(storageUri, ["dev-als", "als"]),
+        // Add the release-managed native path to config, but do NOT create the file
+        let nativePath = VSCode.Uri.fsPath(
+          VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als"]),
         )
-        await Config.Connection.setAgdaPaths(state.channels.log, [devAlsNativePath])
-        Assert.deepStrictEqual(NodeJs.Fs.existsSync(devAlsNativePath), false)
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativePath])
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativePath), false)
 
         let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
           state,
@@ -1347,8 +1205,8 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.Hardcoded]),
-          ref(Connection__Download.Channel.Hardcoded),
+          ref([Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [selectedItem],
@@ -1384,8 +1242,8 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.Hardcoded]),
-          ref(Connection__Download.Channel.Hardcoded),
+          ref([Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [selectedItem],
@@ -1409,7 +1267,7 @@ describe("State__SwitchVersion", () => {
         let state = createTestState()
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
+        let selectedChannel = ref(Connection__Download.Channel.DevALS)
 
         // Mock showQuickPick to return a single string "DevALS" (as real VS Code does
         // when canPickMany is false), saving the original for restore.
@@ -1437,7 +1295,7 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.Hardcoded, Connection__Download.Channel.DevALS]),
+          ref([Connection__Download.Channel.DevALS]),
           selectedChannel,
           async _downloadItems => {
             let downloadHeader =
@@ -1469,7 +1327,7 @@ describe("State__SwitchVersion", () => {
         let state = createTestState()
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
+        let selectedChannel = ref(Connection__Download.Channel.DevALS)
 
         // Precondition: no channel in memento
         Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
@@ -1491,7 +1349,7 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.Hardcoded, Connection__Download.Channel.DevALS]),
+          ref([Connection__Download.Channel.DevALS]),
           selectedChannel,
           async _downloadItems => (),
           view,
@@ -1514,7 +1372,7 @@ describe("State__SwitchVersion", () => {
         let state = createTestState()
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
+        let selectedChannel = ref(Connection__Download.Channel.DevALS)
 
         // Register onHide handler (same as onActivate does)
         view->State__SwitchVersion.View.onHide(() =>
@@ -1559,7 +1417,7 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.Hardcoded, Connection__Download.Channel.DevALS]),
+          ref([Connection__Download.Channel.DevALS]),
           selectedChannel,
           async _downloadItems => (),
           view,
@@ -1593,8 +1451,8 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.Hardcoded]),
-          ref(Connection__Download.Channel.Hardcoded),
+          ref([Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [selectedItem],
@@ -1980,8 +1838,8 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.Hardcoded]),
-          ref(Connection__Download.Channel.Hardcoded),
+          ref([Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [selectedItem],
@@ -2123,8 +1981,8 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.Hardcoded]),
-          ref(Connection__Download.Channel.Hardcoded),
+          ref([Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [selectedItem],
@@ -2228,13 +2086,9 @@ describe("State__SwitchVersion", () => {
       async () => {
         let testCases = [
           (Some("/usr/bin/agda"), State__SwitchVersion.Download.Native, false),
-          (Some("/usr/bin/agda"), State__SwitchVersion.Download.Native, true),
           (Some("/usr/bin/agda"), State__SwitchVersion.Download.WASM, false),
-          (Some("/usr/bin/agda"), State__SwitchVersion.Download.WASM, true),
           (None, State__SwitchVersion.Download.Native, false),
-          (None, State__SwitchVersion.Download.Native, true),
           (None, State__SwitchVersion.Download.WASM, false),
-          (None, State__SwitchVersion.Download.WASM, true),
         ]
 
         let runCase = async (
@@ -2257,11 +2111,15 @@ describe("State__SwitchVersion", () => {
               queue: Promise.resolve(),
             })
 
-          let expectedDownloadPath =
-            State__SwitchVersion.Download.expectedPathForVariant(state.globalStorageUri, variant)
+          let expectedDownloadPath = switch variant {
+          | State__SwitchVersion.Download.Native =>
+            NodeJs.Path.join([VSCode.Uri.fsPath(state.globalStorageUri), "releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als"])
+          | State__SwitchVersion.Download.WASM =>
+            VSCode.Uri.toString(VSCode.Uri.joinPath(state.globalStorageUri, ["releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm"]))
+          }
           let platform =
             Mock.Platform.makeWithSuccessfulDownload(expectedDownloadPath)
-          let versionString = "ALS v" ++ (downloaded ? "downloaded" : "to-download")
+          let versionString = "Agda v2.8.0 Language Server (dev build)"
 
           await State__SwitchVersion.Handler.handleDownload(
             state,
@@ -2321,7 +2179,7 @@ describe("State__SwitchVersion", () => {
         let state = createTestState()
         let platform = makeMockPlatform()
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
+        let selectedChannel = ref(Connection__Download.Channel.DevALS)
 
         // Precondition: memento has no channel entry
         Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
@@ -2356,11 +2214,11 @@ describe("State__SwitchVersion", () => {
         let platform = makeMockPlatform()
         let logChannel = state.channels.log
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
+        let selectedChannel = ref(Connection__Download.Channel.DevALS)
         let view = State__SwitchVersion.View.make(logChannel)
 
         // Set up config with existing paths including downloaded ALS from different channels
-        let existingPaths = ["/usr/bin/agda", "/downloaded/als-hardcoded", "/downloaded/als-dev"]
+        let existingPaths = ["/usr/bin/agda", "/downloaded/als-v1", "/downloaded/als-dev"]
         await Config.Connection.setAgdaPaths(logChannel, existingPaths)
 
         // Build a real updateUI closure (same as onActivate creates)
@@ -2401,75 +2259,14 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should default to Hardcoded channel on fresh activation",
+      "should default to DevALS channel on fresh activation",
       async () => {
-        // Hardcoded MUST be the default channel
-        //
-        // On fresh activation (no memento data), the restored channel should be Hardcoded.
-        // This tests the logic in onActivate lines 1020-1029.
-
         let state = createTestState()
-
-        // Precondition: memento has no selectedChannel entry (fresh install)
         Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
 
-        // Simulate the channel restoration logic from onActivate
         let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
-        | Some(label) =>
-          switch State__SwitchVersion.Download.channelFromLabel(label) {
-          | Some(channel) => channel
-          | None => Connection__Download.Channel.Hardcoded
-          }
-        | None => Connection__Download.Channel.Hardcoded
-        }
-
-        Assert.deepStrictEqual(restoredChannel, Connection__Download.Channel.Hardcoded)
-      },
-    )
-
-    Async.it(
-      "should default to Hardcoded channel when memento contains invalid channel label",
-      async () => {
-        let state = createTestState()
-
-        // Set an invalid channel label in memento
-        await Memento.SelectedChannel.set(state.memento, "InvalidChannel")
-        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("InvalidChannel"))
-
-        // Simulate the channel restoration logic from onActivate
-        let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
-        | Some(label) =>
-          switch State__SwitchVersion.Download.channelFromLabel(label) {
-          | Some(channel) => channel
-          | None => Connection__Download.Channel.Hardcoded
-          }
-        | None => Connection__Download.Channel.Hardcoded
-        }
-
-        Assert.deepStrictEqual(restoredChannel, Connection__Download.Channel.Hardcoded)
-      },
-    )
-
-    Async.it(
-      "should restore a valid persisted channel on activation",
-      async () => {
-        // Round-trip: set channel in memento -> restore -> verify selected channel
-        let state = createTestState()
-
-        // Persist DevALS channel in memento (simulating a previous session)
-        await Memento.SelectedChannel.set(
-          state.memento,
-          State__SwitchVersion.Download.channelToLabel(Connection__Download.Channel.DevALS),
-        )
-
-        // Simulate the channel restoration logic from onActivate (lines 1021-1028)
-        let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
-        | Some(label) =>
-          switch State__SwitchVersion.Download.channelFromLabel(label) {
-          | Some(channel) => channel
-          | None => Connection__Download.Channel.Hardcoded
-          }
-        | None => Connection__Download.Channel.Hardcoded
+        | Some(label) => State__SwitchVersion.Download.channelFromLabel(label)->Option.getOr(Connection__Download.Channel.DevALS)
+        | None => Connection__Download.Channel.DevALS
         }
 
         Assert.deepStrictEqual(restoredChannel, Connection__Download.Channel.DevALS)
@@ -2477,43 +2274,36 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should use selected channel for manual UI-triggered downloads (sourceForVariant)",
+      "should default to DevALS channel when memento contains invalid channel label",
       async () => {
         let state = createTestState()
-        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let view = State__SwitchVersion.View.make(state.channels.log)
+        await Memento.SelectedChannel.set(state.memento, "InvalidChannel")
 
-        // Select DevALS channel via the real code path
-        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
-        await State__SwitchVersion.Handler.handleChannelSwitch(
-          state,
-          makeMockPlatform(),
-          manager,
-          selectedChannel,
-          Connection__Download.Channel.DevALS,
-          _downloadItems => Promise.resolve(),
-        )
-
-        // Verify channel was switched
-        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
-
-        // Now trigger a manual download — the source channel should be DevALS, not Hardcoded
-        let wasmSource = State__SwitchVersion.Download.sourceForVariant(
-          Connection__Download__Platform.MacOS_Arm,
-          State__SwitchVersion.Download.WASM,
-          ~channel=selectedChannel.contents,
-        )
-
-        let sourceChannel = switch wasmSource {
-        | Some(Connection__Download.Source.FromURL(channel, _, _)) => Some(channel)
-        | Some(Connection__Download.Source.FromGitHub(channel, _)) => Some(channel)
-        | None => None
+        let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
+        | Some(label) => State__SwitchVersion.Download.channelFromLabel(label)->Option.getOr(Connection__Download.Channel.DevALS)
+        | None => Connection__Download.Channel.DevALS
         }
 
-        // Selected channel MUST apply to manual UI-triggered downloads
-        Assert.deepStrictEqual(sourceChannel, Some(Connection__Download.Channel.DevALS))
+        Assert.deepStrictEqual(restoredChannel, Connection__Download.Channel.DevALS)
+      },
+    )
 
-        view->State__SwitchVersion.View.destroy
+    Async.it(
+      "should restore a valid persisted channel on activation",
+      async () => {
+        let state = createTestState()
+
+        await Memento.SelectedChannel.set(
+          state.memento,
+          State__SwitchVersion.Download.channelToLabel(Connection__Download.Channel.DevALS),
+        )
+
+        let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
+        | Some(label) => State__SwitchVersion.Download.channelFromLabel(label)->Option.getOr(Connection__Download.Channel.DevALS)
+        | None => Connection__Download.Channel.DevALS
+        }
+
+        Assert.deepStrictEqual(restoredChannel, Connection__Download.Channel.DevALS)
       },
     )
 
@@ -2523,11 +2313,9 @@ describe("State__SwitchVersion", () => {
         let state = createTestState()
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
 
-        // Track which channel the download descriptor uses
         let downloadedChannel = ref(None)
-        let downloadedPath = State__SwitchVersion.Download.expectedPathForVariant(
-          state.globalStorageUri,
-          State__SwitchVersion.Download.WASM,
+        let downloadedPath = VSCode.Uri.toString(
+          VSCode.Uri.joinPath(state.globalStorageUri, ["releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm"]),
         )
 
         let platform: Platform.t = {
@@ -2538,78 +2326,49 @@ describe("State__SwitchVersion", () => {
             let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
               switch channel {
               | Connection__Download.Channel.DevALS =>
-                Ok(
-                  Connection__Download.Source.FromURL(
-                    Connection__Download.Channel.DevALS,
-                    "https://example.invalid/dev-als.wasm",
-                    "dev-als",
-                  ),
-                )
-              | Connection__Download.Channel.Hardcoded =>
-                Ok(
-                  Connection__Download.Source.FromURL(
-                    Connection__Download.Channel.Hardcoded,
-                    "https://example.invalid/hardcoded-als.wasm",
-                    "hardcoded-als",
-                  ),
-                )
+                Ok(Connection__Download.Source.FromURL(Connection__Download.Channel.DevALS, "https://example.invalid/dev-als.wasm", "dev-als"))
               | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
               }
             )
             let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) => {
-              let channel = switch source {
+              downloadedChannel := switch source {
               | Connection__Download.Source.FromURL(ch, _, _) => Some(ch)
               | Connection__Download.Source.FromGitHub(ch, _) => Some(ch)
               }
-              downloadedChannel := channel
               Promise.resolve(Ok(downloadedPath))
             }
-            let findCommand = (_command, ~timeout as _timeout=1000) =>
+            let findCommand = (_command, ~timeout as _=1000) =>
               Promise.resolve(Error(Connection__Command.Error.NotFound))
           }
           module(MockPlatform)
         }
 
-        // Select DevALS channel
-        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
+        let selectedChannel = ref(Connection__Download.Channel.DevALS)
         await State__SwitchVersion.Handler.handleChannelSwitch(
-          state,
-          platform,
-          manager,
-          selectedChannel,
-          Connection__Download.Channel.DevALS,
+          state, platform, manager, selectedChannel, Connection__Download.Channel.DevALS,
           _downloadItems => Promise.resolve(),
         )
 
-        // Trigger manual download via handleDownload with selected channel
         await State__SwitchVersion.Handler.handleDownload(
-          state,
-          platform,
-          State__SwitchVersion.Download.WASM,
-          false,
-          "ALS vTest",
+          state, platform, State__SwitchVersion.Download.WASM, false, "ALS vTest",
           ~channel=Connection__Download.Channel.DevALS,
         )
 
-        // The download descriptor MUST use the selected channel (DevALS), not Hardcoded
         Assert.deepStrictEqual(downloadedChannel.contents, Some(Connection__Download.Channel.DevALS))
       },
     )
 
     Async.it(
-      "should clamp restored channel to available channels when activating UI",
+      "should clamp restored channel to DevALS when stored channel is unavailable",
       async () => {
-        // Set memento to LatestALS (not available on Desktop, which only has Hardcoded + DevALS)
+        // Set memento to LatestALS (not available — only DevALS is)
         let state = createTestState()
         await Memento.SelectedChannel.set(
           state.memento,
           State__SwitchVersion.Download.channelToLabel(Connection__Download.Channel.LatestALS),
         )
 
-        // Capture download headers logged by onActivate's updateUI
         let loggedHeaders = []
-
-        // Register listener AND wait-promise BEFORE calling onActivate to avoid race
         let _ = state.channels.log->Chan.on(logEvent =>
           switch logEvent {
           | Log.SwitchVersionUI(Others(msg)) if String.startsWith(msg, "Download (channel:") =>
@@ -2626,38 +2385,22 @@ describe("State__SwitchVersion", () => {
             },
         )
 
-        // Call the real onActivate
         let platform = makeMockPlatform()
         await State__SwitchVersion.Handler.onActivate(state, platform)
-
-        // Wait for the QuickPick to be shown (ensures initial updateUI has completed)
         await onShown
 
-        // Get available channel labels
-        let availableChannels = await State__SwitchVersion.Download.getAvailableChannels(platform)
-        let _availableLabels = availableChannels->Array.map(
-          State__SwitchVersion.Download.channelToLabel,
-        )
-
-        // The download header emitted by onActivate MUST reference an available channel
-        // LatestALS is not available, so it MUST be clamped to Hardcoded
         Assert.ok(Array.length(loggedHeaders) > 0)
         let header = loggedHeaders[0]->Option.getExn
-        Assert.deepStrictEqual(header, "Download (channel: Hardcoded)")
+        Assert.deepStrictEqual(header, "Download (channel: DevALS)")
       },
     )
 
     Async.it(
-      "should expose Dev/nightly channel in available channels on Desktop",
+      "should expose only DevALS channel on Desktop",
       async () => {
         let platform = makeMockPlatform()
         let channels = await State__SwitchVersion.Download.getAvailableChannels(platform)
-
-        // Spec: Hardcoded + Dev/nightly MUST be supported
-        Assert.ok(channels->Array.includes(Connection__Download.Channel.Hardcoded))
-
-        // Spec requires Dev/nightly channel to be available
-        Assert.ok(channels->Array.includes(Connection__Download.Channel.DevALS))
+        Assert.deepStrictEqual(channels, [Connection__Download.Channel.DevALS])
       },
     )
 
@@ -3074,131 +2817,115 @@ describe("State__SwitchVersion", () => {
     )
   })
 
-  // I20: Channel coexistence semantics are not modeled in download paths
-  describe("Channel-parameterized download paths", () => {
+  describe("Release-managed download detection", () => {
     Async.it(
-      "isDownloaded should not report Hardcoded download as downloaded for DevALS channel",
+      "DevALS native artifact at releases/dev/<artifact>/als is detected as downloaded",
       async () => {
-        // Create a storage directory with a Hardcoded native binary
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
-          "agda-i20-coexist-" ++ string_of_int(int_of_float(Js.Date.now())),
+          "agda-release-native-" ++ string_of_int(int_of_float(Js.Date.now())),
         ])
         let globalStorageUri = VSCode.Uri.file(storagePath)
-        let _ = await FS.createDirectory(globalStorageUri)
-        let hardcodedDirUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als"])
-        let _ = await FS.createDirectory(hardcodedDirUri)
-        let alsPath = NodeJs.Path.join([VSCode.Uri.fsPath(hardcodedDirUri), "als"])
+        let artifactDir = VSCode.Uri.joinPath(globalStorageUri, [
+          "releases",
+          "dev",
+          "als-dev-Agda-2.8.0-macos-arm64",
+        ])
+        let _ = await FS.createDirectory(artifactDir)
+        let alsPath = NodeJs.Path.join([VSCode.Uri.fsPath(artifactDir), "als"])
         NodeJs.Fs.writeFileSync(alsPath, NodeJs.Buffer.fromString("mock-native"))
 
-        // Hardcoded native IS downloaded — isDownloaded should return true
-        let hardcodedResult = await State__SwitchVersion.Download.isDownloaded(
-          globalStorageUri,
-          State__SwitchVersion.Download.Native,
-        )
-        Assert.deepStrictEqual(hardcodedResult, true)
-
-        // Channel-aware check: DevALS native is NOT downloaded (no "dev-als/als" exists)
-        // Connection__Download.alreadyDownloaded is channel-parameterized and correctly returns None
-        let devALSResult = await Connection__Download.alreadyDownloaded(
+        let result = await Connection__Download.alreadyDownloaded(
           globalStorageUri,
           Connection__Download.Channel.DevALS,
         )
-        Assert.deepStrictEqual(devALSResult, None)
-
-        // isDownloaded with DevALS channel checks "dev-als" directory, not "hardcoded-als"
-        let isDownloadedForDevALS = await State__SwitchVersion.Download.isDownloaded(
-          globalStorageUri,
-          State__SwitchVersion.Download.Native,
-          ~channel=Connection__Download.Channel.DevALS,
-        )
-        // DevALS native is NOT downloaded (no "dev-als/als" exists)
-        Assert.deepStrictEqual(isDownloadedForDevALS, false)
+        Assert.deepStrictEqual(result, Some(alsPath))
 
         let _ = await FS.deleteRecursive(globalStorageUri)
       },
     )
 
     Async.it(
-      "switching channel from Hardcoded to DevALS should change download item availability",
+      "DevALS WASM artifact at releases/dev/<artifact>/als.wasm is detected as downloaded",
       async () => {
-        // Create storage with only a Hardcoded native binary on disk
         let storagePath = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
-          "agda-i20-ui-" ++ string_of_int(int_of_float(Js.Date.now())),
+          "agda-release-wasm-" ++ string_of_int(int_of_float(Js.Date.now())),
         ])
-        let storageUri = VSCode.Uri.file(storagePath)
-        let _ = await FS.createDirectory(storageUri)
-        let hardcodedDirUri = VSCode.Uri.joinPath(storageUri, ["hardcoded-als"])
-        let _ = await FS.createDirectory(hardcodedDirUri)
-        let alsPath = NodeJs.Path.join([VSCode.Uri.fsPath(hardcodedDirUri), "als"])
+        let globalStorageUri = VSCode.Uri.file(storagePath)
+        let artifactDir = VSCode.Uri.joinPath(globalStorageUri, [
+          "releases",
+          "dev",
+          "als-dev-Agda-2.8.0-wasm",
+        ])
+        let _ = await FS.createDirectory(artifactDir)
+        let wasmPath = NodeJs.Path.join([VSCode.Uri.fsPath(artifactDir), "als.wasm"])
+        NodeJs.Fs.writeFileSync(wasmPath, NodeJs.Buffer.fromString("mock-wasm"))
+
+        let result = await Connection__Download.alreadyDownloaded(
+          globalStorageUri,
+          Connection__Download.Channel.DevALS,
+        )
+        Assert.deepStrictEqual(result, Some(wasmPath))
+
+        let _ = await FS.deleteRecursive(globalStorageUri)
+      },
+    )
+
+    Async.it(
+      "Different release/artifact paths do not count as downloaded",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-release-wrong-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let globalStorageUri = VSCode.Uri.file(storagePath)
+        // Artifact exists but under a different release tag ("v1.0.0" not "dev")
+        let wrongArtifactDir = VSCode.Uri.joinPath(globalStorageUri, [
+          "releases",
+          "v1.0.0",
+          "als-dev-Agda-2.8.0-macos-arm64",
+        ])
+        let _ = await FS.createDirectory(wrongArtifactDir)
+        let alsPath = NodeJs.Path.join([VSCode.Uri.fsPath(wrongArtifactDir), "als"])
         NodeJs.Fs.writeFileSync(alsPath, NodeJs.Buffer.fromString("mock-native"))
 
-        let channels = {
-          State.inputMethod: Chan.make(),
-          responseHandled: Chan.make(),
-          commandHandled: Chan.make(),
-          log: Chan.make(),
-        }
-        let mockEditor = %raw(`{ document: { fileName: "test.agda" } }`)
-        let mockExtensionUri = VSCode.Uri.file(NodeJs.Process.cwd(NodeJs.Process.process))
-        let state = State.make(
-          "test-id",
-          Mock.Platform.makeWithAgda(),
-          channels,
-          storageUri,
-          mockExtensionUri,
-          Memento.make(None),
-          mockEditor,
-          None,
-        )
-
-        let platform = Mock.Platform.makeWithAgda()
-        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-        let selectedChannel = ref(Connection__Download.Channel.Hardcoded)
-
-        // Capture download items passed to updateUI after each channel switch
-        let capturedDownloadItems = ref([])
-        let updateUI = async (downloadItems: array<(bool, string, string)>) => {
-          capturedDownloadItems := downloadItems
-        }
-
-        // Step 1: Switch to Hardcoded — native should correctly show downloaded=true
-        await State__SwitchVersion.Handler.handleChannelSwitch(
-          state,
-          platform,
-          manager,
-          selectedChannel,
-          Connection__Download.Channel.Hardcoded,
-          updateUI,
-        )
-        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.Hardcoded)
-        let hardcodedFlags =
-          capturedDownloadItems.contents->Array.map(((downloaded, _, _)) => downloaded)
-        // Hardcoded native IS downloaded — this is correct
-        Assert.deepStrictEqual(hardcodedFlags, [true, false])
-
-        // Step 2: Switch to DevALS — native should now show downloaded=false
-        // because no DevALS binary exists (only Hardcoded at "hardcoded-als/als")
-        await State__SwitchVersion.Handler.handleChannelSwitch(
-          state,
-          platform,
-          manager,
-          selectedChannel,
+        let result = await Connection__Download.alreadyDownloaded(
+          globalStorageUri,
           Connection__Download.Channel.DevALS,
-          updateUI,
         )
-        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
-        let devALSFlags =
-          capturedDownloadItems.contents->Array.map(((downloaded, _, _)) => downloaded)
+        // artifact's releaseTag is "dev" but directory is under "v1.0.0" — not a match
+        Assert.deepStrictEqual(result, None)
 
-        // Channel selection MUST affect downloaded-state rendering.
-        // DevALS native is NOT downloaded, so flags should differ from Hardcoded.
-        // Currently: both channels return [true, false] because isDownloaded always
-        // checks "hardcoded-als" — the channel switch has no effect on the result.
-        Assert.notDeepStrictEqual(devALSFlags, hardcodedFlags)
+        let _ = await FS.deleteRecursive(globalStorageUri)
+      },
+    )
 
-        let _ = await FS.deleteRecursive(storageUri)
+    Async.it(
+      "Malformed artifact directory names are ignored",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-release-malformed-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let globalStorageUri = VSCode.Uri.file(storagePath)
+        // Directory name does not match the DownloadArtifact.parseName format
+        let malformedDir = VSCode.Uri.joinPath(globalStorageUri, [
+          "releases",
+          "dev",
+          "not-a-valid-artifact-name",
+        ])
+        let _ = await FS.createDirectory(malformedDir)
+        let alsPath = NodeJs.Path.join([VSCode.Uri.fsPath(malformedDir), "als"])
+        NodeJs.Fs.writeFileSync(alsPath, NodeJs.Buffer.fromString("mock-binary"))
+
+        let result = await Connection__Download.alreadyDownloaded(
+          globalStorageUri,
+          Connection__Download.Channel.DevALS,
+        )
+        Assert.deepStrictEqual(result, None)
+
+        let _ = await FS.deleteRecursive(globalStorageUri)
       },
     )
   })

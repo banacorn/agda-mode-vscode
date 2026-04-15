@@ -43,30 +43,6 @@ module Desktop: Platform.PlatformOps = {
         }
         result
       }
-    | Connection__Download.Channel.Hardcoded => {
-        // Desktop: Prefer native, then fall back to WASM cache.
-        let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als"])
-        switch await FS.stat(alsUri) {
-        | Ok(_) =>
-          let alsPath = alsUri->VSCode.Uri.fsPath
-          Util.log("[ debug ] alreadyDownloaded Hardcoded: native found", alsPath)
-          if OS.onUnix {
-            let _ = await NodeJs.Fs.chmod(alsPath, ~mode=0o744)
-          }
-          Some(alsPath)
-        | Error(_) =>
-          Util.log("[ debug ] alreadyDownloaded Hardcoded: native not found", alsUri->VSCode.Uri.fsPath)
-          let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als.wasm"])
-          switch await FS.stat(wasmUri) {
-          | Ok(_) =>
-            Util.log("[ debug ] alreadyDownloaded Hardcoded: wasm found", wasmUri->VSCode.Uri.toString)
-            Some(VSCode.Uri.toString(wasmUri))
-          | Error(_) =>
-            Util.log("[ debug ] alreadyDownloaded Hardcoded: nothing found", "")
-            None
-          }
-        }
-      }
     }
   }
 
@@ -75,24 +51,15 @@ module Desktop: Platform.PlatformOps = {
     useCache,
   ) => async (memento, globalStorageUri, platform) => {
     switch channel {
-    | Hardcoded =>
-      switch Connection__Hardcoded.nativeUrlForPlatform(platform) {
-      | Some(url) =>
-        Ok(Connection__Download.Source.FromURL(Hardcoded, url, "hardcoded-als"))
-      | None =>
-        Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-      }
     | LatestALS | DevALS =>
       let repo = switch channel {
       | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
       | DevALS => Connection__DevALS.makeRepo(globalStorageUri)
-      | Hardcoded => Connection__LatestALS.makeRepo(globalStorageUri) // unreachable
       }
 
       let toDownloadOrder = switch channel {
       | LatestALS => Connection__LatestALS.toDownloadOrder(_, platform)
       | DevALS => Connection__DevALS.toDownloadOrder(_, platform)
-      | Hardcoded => Connection__LatestALS.toDownloadOrder(_, platform) // unreachable
       }
 
       switch await Connection__Download.getReleaseManifestFromGitHub(memento, repo, ~useCache) {

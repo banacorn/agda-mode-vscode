@@ -144,8 +144,6 @@ module Establish = {
     | FromDownload(Connection__Download.Channel.LatestALS) =>
       "from LatestALS download"
     | FromDownload(Connection__Download.Channel.DevALS) => "from DevALS download"
-    | FromDownload(Connection__Download.Channel.Hardcoded) =>
-      "from Hardcoded download"
     | FromCommandLookup(command) => "from PATH lookup (" ++ command ++ ")"
     }
 

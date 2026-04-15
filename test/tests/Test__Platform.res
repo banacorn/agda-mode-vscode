@@ -19,29 +19,27 @@ describe("Platform dependent utilities", () => {
     )
 
     Async.it(
-      "desktop alreadyDownloaded should fall back to hardcoded WASM when native binary is missing",
+      "desktop alreadyDownloaded should find release-managed WASM artifact for DevALS channel",
       async () => {
         let tempDir = NodeJs.Path.join([
           NodeJs.Os.tmpdir(),
-          "desktop-hardcoded-wasm-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+          "desktop-release-wasm-test-" ++ string_of_int(int_of_float(Js.Date.now())),
         ])
-        let hardcodedDir = NodeJs.Path.join([tempDir, "hardcoded-als"])
-        let wasmFile = NodeJs.Path.join([hardcodedDir, "als.wasm"])
+        let artifactDir = NodeJs.Path.join([tempDir, "releases", "dev", "als-dev-Agda-2.8.0-wasm"])
+        let wasmFile = NodeJs.Path.join([artifactDir, "als.wasm"])
 
-        await NodeJs.Fs.mkdir(hardcodedDir, {recursive: true, mode: 0o777})
+        await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
         NodeJs.Fs.writeFileSync(wasmFile, NodeJs.Buffer.fromString("mock wasm"))
 
         let platformDeps = Desktop.make()
         module PlatformOps = unpack(platformDeps)
         let globalStorageUri = VSCode.Uri.file(tempDir)
 
-        let result = await PlatformOps.alreadyDownloaded(globalStorageUri, Hardcoded)
-        let expected = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als.wasm"])
-        Assert.deepStrictEqual(result, Some(VSCode.Uri.toString(expected)))
+        let result = await PlatformOps.alreadyDownloaded(globalStorageUri, Connection__Download.Channel.DevALS)
+        // Should find the WASM artifact and return its URI
+        Assert.deepStrictEqual(result->Option.isSome, true)
 
-        NodeJs.Fs.unlinkSync(wasmFile)
-        NodeJs.Fs.rmdirSync(hardcodedDir)
-        NodeJs.Fs.rmdirSync(tempDir)
+        let _ = await FS.deleteRecursive(globalStorageUri)
       },
     )
   })

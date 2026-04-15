@@ -100,7 +100,7 @@ module ItemData = {
     entries: array<(string, string, ResolvedMetadata.entry)>,
     pickedPath: option<string>,
     downloadItems: array<(bool, string, string)>, // (downloaded, versionString, variant)
-    ~downloadHeader: string="Download (channel: Hardcoded)",
+    ~downloadHeader: string="Download (channel: DevALS)",
   ): array<t> => {
     let hasCandidates = Array.length(entries) > 0
 
@@ -363,7 +363,7 @@ module SwitchVersionManager = {
   let getItemData = async (
     self: t,
     downloadItems: array<(bool, string, string)>,
-    ~downloadHeader: string="Download (channel: Hardcoded)",
+    ~downloadHeader: string="Download (channel: DevALS)",
     ~platformDeps: option<Platform.t>=None,
   ): array<ItemData.t> => {
     // Always check current connection to ensure UI reflects actual state
@@ -602,25 +602,6 @@ module Download = {
     | WASM => "als.wasm"
     }
 
-  let channelToDirName = (channel: Connection__Download.Channel.t): string =>
-    switch channel {
-    | Hardcoded => "hardcoded-als"
-    | LatestALS => "latest-als"
-    | DevALS => "dev-als"
-    }
-
-  let expectedPathForVariant = (
-    globalStorageUri: VSCode.Uri.t,
-    variant: variant,
-    ~channel: Connection__Download.Channel.t=Hardcoded,
-  ): string => {
-    let uri = VSCode.Uri.joinPath(globalStorageUri, [channelToDirName(channel), variantFileName(variant)])
-    switch variant {
-    | Native => VSCode.Uri.fsPath(uri)
-    | WASM => VSCode.Uri.toString(uri)
-    }
-  }
-
   let expectedPathForSource = (
     globalStorageUri: VSCode.Uri.t,
     source: Connection__Download.Source.t,
@@ -669,42 +650,6 @@ module Download = {
     downloadItems->Array.filterWithIndex((_, i) => Belt.Array.getExn(keeps, i))
   }
 
-  let sourceForVariant = (
-    platform: Connection__Download__Platform.t,
-    variant: variant,
-    ~channel: Connection__Download.Channel.t=Hardcoded,
-  ): option<Connection__Download.Source.t> => {
-    let dirName = channelToDirName(channel)
-    switch (channel, variant) {
-    // Hardcoded channel: use hardcoded URLs for both native and WASM
-    | (Hardcoded, Native) =>
-      switch Connection__Hardcoded.nativeUrlForPlatform(platform) {
-      | Some(url) => Some(Connection__Download.Source.FromURL(Hardcoded, url, dirName))
-      | None => None
-      }
-    | (Hardcoded, WASM) =>
-      Some(Connection__Download.Source.FromURL(Hardcoded, Connection__Hardcoded.wasmUrl, dirName))
-    // Non-Hardcoded channels: native artifacts come from GitHub (resolved via resolveDownloadChannel),
-    // not hardcoded URLs — return None so the UI shows "unavailable" for native
-    | (_, Native) => None
-    // WASM binary is universal across channels
-    | (_, WASM) =>
-      Some(Connection__Download.Source.FromURL(channel, Connection__Hardcoded.wasmUrl, dirName))
-    }
-  }
-
-  let isDownloaded = async (
-    globalStorageUri: VSCode.Uri.t,
-    variant: variant,
-    ~channel: Connection__Download.Channel.t=Hardcoded,
-  ): bool => {
-    let uri = VSCode.Uri.joinPath(globalStorageUri, [channelToDirName(channel), variantFileName(variant)])
-    switch await FS.stat(uri) {
-    | Ok(_) => true
-    | Error(_) => false
-    }
-  }
-
   let makeDownloadItem = async (
     state: State.t,
     variant: variant,
@@ -734,27 +679,21 @@ module Download = {
 
   let channelToLabel = (channel: Connection__Download.Channel.t): string =>
     switch channel {
-    | Hardcoded => "Hardcoded"
     | LatestALS => "LatestALS"
     | DevALS => "DevALS"
     }
 
   let channelFromLabel = (label: string): option<Connection__Download.Channel.t> =>
     switch label {
-    | "Hardcoded" => Some(Hardcoded)
     | "LatestALS" => Some(LatestALS)
     | "DevALS" => Some(DevALS)
     | _ => None
     }
 
-  let getAvailableChannels = async (platformDeps: Platform.t): array<
+  let getAvailableChannels = async (_platformDeps: Platform.t): array<
     Connection__Download.Channel.t,
   > => {
-    module PlatformOps = unpack(platformDeps)
-    switch await PlatformOps.determinePlatform() {
-    | Ok(Connection__Download__Platform.Web) => [Hardcoded]
-    | _ => [Hardcoded, DevALS]
-    }
+    [DevALS]
   }
 
   // Create placeholder download items to prevent UI jitter.
@@ -779,58 +718,57 @@ module Download = {
   let getAllAvailableDownloads = async (
     state: State.t,
     platformDeps: Platform.t,
-    ~channel: Connection__Download.Channel.t=Hardcoded,
+    ~channel: Connection__Download.Channel.t=DevALS,
   ): array<(bool, string, string)> => {
     module PlatformOps = unpack(platformDeps)
 
     let allItems = switch await PlatformOps.determinePlatform() {
     | Error(_) => [unavailableSourceItem(Native), unavailableSourceItem(WASM)]
     | Ok(Connection__Download__Platform.Web) =>
-      let wasmSource = sourceForVariant(Connection__Download__Platform.Web, WASM, ~channel)
-      switch wasmSource {
-      | Some(source) => [await makeDownloadItem(state, WASM, source)]
-      | None => [unavailableSourceItem(WASM)]
+      let resolver = PlatformOps.resolveDownloadChannel(channel, true)
+      switch await resolver(state.memento, state.globalStorageUri, Connection__Download__Platform.Web) {
+      | Error(_) => [unavailableSourceItem(WASM)]
+      | Ok(Connection__Download.Source.FromURL(_, _, _)) => [unavailableSourceItem(WASM)]
+      | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
+        let release = descriptor.release
+        let wasmAssets = Connection__DevALS.allWasmAssets(release)
+        let makeSource = asset =>
+          Connection__Download.Source.FromGitHub(channel, {
+            Connection__Download__GitHub.DownloadDescriptor.asset: asset,
+            release: release,
+            saveAsFileName: descriptor.saveAsFileName,
+          })
+        await Promise.all(
+          wasmAssets->Array.map(async asset => await makeDownloadItem(state, WASM, makeSource(asset))),
+        )
       }
     | Ok(platform) =>
-      switch channel {
-      | DevALS =>
-        let resolver = PlatformOps.resolveDownloadChannel(channel, true)
-        switch await resolver(state.memento, state.globalStorageUri, platform) {
-        | Error(_) => [unavailableSourceItem(Native), unavailableSourceItem(WASM)]
-        | Ok(Connection__Download.Source.FromURL(_, _, _)) =>
-          [unavailableSourceItem(Native), unavailableSourceItem(WASM)]
-        | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
-          let release = descriptor.release
-          let nativeAssets = Connection__DevALS.allNativeAssetsForPlatform(release, platform)
-          let wasmAssets = Connection__DevALS.allWasmAssets(release)
-          let makeSource = asset =>
-            Connection__Download.Source.FromGitHub(channel, {
-              Connection__Download__GitHub.DownloadDescriptor.asset: asset,
-              release: release,
-              saveAsFileName: descriptor.saveAsFileName,
-            })
-          let nativeItems = await Promise.all(
-            nativeAssets->Array.map(async asset =>
-              await makeDownloadItem(state, Native, makeSource(asset))
-            ),
-          )
-          let wasmItems = await Promise.all(
-            wasmAssets->Array.map(async asset =>
-              await makeDownloadItem(state, WASM, makeSource(asset))
-            ),
-          )
-          Array.concat(nativeItems, wasmItems)
-        }
-      | _ =>
-        let nativeItem = switch sourceForVariant(platform, Native, ~channel) {
-        | Some(source) => await makeDownloadItem(state, Native, source)
-        | None => unavailableSourceItem(Native)
-        }
-        let wasmItem = switch sourceForVariant(platform, WASM, ~channel) {
-        | Some(source) => await makeDownloadItem(state, WASM, source)
-        | None => unavailableSourceItem(WASM)
-        }
-        [nativeItem, wasmItem]
+      let resolver = PlatformOps.resolveDownloadChannel(channel, true)
+      switch await resolver(state.memento, state.globalStorageUri, platform) {
+      | Error(_) => [unavailableSourceItem(Native), unavailableSourceItem(WASM)]
+      | Ok(Connection__Download.Source.FromURL(_, _, _)) =>
+        [unavailableSourceItem(Native), unavailableSourceItem(WASM)]
+      | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
+        let release = descriptor.release
+        let nativeAssets = Connection__DevALS.allNativeAssetsForPlatform(release, platform)
+        let wasmAssets = Connection__DevALS.allWasmAssets(release)
+        let makeSource = asset =>
+          Connection__Download.Source.FromGitHub(channel, {
+            Connection__Download__GitHub.DownloadDescriptor.asset: asset,
+            release: release,
+            saveAsFileName: descriptor.saveAsFileName,
+          })
+        let nativeItems = await Promise.all(
+          nativeAssets->Array.map(async asset =>
+            await makeDownloadItem(state, Native, makeSource(asset))
+          ),
+        )
+        let wasmItems = await Promise.all(
+          wasmAssets->Array.map(async asset =>
+            await makeDownloadItem(state, WASM, makeSource(asset))
+          ),
+        )
+        Array.concat(nativeItems, wasmItems)
       }
     }
 
@@ -851,7 +789,7 @@ module Handler = {
     variant: Download.variant,
     downloaded: bool,
     versionString: string,
-    ~channel: Connection__Download.Channel.t=Hardcoded,
+    ~channel: Connection__Download.Channel.t=DevALS,
     ~refreshUI: option<unit => promise<unit>>=None,
   ) => {
     state.channels.log->Chan.emit(
@@ -859,56 +797,112 @@ module Handler = {
     )
 
     if downloaded {
-      let downloadedPath = Download.expectedPathForVariant(state.globalStorageUri, variant, ~channel)
-      await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
-      VSCode.Window.showInformationMessage(
-        versionString ++ " is already downloaded",
-        [],
-      )->Promise.done
+      // Derive path purely from local filesystem — no network call needed.
+      // Walk releases/<tag>/<artifactDir>/ and find an artifact whose computed
+      // versionString matches, with the right variant (native vs WASM).
+      open Connection__Download
+      let releasesUri = VSCode.Uri.joinPath(state.globalStorageUri, ["releases"])
+      let found: ref<option<VSCode.Uri.t>> = ref(None)
+      switch await FS.readDirectory(releasesUri) {
+      | Error(_) => ()
+      | Ok(tagEntries) =>
+        let _ = await Promise.all(
+          tagEntries->Array.map(async ((tagDirName, _)) => {
+            let tagUri = VSCode.Uri.joinPath(releasesUri, [tagDirName])
+            switch await FS.readDirectory(tagUri) {
+            | Error(_) => ()
+            | Ok(artifactEntries) =>
+              artifactEntries->Array.forEach(((artifactDirName, _)) => {
+                if found.contents->Option.isNone {
+                  switch DownloadArtifact.parseName(artifactDirName) {
+                  | None => ()
+                  | Some(artifact) =>
+                    let isWasm = DownloadArtifact.Platform.isWasm(artifact.platform)
+                    let variantMatches = switch variant {
+                    | WASM => isWasm
+                    | Native => !isWasm
+                    }
+                    let channelTagMatches = switch channel {
+                    | Channel.DevALS => artifact.releaseTag == "dev"
+                    | Channel.LatestALS => artifact.releaseTag != "dev"
+                    }
+                    if variantMatches && channelTagMatches {
+                      let vs = switch channel {
+                      | Channel.DevALS =>
+                        "Agda v" ++ artifact.agdaVersion ++ " Language Server (dev build)"
+                      | Channel.LatestALS =>
+                        "Agda v" ++ artifact.agdaVersion ++ " Language Server " ++
+                        DownloadArtifact.versionLabel(artifact.releaseTag)
+                      }
+                      if vs == versionString {
+                        // Build URI from the actual discovered directory names,
+                        // not from artifact fields, to stay consistent with what's on disk.
+                        let execName = DownloadArtifact.executableName(artifact)
+                        let execUri = VSCode.Uri.joinPath(
+                          releasesUri,
+                          [tagDirName, artifactDirName, execName],
+                        )
+                        found := Some(execUri)
+                      }
+                    }
+                  }
+                }
+              })
+            }
+          })
+        )
+      }
+      switch found.contents {
+      | None => ()
+      | Some(execUri) =>
+        // Verify the executable actually exists before adding it to config.
+        switch await FS.stat(execUri) {
+        | Error(_) => ()
+        | Ok(_) =>
+          let downloadedPath = Connection__Download.uriToPath(execUri)
+          await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+          VSCode.Window.showInformationMessage(
+            versionString ++ " is already downloaded",
+            [],
+          )->Promise.done
+        }
+      }
     } else {
       module PlatformOps = unpack(platformDeps)
       let onTrace = event => state.channels.log->Chan.emit(Log.DownloadTrace(event))
       let downloadResult = switch await PlatformOps.determinePlatform() {
       | Error(_) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
       | Ok(platform) =>
-        switch channel {
-        | DevALS =>
-          let resolver = PlatformOps.resolveDownloadChannel(channel, true)
-          switch await resolver(state.memento, state.globalStorageUri, platform) {
-          | Error(e) => Error(e)
-          | Ok(Connection__Download.Source.FromURL(_, _, _) as source) =>
-            await PlatformOps.download(state.globalStorageUri, source, ~trace=onTrace)
-          | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
-            let release = descriptor.release
-            let assets = switch variant {
-            | Native => Connection__DevALS.allNativeAssetsForPlatform(release, platform)
-            | WASM => Connection__DevALS.allWasmAssets(release)
-            }
-            let matchingSource = assets->Array.reduce(None, (found, asset) =>
-              switch found {
-              | Some(_) => found
-              | None =>
-                let src = Connection__Download.Source.FromGitHub(channel, {
-                  Connection__Download__GitHub.DownloadDescriptor.asset: asset,
-                  release: release,
-                  saveAsFileName: descriptor.saveAsFileName,
-                })
-                if Connection__Download.Source.toVersionString(src) == versionString {
-                  Some(src)
-                } else {
-                  None
-                }
-              }
-            )
-            switch matchingSource {
-            | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-            | Some(src) => await PlatformOps.download(state.globalStorageUri, src, ~trace=onTrace)
-            }
+        let resolver = PlatformOps.resolveDownloadChannel(channel, true)
+        switch await resolver(state.memento, state.globalStorageUri, platform) {
+        | Error(e) => Error(e)
+        | Ok(Connection__Download.Source.FromURL(_, _, _) as source) =>
+          await PlatformOps.download(state.globalStorageUri, source, ~trace=onTrace)
+        | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
+          let release = descriptor.release
+          let assets = switch variant {
+          | Native => Connection__DevALS.allNativeAssetsForPlatform(release, platform)
+          | WASM => Connection__DevALS.allWasmAssets(release)
           }
-        | _ =>
-          switch Download.sourceForVariant(platform, variant, ~channel) {
+          let matchingSource = assets->Array.reduce(None, (found, asset) =>
+            switch found {
+            | Some(_) => found
+            | None =>
+              let src = Connection__Download.Source.FromGitHub(channel, {
+                Connection__Download__GitHub.DownloadDescriptor.asset: asset,
+                release: release,
+                saveAsFileName: descriptor.saveAsFileName,
+              })
+              if Connection__Download.Source.toVersionString(src) == versionString {
+                Some(src)
+              } else {
+                None
+              }
+            }
+          )
+          switch matchingSource {
           | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-          | Some(source) => await PlatformOps.download(state.globalStorageUri, source, ~trace=onTrace)
+          | Some(src) => await PlatformOps.download(state.globalStorageUri, src, ~trace=onTrace)
           }
         }
       }
@@ -1235,14 +1229,10 @@ module Handler = {
   ) => {
     let manager = SwitchVersionManager.make(state)
     let view = View.make(state.channels.log)
-    let availableChannels = ref([Connection__Download.Channel.Hardcoded])
+    let availableChannels = ref([Connection__Download.Channel.DevALS])
     let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
-    | Some(label) =>
-      switch Download.channelFromLabel(label) {
-      | Some(channel) => channel
-      | None => Connection__Download.Channel.Hardcoded
-      }
-    | None => Connection__Download.Channel.Hardcoded
+    | Some(label) => Download.channelFromLabel(label)->Option.getOr(Connection__Download.Channel.DevALS)
+    | None => Connection__Download.Channel.DevALS
     }
     let selectedChannel = ref(restoredChannel)
 
@@ -1279,7 +1269,7 @@ module Handler = {
 
     // Clamp restored channel to available channels
     if !(availableChannels.contents->Array.includes(selectedChannel.contents)) {
-      selectedChannel := Connection__Download.Channel.Hardcoded
+      selectedChannel := availableChannels.contents->Array.get(0)->Option.getOr(Connection__Download.Channel.DevALS)
     }
 
     // PHASE 1: Show cached items immediately with placeholders to prevent jitter

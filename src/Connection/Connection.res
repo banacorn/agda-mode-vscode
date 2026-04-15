@@ -459,34 +459,27 @@ module Module: Module = {
         Error(Error.Establish.fromDownloadError(Connection__Download.Error.OptedNotToDownload))
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
-        // Use the selected channel from memento, defaulting to Hardcoded.
-        // Web only supports Hardcoded; desktop supports Hardcoded and DevALS.
-        // Stale memento values are clamped to Hardcoded.
+        // Use the selected channel from memento, defaulting to DevALS.
+        // Stale memento values are clamped to DevALS.
         let channel = switch platform {
-        | Connection__Download__Platform.Web => Connection__Download.Channel.Hardcoded
+        | Connection__Download__Platform.Web => Connection__Download.Channel.DevALS
         | _ =>
           switch Memento.SelectedChannel.get(memento) {
           | Some("DevALS") => Connection__Download.Channel.DevALS
-          | _ => Connection__Download.Channel.Hardcoded
+          | _ => Connection__Download.Channel.DevALS
           }
         }
-        // WASM fallback uses the selected channel's directory to keep artifacts separate
-        let channelDirName = switch channel {
-        | Connection__Download.Channel.Hardcoded => "hardcoded-als"
-        | Connection__Download.Channel.DevALS => "dev-als"
-        | Connection__Download.Channel.LatestALS => "latest-als"
-        }
+        // WASM fallback source is populated when resolveDownloadChannel returns a FromGitHub descriptor;
+        // it picks the first WASM asset from the same release so the fallback stays release-managed.
+        let wasmFallbackSource: ref<option<Connection__Download.Source.t>> = ref(None)
         let tryWasmFallback = async () =>
-          switch await PlatformOps.download(
-            globalStorageUri,
-            Connection__Download.Source.FromURL(
-              channel,
-              Connection__Hardcoded.wasmUrl,
-              channelDirName,
-            ),
-          ) {
-          | Ok(path) => Ok(path)
-          | Error(error) => Error(error)
+          switch wasmFallbackSource.contents {
+          | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          | Some(wasmSource) =>
+            switch await PlatformOps.download(globalStorageUri, wasmSource) {
+            | Ok(path) => Ok(path)
+            | Error(error) => Error(error)
+            }
           }
         let tryDownloadSource = async source =>
           switch await PlatformOps.download(globalStorageUri, source) {
@@ -525,16 +518,32 @@ module Module: Module = {
             platform,
           ) {
           | Error(resolveError) =>
-            switch await tryWasmFallback() {
+            Error(Error.Establish.fromDownloadError(resolveError))
+          | Ok(Connection__Download.Source.FromGitHub(_, descriptor) as source) =>
+            let nativeAgdaVersion =
+              Connection__Download.DownloadArtifact.parseName(descriptor.asset.name)
+              ->Option.map(a => a.agdaVersion)
+            wasmFallbackSource :=
+              Connection__DevALS.allWasmAssets(descriptor.release)
+              ->Array.find(asset =>
+                switch (nativeAgdaVersion, Connection__Download.DownloadArtifact.parseName(asset.name)) {
+                | (Some(nv), Some(wa)) => nv == wa.agdaVersion
+                | _ => false
+                }
+              )
+              ->Option.map(asset =>
+                Connection__Download.Source.FromGitHub(channel, {
+                  Connection__Download__GitHub.DownloadDescriptor.asset: asset,
+                  release: descriptor.release,
+                  saveAsFileName: descriptor.saveAsFileName,
+                })
+              )
+            switch await tryDownloadSource(source) {
+            | Error(error) => Error(Error.Establish.fromDownloadError(error))
             | Ok(path) => Ok(path)
-            | Error(_wasmError) =>
-              // Report the original resolve error as root cause;
-              // download field only holds one error so the WASM fallback
-              // error is dropped (it is secondary to the resolve failure).
-              Error(Error.Establish.fromDownloadError(resolveError))
             }
-          | Ok(downloadDescriptor) =>
-            switch await tryDownloadSource(downloadDescriptor) {
+          | Ok(Connection__Download.Source.FromURL(_, _, _) as source) =>
+            switch await tryDownloadSource(source) {
             | Error(error) => Error(Error.Establish.fromDownloadError(error))
             | Ok(path) => Ok(path)
             }

@@ -50,8 +50,6 @@ The following channels **MUST** be supported:
 - **Dev** — resolves to the concrete `dev` release
 - **Latest** — resolves to the current latest stable release
 
-`Hardcoded` **MAY** exist temporarily as a legacy source policy, but **MUST NOT** be modeled as a Release and **MUST NOT** be used as the long-term channel model.
-
 Channel selection **MUST** be made via UI picker and **MUST** be stored in memento.
 
 The selected channel **MUST** apply to both automatic fallback downloads and manual UI-triggered downloads.

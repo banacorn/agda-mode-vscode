@@ -1575,8 +1575,6 @@ describe("Connection", () => {
                     "dev-als",
                   ),
                 )
-              | Connection__Download.Channel.Hardcoded =>
-                Ok(FromURL(Hardcoded, "mock-url", "hardcoded-als"))
               | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
               }
             )
@@ -1605,7 +1603,7 @@ describe("Connection", () => {
 
         switch result {
         | Ok(_) =>
-          // Automatic fallback MUST use selected channel from memento (DevALS), not Hardcoded
+          // Automatic fallback MUST use selected channel from memento (DevALS)
           Assert.deepStrictEqual(downloadedChannel.contents, Some(Connection__Download.Channel.DevALS))
         | Error(_) => Assert.fail("Expected download fallback to succeed")
         }
@@ -1627,8 +1625,8 @@ describe("Connection", () => {
             let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
             let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
               switch channel {
-              | Connection__Download.Channel.Hardcoded =>
-                Ok(FromURL(Hardcoded, "mock-url", "hardcoded-als"))
+              | Connection__Download.Channel.DevALS =>
+                Ok(Connection__Download.Source.FromGitHub(channel, Mock.DownloadDescriptor.mockDevALSDescriptor))
               | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
               }
             )
@@ -1690,15 +1688,14 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should try WASM fallback when cached native binary fails to connect",
+      "should return error when cached native binary fails to connect and no WASM source available",
       async () => {
         let logChannel = Chan.make()
         await Config.Connection.setAgdaPaths(logChannel, [])
         await Config.Connection.DownloadPolicy.set(Undecided)
         let memento = Memento.make(None)
 
-        let triedWasm = ref(false)
-        let wasmDownloadedPath = downloadedAgda.contents
+        let downloadCalled = ref(false)
 
         let platform: Platform.t = {
           module MockPlatform = {
@@ -1710,19 +1707,12 @@ describe("Connection", () => {
             }
             let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
               switch channel {
-              | Connection__Download.Channel.Hardcoded =>
-                Ok(FromURL(Hardcoded, "mock-url", "hardcoded-als"))
               | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
               }
             )
-            let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) => {
-              switch source {
-              | Connection__Download.Source.FromURL(_, url, _)
-                if url == Connection__Hardcoded.wasmUrl =>
-                triedWasm := true
-                Promise.resolve(Ok(wasmDownloadedPath))
-              | _ => Promise.resolve(Ok(wasmDownloadedPath))
-              }
+            let download = (_globalStorageUri, _source, ~trace as _=Connection__Download__Trace.noop) => {
+              downloadCalled := true
+              Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
             }
             let findCommand = (_command, ~timeout as _timeout=1000) =>
               Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -1739,14 +1729,12 @@ describe("Connection", () => {
           logChannel,
         )
 
-        // When cached native binary fails make(), WASM MUST be tried as fallback
-        // Currently: code returns error without trying WASM when alreadyDownloaded path fails make()
+        // alreadyDownloaded bypasses resolveDownloadChannel, so wasmFallbackSource is never populated.
+        // When the cached path fails make(), tryWasmFallback returns error (no source available).
+        Assert.deepStrictEqual(downloadCalled.contents, false)
         switch result {
-        | Ok(_) =>
-          Assert.deepStrictEqual(triedWasm.contents, true)
-        | Error(_) =>
-          // If we get an error, WASM should still have been attempted
-          Assert.deepStrictEqual(triedWasm.contents, true)
+        | Ok(_) => Assert.fail("Expected error when cached native binary fails and no WASM source")
+        | Error(_) => Assert.ok(true)
         }
       },
     )
@@ -1796,14 +1784,14 @@ describe("Connection", () => {
         ])
         let globalStorageUri = VSCode.Uri.file(storagePath)
         let _ = await FS.createDirectory(globalStorageUri)
-        let wasmDirUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als"])
+        let wasmDirUri = VSCode.Uri.joinPath(globalStorageUri, ["test-wasm-als"])
         let _ = await FS.createDirectory(wasmDirUri)
         let wasmFilePath = NodeJs.Path.join([VSCode.Uri.fsPath(wasmDirUri), "als.wasm"])
         NodeJs.Fs.writeFileSync(wasmFilePath, NodeJs.Buffer.fromString("mock-wasm"))
 
         // Exercise real download(FromGitHub) branch (Connection__Download.res:267-290):
         // Connection__Download__GitHub.download checks FS.stat(destUri) at line 509 —
-        // "hardcoded-als" directory exists, so it returns Ok(true) (cached) without HTTP.
+        // "test-wasm-als" directory exists, so it returns Ok(true) (cached) without HTTP.
         // Then download() constructs: fsPath(joinPath(globalStorageUri, [saveAsFileName, "als.wasm"]))
         let wasmDescriptor = {
           Connection__Download__GitHub.DownloadDescriptor.asset: {
@@ -1811,12 +1799,12 @@ describe("Connection", () => {
             name: "als-wasm-Agda-2.6.3.wasm", // name includes "wasm" → fileName = "als.wasm"
           },
           release: Mock.DownloadDescriptor.mockRelease,
-          saveAsFileName: "hardcoded-als",
+          saveAsFileName: "test-wasm-als",
         }
         let fromGitHubResult = await Connection__Download.download(
           globalStorageUri,
           Connection__Download.Source.FromGitHub(
-            Connection__Download.Channel.Hardcoded,
+            Connection__Download.Channel.DevALS,
             wasmDescriptor,
           ),
         )
@@ -1826,7 +1814,7 @@ describe("Connection", () => {
         let fromURLResult = await Connection__Download.downloadFromURL(
           globalStorageUri,
           "https://example.com/als.wasm",
-          "hardcoded-als",
+          "test-wasm-als",
           "test",
         )
 

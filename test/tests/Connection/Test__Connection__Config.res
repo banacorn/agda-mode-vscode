@@ -451,8 +451,8 @@ describe("Config.Connection paths", () => {
           mockState,
           platform,
           manager,
-          ref([Connection__Download.Channel.Hardcoded]),
-          ref(Connection__Download.Channel.Hardcoded),
+          ref([Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [mockSelectedItem],
@@ -498,11 +498,22 @@ describe("Config.Connection paths", () => {
         ~isAlreadyDownloaded: bool=false,
       ) => {
         let (listener, mockState) = await setupUITest(initialConfig)
+        let releasesDir =
+          VSCode.Uri.joinPath(mockState.globalStorageUri, ["releases"])
         let expectedDownloadedPath = if isAlreadyDownloaded {
-          State__SwitchVersion.Download.expectedPathForVariant(
-            mockState.globalStorageUri,
-            State__SwitchVersion.Download.Native,
-          )
+          // Create a release-managed native artifact at the expected location
+          // so that findReleaseManagedDownloadedForDesktopPlatform finds it.
+          // The mock platform returns MacOS_Arm, so we use that artifact name.
+          let artifactDir = NodeJs.Path.join([
+            VSCode.Uri.fsPath(mockState.globalStorageUri),
+            "releases",
+            "dev",
+            "als-dev-Agda-2.8.0-macos-arm64",
+          ])
+          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+          let alsPath = NodeJs.Path.join([artifactDir, "als"])
+          NodeJs.Fs.writeFileSync(alsPath, NodeJs.Buffer.fromString("mock-native"))
+          alsPath
         } else {
           downloadedALS.contents
         }
@@ -510,7 +521,7 @@ describe("Config.Connection paths", () => {
         let mockSelectedItem = State__SwitchVersion.Item.fromItemData(
           State__SwitchVersion.ItemData.DownloadAction(
             isAlreadyDownloaded,
-            "ALS v0.2.10, Agda v2.7.0.1",
+            "Agda v2.8.0 Language Server (dev build)",
             "native",
           ),
           mockState.extensionUri,
@@ -524,6 +535,8 @@ describe("Config.Connection paths", () => {
         let logs = listener(~filter=Log.isConfig)
         let finalConfig = Config.Connection.getAgdaPaths()
         let preferredCandidate = Memento.PreferredCandidate.get(mockState.memento)
+        // Clean up any release-managed files created in the shared tmpdir
+        let _ = await FS.deleteRecursive(releasesDir)
         (logs, finalConfig, preferredCandidate, expectedDownloadedPath)
       }
 
@@ -548,8 +561,8 @@ describe("Config.Connection paths", () => {
           mockState,
           platformWithDiscovery,
           manager,
-          ref([Connection__Download.Channel.Hardcoded]),
-          ref(Connection__Download.Channel.Hardcoded),
+          ref([Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [], // Empty selection

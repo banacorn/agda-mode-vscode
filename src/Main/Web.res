@@ -23,41 +23,28 @@ module Web: Platform.PlatformOps = {
           uri => VSCode.Uri.toString(uri),
         )
       }
-    | Connection__Download.Channel.Hardcoded => {
-        // Web: Check for WASM at hardcoded-als path
-        let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als.wasm"])
-        switch await FS.stat(wasmUri) {
-        | Ok(_) => Some(VSCode.Uri.toString(wasmUri))
-        | Error(_) => None
-        }
-      }
     }
   }
 
   let resolveDownloadChannel = (
     channel: Connection__Download.Channel.t,
     _useCache,
-  ) => async (_memento, _globalStorageUri, _platform) => {
+  ) => async (memento, globalStorageUri, _platform) => {
     switch channel {
     | LatestALS => {
         // Web doesn't support LatestALS (native binaries)
         Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
       }
-    | Hardcoded => {
-        // Web: Use WASM URL directly
-        Ok(
-          Connection__Download.Source.FromURL(
-            Hardcoded,
-            Connection__Hardcoded.wasmUrl,
-            "hardcoded-als",
-          ),
-        )
-      }
     | DevALS => {
-        // Web only supports Hardcoded channel; DevALS is not available.
-        // Runtime clamps Web to Hardcoded, so this branch is unreachable,
-        // but we return an error defensively.
-        Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+        let repo = Connection__DevALS.makeRepo(globalStorageUri)
+        switch await Connection__Download.getReleaseManifestFromGitHub(
+          memento,
+          repo,
+          ~useCache=_useCache,
+        ) {
+        | Error(error) => Error(error)
+        | Ok(releases) => Connection__DevALS.toDownloadOrder(releases, Connection__Download__Platform.Web)
+        }
       }
     }
   }

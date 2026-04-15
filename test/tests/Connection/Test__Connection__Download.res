@@ -273,7 +273,6 @@ describe("Download", () => {
         saveAsFileName: switch channel {
         | DevALS => "dev-als"
         | LatestALS => "latest-als"
-        | Hardcoded => "hardcoded-als"
         },
       }
 
@@ -518,105 +517,6 @@ describe("Download", () => {
     )
   })
 
-  describe("alreadyDownloaded with Hardcoded", () => {
-    Async.it(
-      "should return Some(path) when native binary exists at hardcoded-als/als",
-      async () => {
-        let tempDir = NodeJs.Path.join([
-          NodeJs.Os.tmpdir(),
-          "hardcoded-als-native-test-" ++ string_of_int(int_of_float(Js.Date.now())),
-        ])
-        let hardcodedAlsDir = NodeJs.Path.join([tempDir, "hardcoded-als"])
-        let alsExecutable = NodeJs.Path.join([hardcodedAlsDir, "als"])
-
-        // Create directory structure and als executable
-        await NodeJs.Fs.mkdir(hardcodedAlsDir, {recursive: true, mode: 0o777})
-        NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
-
-        let globalStorageUri = VSCode.Uri.file(tempDir)
-        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, Hardcoded)
-
-        Assert.deepStrictEqual(result, Some(VSCode.Uri.file(alsExecutable)->VSCode.Uri.fsPath))
-
-        // Cleanup
-        NodeJs.Fs.unlinkSync(alsExecutable)
-        NodeJs.Fs.rmdirSync(hardcodedAlsDir)
-        NodeJs.Fs.rmdirSync(tempDir)
-      },
-    )
-
-    Async.it(
-      "should return Some(uri) when WASM exists at hardcoded-als/als.wasm",
-      async () => {
-        let tempDir = NodeJs.Path.join([
-          NodeJs.Os.tmpdir(),
-          "hardcoded-als-wasm-test-" ++ string_of_int(int_of_float(Js.Date.now())),
-        ])
-        let hardcodedAlsDir = NodeJs.Path.join([tempDir, "hardcoded-als"])
-        let wasmFile = NodeJs.Path.join([hardcodedAlsDir, "als.wasm"])
-
-        // Create directory structure and als.wasm file
-        await NodeJs.Fs.mkdir(hardcodedAlsDir, {recursive: true, mode: 0o777})
-        NodeJs.Fs.writeFileSync(wasmFile, NodeJs.Buffer.fromString("mock wasm"))
-
-        let globalStorageUri = VSCode.Uri.file(tempDir)
-        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, Hardcoded)
-
-        let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["hardcoded-als", "als.wasm"])
-        Assert.deepStrictEqual(result, Some(VSCode.Uri.toString(wasmUri)))
-
-        // Cleanup
-        NodeJs.Fs.unlinkSync(wasmFile)
-        NodeJs.Fs.rmdirSync(hardcodedAlsDir)
-        NodeJs.Fs.rmdirSync(tempDir)
-      },
-    )
-
-    Async.it(
-      "should return None when nothing exists at hardcoded-als",
-      async () => {
-        let nonExistentDir = NodeJs.Path.join([
-          NodeJs.Os.tmpdir(),
-          "hardcoded-als-test-nonexistent-" ++ string_of_int(int_of_float(Js.Date.now())),
-        ])
-
-        let globalStorageUri = VSCode.Uri.file(nonExistentDir)
-        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, Hardcoded)
-
-        Assert.deepStrictEqual(result, None)
-      },
-    )
-
-    Async.it(
-      "should prefer native binary over WASM when both exist",
-      async () => {
-        let tempDir = NodeJs.Path.join([
-          NodeJs.Os.tmpdir(),
-          "hardcoded-als-both-test-" ++ string_of_int(int_of_float(Js.Date.now())),
-        ])
-        let hardcodedAlsDir = NodeJs.Path.join([tempDir, "hardcoded-als"])
-        let alsExecutable = NodeJs.Path.join([hardcodedAlsDir, "als"])
-        let wasmFile = NodeJs.Path.join([hardcodedAlsDir, "als.wasm"])
-
-        // Create both native and WASM files
-        await NodeJs.Fs.mkdir(hardcodedAlsDir, {recursive: true, mode: 0o777})
-        NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
-        NodeJs.Fs.writeFileSync(wasmFile, NodeJs.Buffer.fromString("mock wasm"))
-
-        let globalStorageUri = VSCode.Uri.file(tempDir)
-        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, Hardcoded)
-
-        // Should prefer native binary
-        Assert.deepStrictEqual(result, Some(VSCode.Uri.file(alsExecutable)->VSCode.Uri.fsPath))
-
-        // Cleanup
-        NodeJs.Fs.unlinkSync(alsExecutable)
-        NodeJs.Fs.unlinkSync(wasmFile)
-        NodeJs.Fs.rmdirSync(hardcodedAlsDir)
-        NodeJs.Fs.rmdirSync(tempDir)
-      },
-    )
-  })
 
   describe("findReleaseManagedDownloadedForDesktopPlatform", () => {
     Async.it(
@@ -1072,7 +972,7 @@ describe("Download", () => {
       assets: [asset], tarball_url: "", zipball_url: "", body: None,
     }
     let descriptor: GitHub.DownloadDescriptor.t = {
-      release, asset, saveAsFileName: "hardcoded-als",
+      release, asset, saveAsFileName: "test-als",
     }
     (asset, release, descriptor)
   }
@@ -1112,7 +1012,7 @@ describe("Download", () => {
           NodeJs.Os.tmpdir(),
           "agda-sentinel-cache-hit-" ++ string_of_int(int_of_float(Js.Date.now())),
         ])
-        let binaryDir = NodeJs.Path.join([tempDir, "hardcoded-als"])
+        let binaryDir = NodeJs.Path.join([tempDir, "test-als"])
         await NodeJs.Fs.mkdir(binaryDir, {recursive: true, mode: 0o777})
         // Binary is NOT pre-created — it appears only inside mockWriteSentinel.
         // This proves the cache check runs after sentinel write: if the cache
@@ -1155,7 +1055,7 @@ describe("Download", () => {
           NodeJs.Os.tmpdir(),
           "agda-sentinel-delete-fail-" ++ string_of_int(int_of_float(Js.Date.now())),
         ])
-        let binaryDir = NodeJs.Path.join([tempDir, "hardcoded-als"])
+        let binaryDir = NodeJs.Path.join([tempDir, "test-als"])
         await NodeJs.Fs.mkdir(binaryDir, {recursive: true, mode: 0o777})
         NodeJs.Fs.writeFileSync(NodeJs.Path.join([binaryDir, "als"]), NodeJs.Buffer.fromString("mock binary"))
 
@@ -1209,7 +1109,7 @@ describe("Download", () => {
 
         let _ = await FS.deleteRecursive(globalStorageUri)
 
-        let expectedPath = NodeJs.Path.join([tempDir, "hardcoded-als", "als"])
+        let expectedPath = NodeJs.Path.join([tempDir, "test-als", "als"])
         Assert.deepStrictEqual(result, Error(GitHub.Error.BinaryMissingAfterExtraction(expectedPath)))
       },
     )
@@ -1358,7 +1258,7 @@ describe("Download", () => {
         created_at: "", published_at: "",
         assets: [asset], tarball_url: "", zipball_url: "", body: None,
       }
-      { release, asset, saveAsFileName: "hardcoded-als" }
+      { release, asset, saveAsFileName: "dev-als" }
     }
 
     // Deterministic fetchFile mock: calls trace(FetchStarted) via the injected ~trace and returns
@@ -1425,7 +1325,7 @@ describe("Download", () => {
         await withTempDir("agda-trace-wire2-", async globalStorageUri => {
           let descriptor = makeFakeDescriptor()
           let source = Connection__Download.Source.FromGitHub(
-            Connection__Download.Channel.Hardcoded,
+            Connection__Download.Channel.DevALS,
             descriptor,
           )
 
@@ -1453,7 +1353,7 @@ describe("Download", () => {
         await withTempDir("agda-trace-wire3-", async globalStorageUri => {
           let fromUrlUrl = "https://trace-test.example/trace-check.zip"
           let source = Connection__Download.Source.FromURL(
-            Connection__Download.Channel.Hardcoded,
+            Connection__Download.Channel.DevALS,
             fromUrlUrl,
             "trace-url-test",
           )
@@ -1513,9 +1413,9 @@ describe("Download", () => {
               let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
               let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_ =>
                 Ok(Connection__Download.Source.FromURL(
-                  Connection__Download.Channel.Hardcoded,
+                  Connection__Download.Channel.DevALS,
                   "mock://trace-test",
-                  "hardcoded-als",
+                  "dev-als",
                 ))
               )
               let download = (_globalStorageUri, _source, ~trace=Connection__Download__Trace.noop) => {
@@ -1532,7 +1432,7 @@ describe("Download", () => {
             state, platform,
             State__SwitchVersion.Download.Native,
             false, "ALS vTest",
-            ~channel=Connection__Download.Channel.Hardcoded,
+            ~channel=Connection__Download.Channel.DevALS,
           )
 
           let hasDownloadTrace = logEvents.contents->Array.some(e =>
@@ -1792,14 +1692,10 @@ describe("Download", () => {
       )
     })
 
-    it("should not include hardcoded-als, latest-als, dev-als, or dev-wasm-als", () => {
+    it("should not include legacy flat dirs (latest-als, dev-als, dev-wasm-als)", () => {
       let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
       let roots = Connection__Download.managedDeleteRoots(globalStorageUri)
       let rootStrings = roots->Array.map(uri => VSCode.Uri.toString(uri))
-      Assert.deepStrictEqual(
-        rootStrings->Array.some(s => String.includes(s, "hardcoded-als")),
-        false,
-      )
       Assert.deepStrictEqual(
         rootStrings->Array.some(s => String.includes(s, "latest-als")),
         false,

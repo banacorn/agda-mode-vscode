@@ -77,8 +77,8 @@ describe("Connection Downloads", () => {
       state,
       makeMockPlatform(),
       manager,
-      ref([Connection__Download.Channel.Hardcoded]),
-      ref(Connection__Download.Channel.Hardcoded),
+      ref([Connection__Download.Channel.DevALS]),
+      ref(Connection__Download.Channel.DevALS),
       _downloadInfo => Promise.resolve(),
       view,
       [selectedItem],
@@ -261,7 +261,7 @@ describe("Connection Downloads", () => {
     )
 
     Async.it(
-      "should resolve Web downloads via Hardcoded channel",
+      "should resolve Web downloads via DevALS channel",
       async () => {
         await Config.Connection.DownloadPolicy.set(Undecided)
 
@@ -277,9 +277,9 @@ describe("Connection Downloads", () => {
             async (_memento, _globalStorageUri, _platform) =>
               Ok(
                 Connection__Download.Source.FromURL(
-                  Hardcoded,
-                  Connection__Hardcoded.wasmUrl,
-                  "hardcoded-als",
+                  Connection__Download.Channel.DevALS,
+                  "https://example.invalid/als.wasm",
+                  "dev-als",
                 ),
               )
           }
@@ -298,13 +298,13 @@ describe("Connection Downloads", () => {
 
         let expected = Connection.Error.Establish.fromDownloadError(CannotFindCompatibleALSRelease)
         Assert.deepStrictEqual(result, Error(expected))
-        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download.Channel.Hardcoded))
+        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download.Channel.DevALS))
         Assert.deepStrictEqual(checkedDownload.contents, true)
       },
     )
 
     Async.it(
-      "should clamp stale DevALS memento to Hardcoded on Web",
+      "should use DevALS channel on Web regardless of memento",
       async () => {
         await Config.Connection.DownloadPolicy.set(Undecided)
 
@@ -319,9 +319,9 @@ describe("Connection Downloads", () => {
             async (_memento, _globalStorageUri, _platform) =>
               Ok(
                 Connection__Download.Source.FromURL(
-                  Hardcoded,
-                  Connection__Hardcoded.wasmUrl,
-                  "hardcoded-als",
+                  Connection__Download.Channel.DevALS,
+                  "https://example.invalid/als.wasm",
+                  "dev-als",
                 ),
               )
           }
@@ -337,12 +337,12 @@ describe("Connection Downloads", () => {
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let _result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
 
-        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download.Channel.Hardcoded))
+        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download.Channel.DevALS))
       },
     )
 
     Async.it(
-      "should resolve Desktop downloads via Hardcoded channel",
+      "should resolve Desktop downloads via DevALS channel",
       async () => {
         await Config.Connection.DownloadPolicy.set(Undecided)
 
@@ -358,9 +358,9 @@ describe("Connection Downloads", () => {
             async (_memento, _globalStorageUri, _platform) =>
               Ok(
                 Connection__Download.Source.FromURL(
-                  Hardcoded,
-                  "https://example.invalid/hardcoded-native",
-                  "hardcoded-als",
+                  Connection__Download.Channel.DevALS,
+                  "https://example.invalid/dev-als-native",
+                  "dev-als",
                 ),
               )
           }
@@ -379,13 +379,13 @@ describe("Connection Downloads", () => {
 
         let expected = Connection.Error.Establish.fromDownloadError(CannotFindCompatibleALSRelease)
         Assert.deepStrictEqual(result, Error(expected))
-        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download.Channel.Hardcoded))
+        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download.Channel.DevALS))
         Assert.deepStrictEqual(checkedDownload.contents, true)
       },
     )
 
     Async.it(
-      "should retry Hardcoded download with WASM source when native download fails",
+      "should retry DevALS download with WASM source when native download fails",
       async () => {
         await Config.Connection.DownloadPolicy.set(Undecided)
 
@@ -397,7 +397,7 @@ describe("Connection Downloads", () => {
         let checkedNativeDownload = ref(false)
         let checkedWasmDownload = ref(false)
 
-        let mockPlatformDeps = Mock.Platform.makeWithHardcodedNativeFailureAndWASMSuccess(
+        let mockPlatformDeps = Mock.Platform.makeWithNativeFailureAndWASMSuccess(
           downloadedMock,
           checkedCache,
           checkedNativeDownload,
@@ -425,16 +425,11 @@ describe("Connection Downloads", () => {
     )
 
     Async.it(
-      "should retry Hardcoded download with WASM source when Hardcoded channel resolution fails",
+      "should propagate error when channel resolution fails (no WASM fallback)",
       async () => {
         await Config.Connection.DownloadPolicy.set(Undecided)
 
-        let downloadedMock = switch agdaMockEndpoint.contents {
-        | Some(path) => path
-        | None => failwith("Unable to access Agda mock candidate")
-        }
         let checkedResolve = ref(false)
-        let checkedWasmDownload = ref(false)
 
         module MockDesktopResolveFailurePlatform = {
           let determinePlatform = async () => Ok(Connection__Download__Platform.Ubuntu)
@@ -445,14 +440,8 @@ describe("Connection Downloads", () => {
               checkedResolve := true
               Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
             }
-          let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) =>
-            switch source {
-            | Connection__Download.Source.FromURL(Hardcoded, url, _)
-              if url == Connection__Hardcoded.wasmUrl =>
-              checkedWasmDownload := true
-              Promise.resolve(Ok(downloadedMock))
-            | _ => Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-            }
+          let download = (_globalStorageUri, _source, ~trace as _=Connection__Download__Trace.noop) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
         }
@@ -463,18 +452,15 @@ describe("Connection Downloads", () => {
 
         let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
 
+        Assert.deepStrictEqual(checkedResolve.contents, true)
         switch result {
-        | Ok(Agda(_, path, _version)) =>
-          Assert.deepStrictEqual(path, downloadedMock)
-        | Ok(_) => Assert.fail("Expected Agda connection")
-        | Error(error) =>
-          Assert.fail(
-            "Expected fallback download success but got: " ++ Connection.Error.Establish.toString(error),
+        | Ok(_) => Assert.fail("Expected error when channel resolution fails")
+        | Error(errors) =>
+          Assert.deepStrictEqual(
+            errors.download,
+            Connection.Error.Establish.Failed(Connection__Download.Error.CannotFindCompatibleALSRelease),
           )
         }
-
-        Assert.deepStrictEqual(checkedResolve.contents, true)
-        Assert.deepStrictEqual(checkedWasmDownload.contents, true)
       },
     )
 
@@ -491,9 +477,31 @@ describe("Connection Downloads", () => {
 
           let downloadAttempts: ref<array<string>> = ref([])
 
-          let nativeUrl = switch Connection__Hardcoded.nativeUrlForPlatform(Ubuntu) {
-          | Some(url) => url
-          | None => failwith("Expected hardcoded native URL for Ubuntu")
+          let makeOrderAsset = (name): Connection__Download__GitHub.Asset.t => {
+            url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+            id: 0,
+            node_id: "",
+            name,
+            label: Some(""),
+            content_type: "application/zip",
+            state: "uploaded",
+            size: 1000000,
+            created_at: "2024-01-01T00:00:00Z",
+            updated_at: "2024-01-01T00:00:00Z",
+            browser_download_url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+          }
+          let orderRelease: Connection__Download__GitHub.Release.t = {
+            url: "", assets_url: "", upload_url: "", html_url: "",
+            id: 1, node_id: "dev", tag_name: "dev", target_commitish: "main", name: "dev",
+            draft: false, prerelease: true,
+            created_at: "2024-01-01T00:00:00Z", published_at: "2024-01-01T00:00:00Z",
+            assets: [makeOrderAsset("als-dev-Agda-2.8.0-ubuntu.zip"), makeOrderAsset("als-dev-Agda-2.8.0-wasm.wasm")],
+            tarball_url: "", zipball_url: "", body: None,
+          }
+          let orderNativeDescriptor: Connection__Download__GitHub.DownloadDescriptor.t = {
+            asset: makeOrderAsset("als-dev-Agda-2.8.0-ubuntu.zip"),
+            release: orderRelease,
+            saveAsFileName: "dev-als",
           }
 
           module MockDesktopOrderPlatform = {
@@ -503,21 +511,21 @@ describe("Connection Downloads", () => {
             let resolveDownloadChannel = (_channel, _useCache) =>
               async (_memento, _globalStorageUri, _platform) =>
                 Ok(
-                  Connection__Download.Source.FromURL(
-                    Connection__Download.Channel.Hardcoded,
-                    nativeUrl,
-                    "hardcoded-als",
+                  Connection__Download.Source.FromGitHub(
+                    Connection__Download.Channel.DevALS,
+                    orderNativeDescriptor,
                   ),
                 )
             let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) =>
               switch source {
-              | Connection__Download.Source.FromURL(_, url, _) if url == nativeUrl =>
-                downloadAttempts := Array.concat(downloadAttempts.contents, ["native"])
-                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-              | Connection__Download.Source.FromURL(_, url, _)
-                if url == Connection__Hardcoded.wasmUrl =>
-                downloadAttempts := Array.concat(downloadAttempts.contents, ["wasm"])
-                Promise.resolve(Ok(downloadedMock))
+              | Connection__Download.Source.FromGitHub(_, descriptor) =>
+                if descriptor.asset.name->String.includes("wasm") {
+                  downloadAttempts := Array.concat(downloadAttempts.contents, ["wasm"])
+                  Promise.resolve(Ok(downloadedMock))
+                } else {
+                  downloadAttempts := Array.concat(downloadAttempts.contents, ["native"])
+                  Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+                }
               | _ =>
                 Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
               }
@@ -563,12 +571,12 @@ describe("Connection Downloads", () => {
                 resolvedChannels :=
                   Array.concat(resolvedChannels.contents, [channel])
                 switch channel {
-                | Connection__Download.Channel.Hardcoded =>
+                | Connection__Download.Channel.DevALS =>
                   Ok(
                     Connection__Download.Source.FromURL(
-                      Connection__Download.Channel.Hardcoded,
-                      Connection__Hardcoded.wasmUrl,
-                      "hardcoded-als",
+                      Connection__Download.Channel.DevALS,
+                      "https://example.invalid/als.wasm",
+                      "dev-als",
                     ),
                   )
                 | _ =>
@@ -584,7 +592,7 @@ describe("Connection Downloads", () => {
             let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) =>
               switch source {
               | Connection__Download.Source.FromURL(_, url, _)
-                if url == Connection__Hardcoded.wasmUrl =>
+                if url == "https://example.invalid/als.wasm" =>
                 downloadAttempts := Array.concat(downloadAttempts.contents, ["wasm"])
                 Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
               | Connection__Download.Source.FromURL(_, _, _) =>
@@ -606,7 +614,7 @@ describe("Connection Downloads", () => {
           Assert.deepStrictEqual(downloadAttempts.contents, ["wasm"])
           Assert.deepStrictEqual(
             resolvedChannels.contents,
-            [Connection__Download.Channel.Hardcoded],
+            [Connection__Download.Channel.DevALS],
           )
           switch result {
           | Ok(_) => Assert.fail("Expected failure when all downloads fail")
@@ -925,14 +933,14 @@ describe("Connection Downloads", () => {
     )
 
     Async.it(
-      "should fall back to WASM when Hardcoded native download fails",
+      "should fall back to WASM when DevALS native download fails",
       async () => {
         let logChannel = Chan.make()
         let listener = Log.collect(logChannel)
 
         let agdaMockPath = await Test__Util.Candidate.Agda.mock(
           ~version="2.7.0.1",
-          ~name="agda-mock-hardcoded-wasm-fallback",
+          ~name="agda-mock-devals-wasm-fallback",
         )
 
         await Config.Connection.DownloadPolicy.set(Undecided)
@@ -940,7 +948,7 @@ describe("Connection Downloads", () => {
         let checkedNativeDownload = ref(false)
         let checkedWasmDownload = ref(false)
 
-        let mockPlatformDeps = Mock.Platform.makeWithHardcodedNativeFailureAndWASMSuccess(
+        let mockPlatformDeps = Mock.Platform.makeWithNativeFailureAndWASMSuccess(
           agdaMockPath,
           checkedCache,
           checkedNativeDownload,

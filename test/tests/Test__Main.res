@@ -62,7 +62,7 @@ describe("Main", () => {
       "should not rewrite User/globalStorage when it appears in the middle of a valid desktop path",
       () => {
         let uri = VSCode.Uri.file(
-          "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode/hardcoded-als",
+          "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode/dev-als",
         )
 
         Assert.deepStrictEqual(
