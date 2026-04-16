@@ -1457,10 +1457,38 @@ describe("State__SwitchVersion", () => {
 
         await pickerCalled
         await viewShown
-        await Test__Util.wait(20) // drain VS Code macrotask queue before next test
 
         Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
         Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("dev"))
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should not destroy view when onDidHide fires after suppressHide is reset",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+
+        let sawDestroyed = ref(false)
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(Destroyed) => sawDestroyed := true
+          | _ => ()
+          }
+        )
+
+        view->State__SwitchVersion.View.onHide(() =>
+          State__SwitchVersion.Handler.onHide(view)
+        )
+
+        // Simulate the race: picker opened (pendingHides incremented), then VS Code fires
+        // onDidHide before the picker closes — must be consumed, not destroy.
+        view.pendingHides = 1
+        State__SwitchVersion.Handler.onHide(view) // stale onDidHide fires, consumes pending
+
+        Assert.deepStrictEqual(sawDestroyed.contents, false)
 
         view->State__SwitchVersion.View.destroy
       },

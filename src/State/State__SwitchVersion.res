@@ -246,7 +246,7 @@ module View = {
     quickPick: VSCode.QuickPick.t<Item.t>,
     subscriptions: array<VSCode.Disposable.t>,
     mutable items: array<Item.t>,
-    mutable suppressHide: bool,
+    mutable pendingHides: int,
   }
 
   let make = (log): t => {
@@ -256,7 +256,7 @@ module View = {
       quickPick,
       subscriptions: [],
       items: [],
-      suppressHide: false,
+      pendingHides: 0,
     }
   }
 
@@ -1011,10 +1011,9 @@ module Handler = {
             ()
           | SelectOtherChannels =>
             let pickerItems = Download.channelPickerItems(~selectedChannel=selectedChannel.contents)
-            view.suppressHide = true
+            view.pendingHides = view.pendingHides + 1
             try {
               let channelResult = await showChannelPicker(pickerItems, "Select download channel")
-              view.suppressHide = false
               switch channelResult {
               | Some(label) =>
                 switch Download.channelFromLabel(label) {
@@ -1029,7 +1028,7 @@ module Handler = {
               }
             } catch {
             | exn =>
-              view.suppressHide = false
+              view.pendingHides = 0
               let msg = switch exn {
               | Exn.Error(jsExn) => Exn.message(jsExn)->Option.getOr("unknown error")
               | _ => "unknown error"
@@ -1212,8 +1211,8 @@ module Handler = {
   }
 
   let onHide = (view: View.t) => {
-    if view.suppressHide {
-      ()
+    if view.pendingHides > 0 {
+      view.pendingHides = view.pendingHides - 1
     } else {
       Util.log("[ debug ] QuickPick hidden/cancelled by user", "")
       // QuickPick was hidden/cancelled by user - clean up
