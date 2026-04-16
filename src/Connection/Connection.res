@@ -465,8 +465,11 @@ module Module: Module = {
         | Connection__Download__Platform.Web => Connection__Download.Channel.DevALS
         | _ =>
           switch Memento.SelectedChannel.get(memento) {
-          | Some("DevALS") => Connection__Download.Channel.DevALS
-          | _ => Connection__Download.Channel.DevALS
+          | Some(s) =>
+            Connection__Download.Channel.fromString(s)->Option.getOr(
+              Connection__Download.Channel.DevALS,
+            )
+          | None => Connection__Download.Channel.DevALS
           }
         }
         // WASM fallback source is populated when resolveDownloadChannel returns a FromGitHub descriptor;

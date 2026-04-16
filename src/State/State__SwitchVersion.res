@@ -685,8 +685,8 @@ module Download = {
 
   let channelFromLabel = (label: string): option<Connection__Download.Channel.t> =>
     switch label {
-    | "LatestALS" => Some(LatestALS)
-    | "DevALS" => Some(DevALS)
+    | "Latest" => Some(LatestALS)
+    | "Development" => Some(DevALS)
     | _ => None
     }
 
@@ -700,10 +700,14 @@ module Download = {
     channel: Connection__Download.Channel.t,
     ~selectedChannel: Connection__Download.Channel.t,
   ): channelPickerItem => {
-    ignore(selectedChannel)
+    let description = channel == selectedChannel ? "selected" : ""
     switch channel {
-    | LatestALS => {label: "LatestALS", description: "", detail: ""}
-    | DevALS => {label: "DevALS", description: "", detail: ""}
+    | LatestALS => {label: "Latest", description, detail: "Tracks the latest stable release"}
+    | DevALS => {
+        label: "Development",
+        description,
+        detail: "Tracks the latest commit of the master branch",
+      }
     }
   }
 
@@ -711,7 +715,7 @@ module Download = {
     ~selectedChannel: Connection__Download.Channel.t,
   ): array<channelPickerItem> => {
     open Connection__Download.Channel
-    [DevALS, LatestALS]->Array.map(ch => channelPickerItem(ch, ~selectedChannel))
+    [LatestALS, DevALS]->Array.map(ch => channelPickerItem(ch, ~selectedChannel))
   }
 
   let getAvailableChannels = async (_platformDeps: Platform.t): array<
@@ -964,7 +968,10 @@ module Handler = {
     updateUI,
   ) => {
     selectedChannel := channel
-    await Memento.SelectedChannel.set(state.memento, Download.channelToLabel(channel))
+    await Memento.SelectedChannel.set(
+      state.memento,
+      Connection__Download.Channel.toString(channel),
+    )
     let newDownloadItems = await Download.getAllAvailableDownloads(
       state,
       platformDeps,
@@ -1259,7 +1266,10 @@ module Handler = {
     let view = View.make(state.channels.log)
     let availableChannels = ref([Connection__Download.Channel.DevALS])
     let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
-    | Some(label) => Download.channelFromLabel(label)->Option.getOr(Connection__Download.Channel.DevALS)
+    | Some(label) =>
+      Connection__Download.Channel.fromString(label)->Option.getOr(
+        Connection__Download.Channel.DevALS,
+      )
     | None => Connection__Download.Channel.DevALS
     }
     let selectedChannel = ref(restoredChannel)

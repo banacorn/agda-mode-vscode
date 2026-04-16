@@ -1368,13 +1368,14 @@ describe("State__SwitchVersion", () => {
         let resolvePickerCalled = ref((_: unit) => ())
         let pickerCalled = Promise.make((resolve, _) => resolvePickerCalled := resolve)
 
-        // view.show is the final step in all onSelection branches — use it as completion signal
+        // view.show is the final step in all onSelection branches — use it as completion signal.
+        // orig() is called before resolve so VS Code's synchronous event dispatch completes first.
         let resolveViewShown = ref((_: unit) => ())
         let viewShown = Promise.make((resolve, _) => resolveViewShown := resolve)
         let patchShow: (State__SwitchVersion.View.t, unit => unit) => unit = %raw(`
           function(view, resolve) {
             var orig = view.quickPick.show.bind(view.quickPick);
-            view.quickPick.show = function() { resolve(undefined); return orig(); };
+            view.quickPick.show = function() { var r = orig(); resolve(undefined); return r; };
           }
         `)
         patchShow(view, resolveViewShown.contents)
@@ -1429,10 +1430,12 @@ describe("State__SwitchVersion", () => {
         // Resolve when onSelection's fire-and-forget reaches view.show (final step)
         let resolveViewShown = ref((_: unit) => ())
         let viewShown = Promise.make((resolve, _) => resolveViewShown := resolve)
+        // Call orig() before resolve so VS Code's synchronous event dispatch from show
+        // has already completed by the time viewShown settles.
         let patchShow: (State__SwitchVersion.View.t, unit => unit) => unit = %raw(`
           function(view, resolve) {
             var orig = view.quickPick.show.bind(view.quickPick);
-            view.quickPick.show = function() { resolve(undefined); return orig(); };
+            view.quickPick.show = function() { var r = orig(); resolve(undefined); return r; };
           }
         `)
         patchShow(view, resolveViewShown.contents)
@@ -1454,9 +1457,10 @@ describe("State__SwitchVersion", () => {
 
         await pickerCalled
         await viewShown
+        await Test__Util.wait(20) // drain VS Code macrotask queue before next test
 
         Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
-        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("DevALS"))
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("dev"))
 
         view->State__SwitchVersion.View.destroy
       },
@@ -1505,7 +1509,7 @@ describe("State__SwitchVersion", () => {
           ~showChannelPicker=async (_items, _placeholder) => {
             // Simulate VS Code hiding the main QuickPick when secondary picker opens
             view.quickPick->VSCode.QuickPick.hide
-            Some("DevALS")
+            Some("Development")
           },
         )
 
@@ -2282,7 +2286,7 @@ describe("State__SwitchVersion", () => {
         Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
 
         // After channel switch, memento MUST store the exact channel label
-        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("DevALS"))
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("dev"))
       },
     )
 
@@ -2349,7 +2353,7 @@ describe("State__SwitchVersion", () => {
         Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
 
         let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
-        | Some(label) => State__SwitchVersion.Download.channelFromLabel(label)->Option.getOr(Connection__Download.Channel.DevALS)
+        | Some(label) => Connection__Download.Channel.fromString(label)->Option.getOr(Connection__Download.Channel.DevALS)
         | None => Connection__Download.Channel.DevALS
         }
 
@@ -2364,7 +2368,10 @@ describe("State__SwitchVersion", () => {
         await Memento.SelectedChannel.set(state.memento, "InvalidChannel")
 
         let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
-        | Some(label) => State__SwitchVersion.Download.channelFromLabel(label)->Option.getOr(Connection__Download.Channel.DevALS)
+        | Some(label) =>
+          Connection__Download.Channel.fromString(label)->Option.getOr(
+            Connection__Download.Channel.DevALS,
+          )
         | None => Connection__Download.Channel.DevALS
         }
 
@@ -2379,11 +2386,14 @@ describe("State__SwitchVersion", () => {
 
         await Memento.SelectedChannel.set(
           state.memento,
-          State__SwitchVersion.Download.channelToLabel(Connection__Download.Channel.DevALS),
+          Connection__Download.Channel.toString(Connection__Download.Channel.DevALS),
         )
 
         let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
-        | Some(label) => State__SwitchVersion.Download.channelFromLabel(label)->Option.getOr(Connection__Download.Channel.DevALS)
+        | Some(label) =>
+          Connection__Download.Channel.fromString(label)->Option.getOr(
+            Connection__Download.Channel.DevALS,
+          )
         | None => Connection__Download.Channel.DevALS
         }
 
@@ -2446,7 +2456,7 @@ describe("State__SwitchVersion", () => {
       "should restore LatestALS channel from memento on activation",
       async () => {
         let state = createTestState()
-        await Memento.SelectedChannel.set(state.memento, "LatestALS")
+        await Memento.SelectedChannel.set(state.memento, "latest")
 
         let loggedHeaders = []
         let _ = state.channels.log->Chan.on(logEvent =>
@@ -2883,17 +2893,17 @@ describe("State__SwitchVersion", () => {
         )
       })
 
-      it("should parse internal memento label 'DevALS' to DevALS", () => {
+      it("should reject non-UI label 'DevALS'", () => {
         Assert.deepStrictEqual(
           State__SwitchVersion.Download.channelFromLabel("DevALS"),
-          Some(Connection__Download.Channel.DevALS),
+          None,
         )
       })
 
-      it("should parse internal memento label 'LatestALS' to LatestALS", () => {
+      it("should reject non-UI label 'LatestALS'", () => {
         Assert.deepStrictEqual(
           State__SwitchVersion.Download.channelFromLabel("LatestALS"),
-          Some(Connection__Download.Channel.LatestALS),
+          None,
         )
       })
 

@@ -3,11 +3,24 @@ module Channel = {
     | LatestALS
     | DevALS
 
-  let toString = channel =>
+  let toDisplayString = channel =>
     switch channel {
     | LatestALS => "Latest Agda Language Server"
     | DevALS => "Development Agda Language Server"
   }
+
+  let toString = (channel: t): string =>
+    switch channel {
+    | LatestALS => "latest"
+    | DevALS => "dev"
+    }
+
+  let fromString = (s: string): option<t> =>
+    switch s {
+    | "latest" => Some(LatestALS)
+    | "dev" => Some(DevALS)
+    | _ => None
+    }
 }
 
 module DownloadArtifact = {
@@ -111,10 +124,10 @@ module Source = {
   let toString = channel =>
     switch channel {
     | FromGitHub(abstractChannel, descriptor) =>
-      Channel.toString(abstractChannel) ++
+      Channel.toDisplayString(abstractChannel) ++
       Connection__Download__GitHub.DownloadDescriptor.toString(descriptor)
     | FromURL(abstractChannel, url, _) =>
-      Channel.toString(abstractChannel) ++ " from " ++ url
+      Channel.toDisplayString(abstractChannel) ++ " from " ++ url
     }
 
   let toVersionString = channel =>
@@ -160,7 +173,7 @@ module Source = {
         "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
       }
     | FromURL(abstractChannel, _, _) =>
-      Channel.toString(abstractChannel)
+      Channel.toDisplayString(abstractChannel)
     }
 }
 
