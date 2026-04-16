@@ -993,12 +993,12 @@ module Handler = {
       array<Download.channelPickerItem>,
       string,
     ) => promise<option<string>>=async (items, placeHolder) => {
-      let channelLabels = items->Array.map(i => i.label)
-      await VSCode.Window.showQuickPickWithStringItems(
-        VSCode.PromiseOr.make(Others(channelLabels)),
+      let result = await VSCode.Window.showQuickPickWithItems(
+        VSCode.PromiseOr.make(Others(items)),
         {placeHolder, canPickMany: false},
         None,
       )
+      result->Option.map(item => item.label)
     },
   ) => {
     let _ = (

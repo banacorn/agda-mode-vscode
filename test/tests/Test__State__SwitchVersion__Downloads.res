@@ -1350,6 +1350,66 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
+      "should pass full channelPickerItems (with description and detail) to the runtime VS Code picker",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        // Capture what the runtime picker (vscode.window.showQuickPick) actually receives.
+        // Use a plain JS array (not a ref) so raw JS can push into it directly.
+        let capturedItems: array<{"label": string, "description": string, "detail": string}> =
+          %raw(`[]`)
+        let resolvePickerCalled = ref((_: unit) => ())
+        let pickerCalled = Promise.make((resolve, _) => resolvePickerCalled := resolve)
+
+        let mockShowQuickPick: (
+          array<{"label": string, "description": string, "detail": string}>,
+          ref<unit => unit>,
+        ) => unit = %raw(`function(capturedItems, resolvePickerCalled) {
+          globalThis.__savedShowQuickPick2 = require("vscode").window.showQuickPick;
+          require("vscode").window.showQuickPick = function(items) {
+            if (Array.isArray(items)) items.forEach(function(item) { capturedItems.push(item); });
+            resolvePickerCalled.contents();
+            return Promise.resolve(undefined);
+          };
+        }`)
+        let restoreShowQuickPick: unit => unit = %raw(`function() {
+          require("vscode").window.showQuickPick = globalThis.__savedShowQuickPick2;
+          delete globalThis.__savedShowQuickPick2;
+        }`)
+        mockShowQuickPick(capturedItems, resolvePickerCalled)
+
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
+        // No ~showChannelPicker seam — uses the runtime default
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref([Connection__Download.Channel.LatestALS, Connection__Download.Channel.DevALS]),
+          ref(Connection__Download.Channel.DevALS),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+
+        await pickerCalled
+        restoreShowQuickPick()
+
+        // Runtime picker must receive full QuickPickItems, not bare label strings
+        Assert.deepStrictEqual(
+          capturedItems->Array.map(i => (i["label"], i["description"], i["detail"])),
+          [
+            ("Latest", "", "Tracks the latest stable release"),
+            ("Development", "selected", "Tracks the latest commit of the master branch"),
+          ],
+        )
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
       "should switch channel from LatestALS to DevALS via onSelection when showChannelPicker returns Development label",
       async () => {
         let state = createTestState()
