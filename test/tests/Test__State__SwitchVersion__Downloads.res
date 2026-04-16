@@ -1180,6 +1180,98 @@ describe("State__SwitchVersion", () => {
       },
     )
 
+    // Helper: create a LatestALS mock platform returning a specific release descriptor
+    let makeLatestALSPlatformWith = (
+      latestDescriptor: Connection__Download__GitHub.DownloadDescriptor.t,
+    ): Platform.t => {
+      module MockLatestALS = {
+        let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+        let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+        let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+        let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+          switch channel {
+          | Connection__Download.Channel.LatestALS =>
+            Ok(
+              Connection__Download.Source.FromGitHub(
+                Connection__Download.Channel.LatestALS,
+                latestDescriptor,
+              ),
+            )
+          | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          }
+        )
+        let download = (_globalStorageUri, _, ~trace as _=Connection__Download__Trace.noop) =>
+          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+        let findCommand = (_command, ~timeout as _=1000) =>
+          Promise.resolve(Error(Connection__Command.Error.NotFound))
+      }
+      module(MockLatestALS)
+    }
+
+    Async.it(
+      "should return native or WASM download action for LatestALS channel on desktop",
+      async () => {
+        // mockLatestALS uses a native zip asset whose name does not match the DevALS parseName
+        // assumptions (no releaseTag prefix, wrong platform for this mock's MacOS_Arm) —
+        // this is the regression trigger: getAllAvailableDownloads currently routes LatestALS
+        // through Connection__DevALS.allNativeAssetsForPlatform which requires parseName to
+        // succeed, producing an empty list instead of a DownloadAction.
+        let platform = makeLatestALSPlatformWith(Mock.DownloadDescriptor.mockLatestALS)
+        let state = createTestStateWithPlatform(platform)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          platform,
+          ~channel=Connection__Download.Channel.LatestALS,
+        )
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+          manager,
+          downloadItems,
+        )
+
+        let hasDownloadAction =
+          itemData->Array.some(item =>
+            switch item {
+            | DownloadAction(_, _, "native") => true
+            | DownloadAction(_, _, "wasm") => true
+            | _ => false
+            }
+          )
+
+        Assert.deepStrictEqual(hasDownloadAction, true)
+      },
+    )
+
+    Async.it(
+      "should return unavailable rows instead of empty list when no LatestALS assets match current platform",
+      async () => {
+        // Same LatestALS setup — no parseable/matching assets for MacOS_Arm.
+        // Expectation: getAllAvailableDownloads should produce unavailable rows (native + wasm)
+        // rather than a completely empty array so the UI still shows download slots.
+        let platform = makeLatestALSPlatformWith(Mock.DownloadDescriptor.mockLatestALS)
+        let state = createTestStateWithPlatform(platform)
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          platform,
+          ~channel=Connection__Download.Channel.LatestALS,
+        )
+
+        let hasUnavailableNative =
+          downloadItems->Array.some(((_, versionString, tag)) =>
+            tag == "native" && versionString == State__SwitchVersion.Constants.downloadUnavailable
+          )
+        let hasUnavailableWasm =
+          downloadItems->Array.some(((_, versionString, tag)) =>
+            tag == "wasm" && versionString == State__SwitchVersion.Constants.downloadUnavailable
+          )
+
+        Assert.deepStrictEqual(hasUnavailableNative, true)
+        Assert.deepStrictEqual(hasUnavailableWasm, true)
+      },
+    )
+
     Async.it(
       "should not treat checking-availability placeholder as candidate selection",
       async () => {
