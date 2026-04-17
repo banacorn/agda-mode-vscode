@@ -16,70 +16,33 @@ A candidate **MUST** be one of:
 
 The default value **MUST** be `["agda", "als"]`, declared in `package.json`.
 
-## Download Fallback
+## `PreferredCandidate`
 
-Downloaded binaries **MUST** be tried in order:
-- Desktop: [native, WASM]
-- Web: [WASM]
+`PreferredCandidate` **MUST** be stored outside of `connection.paths`.
 
-On download success, the downloaded Candidate **MUST** be added to `connection.paths`.
-Automatic fallback downloads **MUST** be prepended (lowest priority).
-Manual UI-triggered downloads **MUST** be appended (highest priority).
+`PreferredCandidate` state transitions:
+- `None -> Some` — allowed only by explicit user action
+- `Some -> Some` — allowed only by explicit user action
+- `Some -> None` — **forbidden**
 
-## Download Domain Model
+Explicit user actions that set `PreferredCandidate`:
+- user candidate selection in Picker UI
+
+Successful manual UI-triggered download **MUST NOT** modify `PreferredCandidate`.
+
+## Downloads
 
 Download code **MUST** keep these concepts distinct:
-- **Channel** — a moving pointer or update policy used to discover a release
 - **Release** — a concrete ALS release tag
 - **DownloadArtifact** — a concrete downloadable artifact belonging to a release
+- **Channel** — a named selector whose target release may change over time
 - **Candidate** — a local runnable target derived from an artifact or provided by the user
 
-The download flow **MUST** be:
+### Release
 
-```text
-Channel -> Release -> DownloadArtifact -> Candidate
-```
+A Release is a concrete ALS release tag, such as `v6` or `dev`.
 
-`Channel` **MUST NOT** be used as the identity of a downloaded artifact or downloaded Candidate.
-
-## Channels
-
-A channel selects how an ALS release is discovered.
-
-The following channels **MUST** be supported:
-- **Dev** — resolves to the concrete `dev` release
-- **Latest** — resolves to the current latest stable release
-
-Channel selection **MUST** be made via UI picker and **MUST** be stored in memento.
-
-The selected channel **MUST** apply to both automatic fallback downloads and manual UI-triggered downloads.
-After channel selection, UI **MUST** reopen and show platform-appropriate download options for the selected channel.
-
-Channels **MAY** expose explicit update operations:
-- **Update Dev** — resolve `Channel.Dev` again and download from the current `dev` release artifacts
-- **Update Latest** — resolve `Channel.Latest` again and download from the current latest stable release artifacts
-
-Downloads discovered through different channels **MAY** coexist in `connection.paths`.
-Switching channels **MUST NOT** remove existing downloaded Candidates.
-
-## Releases
-
-A Release is a concrete ALS release tag.
-
-Examples:
-- `dev`
-- `v6`
-- `v7`
-
-`v6` **MUST** be modeled as a Release, not a Channel.
-
-`dev` **MAY** appear as both:
-- `Channel.Dev` — the update/discovery policy
-- `Release("dev")` — the concrete GitHub release tag resolved by that channel
-
-`Channel.Latest` **MUST** resolve to a concrete Release before selecting or downloading artifacts.
-
-## DownloadArtifact
+### DownloadArtifact
 
 A DownloadArtifact identifies one canonical ALS release artifact.
 
@@ -91,6 +54,8 @@ A DownloadArtifact **MUST** include:
 `releaseTag` **MUST** be a non-empty single name segment and **MUST NOT** contain `/` or `-`.
 
 `releaseTag` **MAY** contain dots, for example `v6.1`.
+
+Release tags containing `-` are outside the managed artifact format.
 
 `agdaVersion` **MUST** be a dot-separated numeric Agda version.
 
@@ -128,7 +93,59 @@ The artifact directory name **MUST** be exactly the canonical artifact name with
 als-<releaseTag>-Agda-<agdaVersion>-<platform>
 ```
 
-## Managed Download Storage
+For channel resolution, a compatible artifact is a canonical artifact that matches the current runtime platform.
+
+### Channel
+
+A channel is a named selector whose target release may change over time.
+
+The following channels **MUST** be supported:
+- **Latest** — selects the newest stable, non-draft, non-prerelease release with a compatible artifact. If the newest stable release has no compatible artifact, `Latest` **MUST** select the next newest stable release with one.
+- **Development** — selects the upstream development release.
+
+Channel selection **MUST** be made via UI picker and **MUST** be stored in memento.
+
+The selected channel **MUST** be persisted using these canonical strings:
+- `latest`
+- `dev`
+
+Channel display labels **MUST** be:
+- `Latest`
+- `Development`
+
+Display labels **MUST NOT** be persisted.
+
+The selected channel **MUST** apply to both automatic fallback downloads and manual UI-triggered downloads.
+After channel selection, UI **MUST** reopen and show platform-appropriate download options for the selected channel.
+
+Channels **MAY** expose explicit update operations:
+- **Update Development** — resolve the `Development` channel again and download from the current development release artifacts
+- **Update Latest** — resolve the `Latest` channel again and download from the current latest stable release artifacts
+
+Downloads discovered through different channels **MAY** coexist in `connection.paths`.
+Switching channels **MUST NOT** remove existing downloaded Candidates.
+
+### Flow
+
+The download flow **MUST** be:
+
+```text
+Channel -> Release -> DownloadArtifact -> Candidate
+```
+
+`Channel` **MUST NOT** be used as the identity of a downloaded artifact or downloaded Candidate.
+
+### Fallback
+
+Downloaded binaries **MUST** be tried in order:
+- Desktop: [native, WASM]
+- Web: [WASM]
+
+On download success, the downloaded Candidate **MUST** be added to `connection.paths`.
+Automatic fallback downloads **MUST** be prepended (lowest priority).
+Manual UI-triggered downloads **MUST** be appended (highest priority).
+
+### Managed Storage
 
 Managed downloads **MUST** be stored under a release namespace:
 
@@ -159,21 +176,7 @@ Top-level entries outside `<globalStorage>/releases/` **MUST NOT** be treated as
 
 Malformed entries under `<globalStorage>/releases/` **MUST** be ignored.
 
-## `PreferredCandidate`
-
-`PreferredCandidate` **MUST** be stored outside of `connection.paths`.
-
-`PreferredCandidate` state transitions:
-- `None → Some` — allowed only by explicit user action
-- `Some → Some` — allowed only by explicit user action
-- `Some → None` — **forbidden**
-
-Explicit user actions that set `PreferredCandidate`:
-- user candidate selection in Picker UI
-
-Successful manual UI-triggered download **MUST NOT** modify `PreferredCandidate`.
-
-## Delete Downloads
+### Delete Downloads
 
 "Delete Downloads" **MUST** remove all downloaded ALS binaries from disk, regardless of how the download was triggered (automatic fallback or manual UI-triggered).
 
