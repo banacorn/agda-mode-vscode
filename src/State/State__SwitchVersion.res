@@ -768,14 +768,7 @@ module Download = {
         let wasmAssets = switch channel {
         | Connection__Download.Channel.DevALS => Connection__DevALS.allWasmAssets(release)
         | Connection__Download.Channel.LatestALS =>
-          release.assets->Array.filter(asset =>
-            asset.name->String.endsWith(".wasm") &&
-              switch Connection__Download.DownloadArtifact.parseName(asset.name) {
-              | Some(artifact) =>
-                artifact.platform == Connection__Download.DownloadArtifact.Platform.Wasm
-              | None => false
-              }
-          )
+          Connection__DevALS.allWasmAssets(release)
         }
         if Array.length(wasmAssets) == 0 {
           [unavailableSourceItem(WASM)]
@@ -817,26 +810,17 @@ module Download = {
           )
           Array.concat(nativeItems, wasmItems)
         | Connection__Download.Channel.LatestALS =>
-          // Use descriptor.asset directly for native; verify platform via parseName.
-          // Fall back to unavailable if the asset does not match the current platform.
-          let nativeItems = switch Connection__Download.DownloadArtifact.parseName(
-            descriptor.asset.name,
-          ) {
-          | Some(artifact)
-            if Connection__Download.DownloadArtifact.Platform.matchesDownloadPlatform(
-              artifact.platform,
-              platform,
-            ) => [await makeDownloadItem(state, Native, makeSource(descriptor.asset))]
-          | _ => [unavailableSourceItem(Native)]
+          let nativeAssets = Connection__DevALS.allNativeAssetsForPlatform(release, platform)
+          let wasmAssets = Connection__DevALS.allWasmAssets(release)
+          let nativeItems = if Array.length(nativeAssets) == 0 {
+            [unavailableSourceItem(Native)]
+          } else {
+            await Promise.all(
+              nativeAssets->Array.map(async asset =>
+                await makeDownloadItem(state, Native, makeSource(asset))
+              ),
+            )
           }
-          let wasmAssets = release.assets->Array.filter(asset =>
-            asset.name->String.endsWith(".wasm") &&
-              switch Connection__Download.DownloadArtifact.parseName(asset.name) {
-              | Some(artifact) =>
-                artifact.platform == Connection__Download.DownloadArtifact.Platform.Wasm
-              | None => false
-              }
-          )
           let wasmItems = if Array.length(wasmAssets) == 0 {
             [unavailableSourceItem(WASM)]
           } else {
