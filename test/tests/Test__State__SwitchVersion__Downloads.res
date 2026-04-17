@@ -397,7 +397,7 @@ describe("State__SwitchVersion", () => {
             Assert.deepStrictEqual(Array.length(itemData), 3) // Download separator + Select other channel + Delete downloads
 
             switch itemData[0] {
-            | Some(Separator("Download (channel: DevALS)")) => () // Expected
+            | Some(Separator("Download (Development)")) => () // Expected
             | _ => Assert.fail("Expected Download separator")
             }
 
@@ -437,7 +437,7 @@ describe("State__SwitchVersion", () => {
             }
 
             switch itemData[3] {
-            | Some(Separator("Download (channel: DevALS)")) => () // Expected
+            | Some(Separator("Download (Development)")) => () // Expected
             | _ => Assert.fail("Expected Download separator")
             }
 
@@ -471,7 +471,7 @@ describe("State__SwitchVersion", () => {
             let downloadSeparator = itemData->Array.find(
               data =>
                 switch data {
-                | Separator("Download (channel: DevALS)") => true
+                | Separator("Download (Development)") => true
                 | _ => false
                 },
             )
@@ -505,7 +505,7 @@ describe("State__SwitchVersion", () => {
             let channelAwareDownloadSeparator = itemData->Array.find(
               data =>
                 switch data {
-                | Separator("Download (channel: DevALS)") => true
+                | Separator("Download (Development)") => true
                 | _ => false
                 },
             )
@@ -527,13 +527,13 @@ describe("State__SwitchVersion", () => {
               entries,
               None,
               [],
-              ~downloadHeader="Download (channel: DevALS)",
+              ~downloadHeader="Download (Development)",
             )
 
             let hasDownloadSeparator = itemData->Array.some(
               data =>
                 switch data {
-                | Separator("Download (channel: DevALS)") => true
+                | Separator("Download (Development)") => true
                 | _ => false
                 },
             )
@@ -744,6 +744,27 @@ describe("State__SwitchVersion", () => {
         }
       }
     }
+
+    Async.it(
+      "SwitchVersionManager.getItemData default header should be Download (Development)",
+      async () => {
+        let state = createTestState()
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, [])
+
+        let downloadSeparator = itemData->Array.find(data =>
+          switch data {
+          | Separator(label) => String.startsWith(label, "Download (")
+          | _ => false
+          }
+        )
+
+        switch downloadSeparator {
+        | Some(Separator(label)) => Assert.deepStrictEqual(label, "Download (Development)")
+        | _ => Assert.fail("Expected Download separator")
+        }
+      },
+    )
 
     Async.it(
       "should not show native download option on web platform",
@@ -1639,8 +1660,11 @@ describe("State__SwitchVersion", () => {
           selectedChannel,
           async _downloadItems => {
             let downloadHeader =
-              "Download (channel: " ++
-                State__SwitchVersion.Download.channelToLabel(selectedChannel.contents) ++ ")"
+              "Download (" ++
+                State__SwitchVersion.Download.channelPickerItem(
+                  selectedChannel.contents,
+                  ~selectedChannel=selectedChannel.contents,
+                ).label ++ ")"
             state.channels.log->Chan.emit(Log.SwitchVersionUI(Others(downloadHeader)))
           },
           view,
@@ -1655,7 +1679,7 @@ describe("State__SwitchVersion", () => {
         await viewShown
 
         Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
-        Assert.deepStrictEqual(downloadHeaderCapture.contents, "Download (channel: DevALS)")
+        Assert.deepStrictEqual(downloadHeaderCapture.contents, "Download (Development)")
 
         view->State__SwitchVersion.View.destroy
       },
@@ -2589,8 +2613,11 @@ describe("State__SwitchVersion", () => {
         // Build a real updateUI closure (same as onActivate creates)
         let updateUI = async (downloadItems: array<(bool, string, string)>): unit => {
           let downloadHeader =
-            "Download (channel: " ++
-              State__SwitchVersion.Download.channelToLabel(selectedChannel.contents) ++ ")"
+            "Download (" ++
+              State__SwitchVersion.Download.channelPickerItem(
+                selectedChannel.contents,
+                ~selectedChannel=selectedChannel.contents,
+              ).label ++ ")"
           let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
             manager,
             downloadItems,
@@ -2738,7 +2765,7 @@ describe("State__SwitchVersion", () => {
         let loggedHeaders = []
         let _ = state.channels.log->Chan.on(logEvent =>
           switch logEvent {
-          | Log.SwitchVersionUI(Others(msg)) if String.startsWith(msg, "Download (channel:") =>
+          | Log.SwitchVersionUI(Others(msg)) if String.startsWith(msg, "Download (") =>
             loggedHeaders->Array.push(msg)
           | _ => ()
           }
@@ -2758,7 +2785,40 @@ describe("State__SwitchVersion", () => {
 
         Assert.ok(Array.length(loggedHeaders) > 0)
         let header = loggedHeaders[0]->Option.getExn
-        Assert.deepStrictEqual(header, "Download (channel: LatestALS)")
+        Assert.deepStrictEqual(header, "Download (Latest)")
+      },
+    )
+
+    Async.it(
+      "should emit Download (Development) header on fresh activation",
+      async () => {
+        let state = createTestState()
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
+
+        let loggedHeaders = []
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(Others(msg)) if String.startsWith(msg, "Download (") =>
+            loggedHeaders->Array.push(msg)
+          | _ => ()
+          }
+        )
+        let onShown = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(Others("QuickPick shown")) => true
+            | _ => false
+            },
+        )
+
+        let platform = makeMockPlatform()
+        await State__SwitchVersion.Handler.onActivate(state, platform)
+        await onShown
+
+        Assert.ok(Array.length(loggedHeaders) > 0)
+        let header = loggedHeaders[0]->Option.getExn
+        Assert.deepStrictEqual(header, "Download (Development)")
       },
     )
 
