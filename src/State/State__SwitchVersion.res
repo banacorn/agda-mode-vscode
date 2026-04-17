@@ -100,7 +100,7 @@ module ItemData = {
     entries: array<(string, string, ResolvedMetadata.entry)>,
     pickedPath: option<string>,
     downloadItems: array<(bool, string, string)>, // (downloaded, versionString, variant)
-    ~downloadHeader: string="Download (channel: DevALS)",
+    ~downloadHeader: string="Download (Development)",
   ): array<t> => {
     let hasCandidates = Array.length(entries) > 0
 
@@ -363,7 +363,7 @@ module SwitchVersionManager = {
   let getItemData = async (
     self: t,
     downloadItems: array<(bool, string, string)>,
-    ~downloadHeader: string="Download (channel: DevALS)",
+    ~downloadHeader: string="Download (Development)",
     ~platformDeps: option<Platform.t>=None,
   ): array<ItemData.t> => {
     // Always check current connection to ensure UI reflects actual state
@@ -1311,7 +1311,11 @@ module Handler = {
     // Helper function to update UI with current state
     let updateUI = async (downloadItems: array<(bool, string, string)>): unit => {
       let downloadHeader =
-        "Download (channel: " ++ Download.channelToLabel(selectedChannel.contents) ++ ")"
+        "Download (" ++
+          Download.channelPickerItem(
+            selectedChannel.contents,
+            ~selectedChannel=selectedChannel.contents,
+          ).label ++ ")"
       let itemData = await SwitchVersionManager.getItemData(
         manager,
         downloadItems,
