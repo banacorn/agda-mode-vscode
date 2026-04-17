@@ -1180,43 +1180,83 @@ describe("State__SwitchVersion", () => {
       },
     )
 
-    // Helper: create a LatestALS mock platform returning a specific release descriptor
-    let makeLatestALSPlatformWith = (
-      latestDescriptor: Connection__Download__GitHub.DownloadDescriptor.t,
-    ): Platform.t => {
-      module MockLatestALS = {
-        let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
-        let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
-        let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
-        let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
-          switch channel {
-          | Connection__Download.Channel.LatestALS =>
-            Ok(
-              Connection__Download.Source.FromGitHub(
-                Connection__Download.Channel.LatestALS,
-                latestDescriptor,
-              ),
-            )
-          | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-          }
-        )
-        let download = (_globalStorageUri, _, ~trace as _=Connection__Download__Trace.noop) =>
-          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-        let findCommand = (_command, ~timeout as _=1000) =>
-          Promise.resolve(Error(Connection__Command.Error.NotFound))
-      }
-      module(MockLatestALS)
-    }
-
     Async.it(
-      "should return native or WASM download action for LatestALS channel on desktop",
+      "should show native download candidate from canonical v6 LatestALS assets on desktop",
       async () => {
-        // mockLatestALS uses a native zip asset whose name does not match the DevALS parseName
-        // assumptions (no releaseTag prefix, wrong platform for this mock's MacOS_Arm) —
-        // this is the regression trigger: getAllAvailableDownloads currently routes LatestALS
-        // through Connection__DevALS.allNativeAssetsForPlatform which requires parseName to
-        // succeed, producing an empty list instead of a DownloadAction.
-        let platform = makeLatestALSPlatformWith(Mock.DownloadDescriptor.mockLatestALS)
+        // Build a canonical v6 release with assets using the new naming convention
+        let windowsAsset = {
+          Connection__Download__GitHub.Asset.url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-windows.zip",
+          id: 1,
+          node_id: "",
+          name: "als-v6-Agda-2.8.0-windows.zip",
+          label: None,
+          content_type: "application/zip",
+          state: "uploaded",
+          size: 1000000,
+          created_at: "2025-01-01T00:00:00Z",
+          updated_at: "2025-01-01T00:00:00Z",
+          browser_download_url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-windows.zip",
+        }
+        let wasmAsset = {
+          Connection__Download__GitHub.Asset.url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-wasm.wasm",
+          id: 2,
+          node_id: "",
+          name: "als-v6-Agda-2.8.0-wasm.wasm",
+          label: None,
+          content_type: "application/octet-stream",
+          state: "uploaded",
+          size: 500000,
+          created_at: "2025-01-01T00:00:00Z",
+          updated_at: "2025-01-01T00:00:00Z",
+          browser_download_url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-wasm.wasm",
+        }
+        let v6Release = {
+          Connection__Download__GitHub.Release.url: "https://api.github.com/repos/agda/agda-language-server/releases/v6",
+          assets_url: "https://api.github.com/repos/agda/agda-language-server/releases/v6/assets",
+          upload_url: "",
+          html_url: "",
+          id: 100,
+          node_id: "",
+          tag_name: "v6",
+          target_commitish: "main",
+          name: "v6",
+          draft: false,
+          prerelease: false,
+          created_at: "2025-01-01T00:00:00Z",
+          published_at: "2025-01-01T00:00:00Z",
+          assets: [windowsAsset, wasmAsset],
+          tarball_url: "",
+          zipball_url: "",
+          body: None,
+        }
+        let latestDescriptor = {
+          Connection__Download__GitHub.DownloadDescriptor.asset: windowsAsset,
+          release: v6Release,
+          saveAsFileName: "latest-als",
+        }
+
+        module MockLatestALSv6 = {
+          let determinePlatform = async () => Ok(Connection__Download__Platform.Windows)
+          let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+          let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+          let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+            switch channel {
+            | Connection__Download.Channel.LatestALS =>
+              Ok(
+                Connection__Download.Source.FromGitHub(
+                  Connection__Download.Channel.LatestALS,
+                  latestDescriptor,
+                ),
+              )
+            | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            }
+          )
+          let download = (_globalStorageUri, _, ~trace as _=Connection__Download__Trace.noop) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let findCommand = (_command, ~timeout as _=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+        }
+        let platform: Platform.t = module(MockLatestALSv6)
         let state = createTestStateWithPlatform(platform)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
 
@@ -1230,26 +1270,83 @@ describe("State__SwitchVersion", () => {
           downloadItems,
         )
 
-        let hasDownloadAction =
+        let hasNativeDownloadAction =
           itemData->Array.some(item =>
             switch item {
             | DownloadAction(_, _, "native") => true
-            | DownloadAction(_, _, "wasm") => true
             | _ => false
             }
           )
 
-        Assert.deepStrictEqual(hasDownloadAction, true)
+        Assert.deepStrictEqual(hasNativeDownloadAction, true)
       },
     )
 
     Async.it(
-      "should return unavailable rows instead of empty list when no LatestALS assets match current platform",
+      "should show unavailable rows (not empty list) when canonical v6 LatestALS assets do not match current platform",
       async () => {
-        // Same LatestALS setup — no parseable/matching assets for MacOS_Arm.
-        // Expectation: getAllAvailableDownloads should produce unavailable rows (native + wasm)
-        // rather than a completely empty array so the UI still shows download slots.
-        let platform = makeLatestALSPlatformWith(Mock.DownloadDescriptor.mockLatestALS)
+        // v6 release contains only a windows native asset — no wasm asset, no macos asset
+        let windowsOnlyAsset = {
+          Connection__Download__GitHub.Asset.url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-windows.zip",
+          id: 1,
+          node_id: "",
+          name: "als-v6-Agda-2.8.0-windows.zip",
+          label: None,
+          content_type: "application/zip",
+          state: "uploaded",
+          size: 1000000,
+          created_at: "2025-01-01T00:00:00Z",
+          updated_at: "2025-01-01T00:00:00Z",
+          browser_download_url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-windows.zip",
+        }
+        let v6ReleaseWindowsOnly = {
+          Connection__Download__GitHub.Release.url: "",
+          assets_url: "",
+          upload_url: "",
+          html_url: "",
+          id: 100,
+          node_id: "",
+          tag_name: "v6",
+          target_commitish: "main",
+          name: "v6",
+          draft: false,
+          prerelease: false,
+          created_at: "2025-01-01T00:00:00Z",
+          published_at: "2025-01-01T00:00:00Z",
+          assets: [windowsOnlyAsset],
+          tarball_url: "",
+          zipball_url: "",
+          body: None,
+        }
+        let mismatchDescriptor = {
+          Connection__Download__GitHub.DownloadDescriptor.asset: windowsOnlyAsset,
+          release: v6ReleaseWindowsOnly,
+          saveAsFileName: "latest-als",
+        }
+
+        // Platform is MacOS_Arm — does not match the windows native asset; no wasm asset either
+        module MockLatestALSMismatch = {
+          let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+          let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+          let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+          let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+            switch channel {
+            | Connection__Download.Channel.LatestALS =>
+              Ok(
+                Connection__Download.Source.FromGitHub(
+                  Connection__Download.Channel.LatestALS,
+                  mismatchDescriptor,
+                ),
+              )
+            | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            }
+          )
+          let download = (_globalStorageUri, _, ~trace as _=Connection__Download__Trace.noop) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let findCommand = (_command, ~timeout as _=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+        }
+        let platform: Platform.t = module(MockLatestALSMismatch)
         let state = createTestStateWithPlatform(platform)
 
         let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
