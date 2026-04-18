@@ -731,41 +731,20 @@ module Handler = {
     } else {
       module PlatformOps = unpack(platformDeps)
       let onTrace = event => state.channels.log->Chan.emit(Log.DownloadTrace(event))
-      let downloadResult = switch await PlatformOps.determinePlatform() {
-      | Error(_) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-      | Ok(platform) =>
-        let resolver = PlatformOps.resolveDownloadChannel(channel, true)
-        switch await resolver(state.memento, state.globalStorageUri, platform) {
-        | Error(e) => Error(e)
-        | Ok(Connection__Download.Source.FromURL(_, _, _) as source) =>
-          await PlatformOps.download(state.globalStorageUri, source, ~trace=onTrace)
-        | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
-          let release = descriptor.release
-          let assets = switch variant {
-          | Native => Connection__Download__Assets.nativeForPlatform(release, platform)
-          | WASM => Connection__Download__Assets.wasm(release)
-          }
-          let matchingSource = assets->Array.reduce(None, (found, asset) =>
-            switch found {
-            | Some(_) => found
-            | None =>
-              let src = Connection__Download.Source.FromGitHub(channel, {
-                Connection__Download__GitHub.DownloadDescriptor.asset: asset,
-                release: release,
-                saveAsFileName: descriptor.saveAsFileName,
-              })
-              if Connection__Download.Source.toVersionString(src) == versionString {
-                Some(src)
-              } else {
-                None
-              }
-            }
-          )
-          switch matchingSource {
-          | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-          | Some(src) => await PlatformOps.download(state.globalStorageUri, src, ~trace=onTrace)
-          }
-        }
+      let flowVariant = switch variant {
+      | Native => Connection__Download__Flow.Native
+      | WASM => Connection__Download__Flow.WASM
+      }
+      let downloadResult = switch await Connection__Download__Flow.sourceForSelection(
+        state.memento,
+        state.globalStorageUri,
+        platformDeps,
+        ~channel,
+        ~variant=flowVariant,
+        ~versionString,
+      ) {
+      | Error(error) => Error(error)
+      | Ok(source) => await PlatformOps.download(state.globalStorageUri, source, ~trace=onTrace)
       }
 
       switch downloadResult {

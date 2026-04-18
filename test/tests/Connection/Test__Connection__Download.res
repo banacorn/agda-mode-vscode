@@ -510,6 +510,205 @@ describe("Download", () => {
     )
   })
 
+  describe("Flow.sourceForSelection", () => {
+    let makeAsset = (name): GitHub.Asset.t => {
+      url: "https://github.com/agda/agda-language-server/releases/download/test/" ++ name,
+      id: 0,
+      node_id: "",
+      name,
+      label: Some(""),
+      content_type: name->String.endsWith(".wasm") ? "application/wasm" : "application/zip",
+      state: "uploaded",
+      size: 1000000,
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+      browser_download_url: "https://github.com/agda/agda-language-server/releases/download/test/" ++ name,
+    }
+
+    let makeRelease = (tagName, assets): GitHub.Release.t => {
+      url: "https://api.github.com/repos/agda/agda-language-server/releases/" ++ tagName,
+      assets_url: "https://api.github.com/repos/agda/agda-language-server/releases/" ++ tagName ++ "/assets",
+      upload_url: "https://uploads.github.com/repos/agda/agda-language-server/releases/" ++ tagName ++ "/assets",
+      html_url: "https://github.com/agda/agda-language-server/releases/tag/" ++ tagName,
+      id: 1,
+      node_id: tagName,
+      tag_name: tagName,
+      target_commitish: "main",
+      name: tagName,
+      draft: false,
+      prerelease: tagName == "dev",
+      created_at: "2024-01-01T00:00:00Z",
+      published_at: "2024-01-01T00:00:00Z",
+      assets,
+      tarball_url: "",
+      zipball_url: "",
+      body: Some(""),
+    }
+
+    let makeGitHubSource = (channel, release, asset, saveAsFileName) =>
+      Connection__Download.Source.FromGitHub(channel, {
+        GitHub.DownloadDescriptor.asset,
+        release,
+        saveAsFileName,
+      })
+
+    let makePlatform = (downloadPlatform, resolvedSource): Platform.t => {
+      module MockFlowPlatform = {
+        let determinePlatform = async () => Ok(downloadPlatform)
+        let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+        let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+        let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_channel => Ok(resolvedSource))
+        let download = (_globalStorageUri, _, ~trace as _trace=Connection__Download__Trace.noop) =>
+          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+        let findCommand = (_command, ~timeout as _timeout=1000) =>
+          Promise.resolve(Error(Connection__Command.Error.NotFound))
+      }
+      module(MockFlowPlatform)
+    }
+
+    let expectGitHubAsset = (result, expectedChannel, expectedAssetName) =>
+      switch result {
+      | Ok(Connection__Download.Source.FromGitHub(channel, descriptor)) =>
+        Assert.deepStrictEqual(channel, expectedChannel)
+        Assert.deepStrictEqual(descriptor.asset.name, expectedAssetName)
+      | Ok(Connection__Download.Source.FromURL(_, _, _)) =>
+        Assert.fail("expected FromGitHub source")
+      | Error(error) =>
+        Assert.fail("expected Ok source, got " ++ Connection__Download.Error.toString(error))
+      }
+
+    Async.it(
+      "should return the matching DevALS native source for the selected version string",
+      async () => {
+        let nativeAsset = makeAsset("als-dev-Agda-2.8.0-macos-arm64.zip")
+        let release = makeRelease("dev", [
+          nativeAsset,
+          makeAsset("als-dev-Agda-2.7.0.1-macos-arm64.zip"),
+          makeAsset("als-dev-Agda-2.8.0-wasm.wasm"),
+        ])
+        let platform = makePlatform(
+          Connection__Download__Platform.MacOS_Arm,
+          makeGitHubSource(Connection__Download.Channel.DevALS, release, nativeAsset, "dev-als"),
+        )
+
+        let result = await Connection__Download__Flow.sourceForSelection(
+          Memento.make(None),
+          VSCode.Uri.file("/tmp/agda-flow-dev-native"),
+          platform,
+          ~channel=Connection__Download.Channel.DevALS,
+          ~variant=Connection__Download__Flow.Native,
+          ~versionString="Agda v2.8.0 Language Server (dev build)",
+        )
+
+        expectGitHubAsset(
+          result,
+          Connection__Download.Channel.DevALS,
+          "als-dev-Agda-2.8.0-macos-arm64.zip",
+        )
+      },
+    )
+
+    Async.it(
+      "should return the matching DevALS WASM source for the selected version string",
+      async () => {
+        let nativeAsset = makeAsset("als-dev-Agda-2.8.0-macos-arm64.zip")
+        let wasmAsset = makeAsset("als-dev-Agda-2.8.0-wasm.wasm")
+        let release = makeRelease("dev", [
+          nativeAsset,
+          wasmAsset,
+          makeAsset("als-dev-Agda-2.7.0.1-wasm.wasm"),
+        ])
+        let platform = makePlatform(
+          Connection__Download__Platform.MacOS_Arm,
+          makeGitHubSource(Connection__Download.Channel.DevALS, release, nativeAsset, "dev-als"),
+        )
+
+        let result = await Connection__Download__Flow.sourceForSelection(
+          Memento.make(None),
+          VSCode.Uri.file("/tmp/agda-flow-dev-wasm"),
+          platform,
+          ~channel=Connection__Download.Channel.DevALS,
+          ~variant=Connection__Download__Flow.WASM,
+          ~versionString="Agda v2.8.0 Language Server (dev build)",
+        )
+
+        expectGitHubAsset(
+          result,
+          Connection__Download.Channel.DevALS,
+          "als-dev-Agda-2.8.0-wasm.wasm",
+        )
+      },
+    )
+
+    Async.it("should return CannotFindCompatibleALSRelease when no source matches", async () => {
+      let nativeAsset = makeAsset("als-dev-Agda-2.8.0-macos-arm64.zip")
+      let release = makeRelease("dev", [nativeAsset])
+      let platform = makePlatform(
+        Connection__Download__Platform.MacOS_Arm,
+        makeGitHubSource(Connection__Download.Channel.DevALS, release, nativeAsset, "dev-als"),
+      )
+
+      let result = await Connection__Download__Flow.sourceForSelection(
+        Memento.make(None),
+        VSCode.Uri.file("/tmp/agda-flow-no-match"),
+        platform,
+        ~channel=Connection__Download.Channel.DevALS,
+        ~variant=Connection__Download__Flow.Native,
+        ~versionString="Agda v9.9.9 Language Server (dev build)",
+      )
+
+      Assert.deepStrictEqual(result, Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+    })
+
+    Async.it("should return FromURL sources directly", async () => {
+      let source = Connection__Download.Source.FromURL(
+        Connection__Download.Channel.DevALS,
+        "https://example.invalid/als.wasm",
+        "dev-als",
+      )
+      let platform = makePlatform(Connection__Download__Platform.Web, source)
+
+      let result = await Connection__Download__Flow.sourceForSelection(
+        Memento.make(None),
+        VSCode.Uri.file("/tmp/agda-flow-url"),
+        platform,
+        ~channel=Connection__Download.Channel.DevALS,
+        ~variant=Connection__Download__Flow.WASM,
+        ~versionString="irrelevant for URL sources",
+      )
+
+      Assert.deepStrictEqual(result, Ok(source))
+    })
+
+    Async.it("should use canonical LatestALS release assets", async () => {
+      let latestAsset = makeAsset("als-v6-Agda-2.8.0-macos-arm64.zip")
+      let release = makeRelease("v6", [
+        latestAsset,
+        makeAsset("als-v6-Agda-2.8.0-wasm.wasm"),
+        makeAsset("als-v5-Agda-2.7.0.1-macos-arm64.zip"),
+      ])
+      let platform = makePlatform(
+        Connection__Download__Platform.MacOS_Arm,
+        makeGitHubSource(Connection__Download.Channel.LatestALS, release, latestAsset, "latest-als"),
+      )
+
+      let result = await Connection__Download__Flow.sourceForSelection(
+        Memento.make(None),
+        VSCode.Uri.file("/tmp/agda-flow-latest"),
+        platform,
+        ~channel=Connection__Download.Channel.LatestALS,
+        ~variant=Connection__Download__Flow.Native,
+        ~versionString="Agda v2.8.0 Language Server v6",
+      )
+
+      expectGitHubAsset(
+        result,
+        Connection__Download.Channel.LatestALS,
+        "als-v6-Agda-2.8.0-macos-arm64.zip",
+      )
+    })
+  })
+
   describe("alreadyDownloaded", () => {
     Async.it(
       "should return Some(path) when DevALS native artifact exists in release-managed storage",
