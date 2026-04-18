@@ -1682,6 +1682,73 @@ describe("Download", () => {
     )
   })
 
+  describe("Channel", () => {
+    it("toString(LatestALS) == \"latest\"", () => {
+      Assert.deepStrictEqual(Connection__Download.Channel.toString(LatestALS), "latest")
+    })
+
+    it("toString(DevALS) == \"dev\"", () => {
+      Assert.deepStrictEqual(Connection__Download.Channel.toString(DevALS), "dev")
+    })
+
+    it("fromString(\"latest\") == Some(LatestALS)", () => {
+      Assert.deepStrictEqual(Connection__Download.Channel.fromString("latest"), Some(LatestALS))
+    })
+
+    it("fromString(\"dev\") == Some(DevALS)", () => {
+      Assert.deepStrictEqual(Connection__Download.Channel.fromString("dev"), Some(DevALS))
+    })
+
+    it("display label for LatestALS is \"Latest\"", () => {
+      Assert.deepStrictEqual(Connection__Download.Channel.toLabel(LatestALS), "Latest")
+    })
+
+    it("display label for DevALS is \"Development\"", () => {
+      Assert.deepStrictEqual(Connection__Download.Channel.toLabel(DevALS), "Development")
+    })
+
+    it("detail for LatestALS is \"Tracks the latest stable release\"", () => {
+      Assert.deepStrictEqual(
+        Connection__Download.Channel.detail(LatestALS),
+        "Tracks the latest stable release",
+      )
+    })
+
+    it("detail for DevALS is \"Tracks the latest commit of the master branch\"", () => {
+      Assert.deepStrictEqual(
+        Connection__Download.Channel.detail(DevALS),
+        "Tracks the latest commit of the master branch",
+      )
+    })
+
+    it("pickerItems labels are exactly [Latest, Development]", () => {
+      Assert.deepStrictEqual(
+        Connection__Download.Channel.pickerItems(~selectedChannel=DevALS)->Array.map(i => i.label),
+        ["Latest", "Development"],
+      )
+    })
+
+    it("pickerItems values are exactly [latest, dev]", () => {
+      Assert.deepStrictEqual(
+        Connection__Download.Channel.pickerItems(~selectedChannel=DevALS)->Array.map(i => i.value),
+        ["latest", "dev"],
+      )
+    })
+
+    it("pickerItems description marks only the selected channel", () => {
+      let devSelected = Connection__Download.Channel.pickerItems(~selectedChannel=DevALS)
+      Assert.deepStrictEqual(
+        devSelected->Array.map(i => i.description),
+        ["", "selected"],
+      )
+      let latestSelected = Connection__Download.Channel.pickerItems(~selectedChannel=LatestALS)
+      Assert.deepStrictEqual(
+        latestSelected->Array.map(i => i.description),
+        ["selected", ""],
+      )
+    })
+  })
+
   describe("managedDeleteRoots", () => {
     it("should return only <globalStorage>/releases", () => {
       let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")

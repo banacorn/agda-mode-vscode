@@ -21,6 +21,35 @@ module Channel = {
     | "dev" => Some(DevALS)
     | _ => None
     }
+
+  let toLabel = (channel: t): string =>
+    switch channel {
+    | LatestALS => "Latest"
+    | DevALS => "Development"
+    }
+
+  let detail = (channel: t): string =>
+    switch channel {
+    | LatestALS => "Tracks the latest stable release"
+    | DevALS => "Tracks the latest commit of the master branch"
+    }
+
+  type pickerItem = {
+    label: string,
+    description: string,
+    detail: string,
+    value: string,
+  }
+
+  let pickerItem = (channel: t, ~selectedChannel: t): pickerItem => {
+    let description = channel == selectedChannel ? "selected" : ""
+    {label: toLabel(channel), description, detail: detail(channel), value: toString(channel)}
+  }
+
+  let pickerItems = (~selectedChannel: t): array<pickerItem> =>
+    [LatestALS, DevALS]->Array.map(ch => pickerItem(ch, ~selectedChannel))
+
+  let all: array<t> = [DevALS, LatestALS]
 }
 
 module DownloadArtifact = {

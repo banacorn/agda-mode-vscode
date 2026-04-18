@@ -822,11 +822,10 @@ describe("State__SwitchVersion", () => {
       },
     )
 
-    Async.it(
+    it(
       "should expose DevALS and LatestALS channels",
-      async () => {
-        let channels = await State__SwitchVersion.Download.getAvailableChannels(makeMockPlatform())
-        Assert.deepStrictEqual(channels, [
+      () => {
+        Assert.deepStrictEqual(Connection__Download.Channel.all, [
           Connection__Download.Channel.DevALS,
           Connection__Download.Channel.LatestALS,
         ])
@@ -1476,7 +1475,7 @@ describe("State__SwitchVersion", () => {
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
 
-        let capturedItems: ref<array<State__SwitchVersion.Download.channelPickerItem>> = ref([])
+        let capturedItems: ref<array<Connection__Download.Channel.pickerItem>> = ref([])
         let capturedPlaceholder: ref<string> = ref("")
         let resolvePickerCalled = ref((_: unit) => ())
         let pickerCalled = Promise.make((resolve, _) => resolvePickerCalled := resolve)
@@ -1505,11 +1504,12 @@ describe("State__SwitchVersion", () => {
         Assert.deepStrictEqual(
           capturedItems.contents,
           [
-            {label: "Latest", description: "", detail: "Tracks the latest stable release"},
+            {label: "Latest", description: "", detail: "Tracks the latest stable release", value: "latest"},
             {
               label: "Development",
               description: "selected",
               detail: "Tracks the latest commit of the master branch",
+              value: "dev",
             },
           ],
         )
@@ -1526,7 +1526,7 @@ describe("State__SwitchVersion", () => {
         let view = State__SwitchVersion.View.make(state.channels.log)
         let manager = State__SwitchVersion.SwitchVersionManager.make(state)
 
-        let capturedItems: ref<array<State__SwitchVersion.Download.channelPickerItem>> = ref([])
+        let capturedItems: ref<array<Connection__Download.Channel.pickerItem>> = ref([])
         let resolvePickerCalled = ref((_: unit) => ())
         let pickerCalled = Promise.make((resolve, _) => resolvePickerCalled := resolve)
 
@@ -1620,7 +1620,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should switch channel from LatestALS to DevALS via onSelection when showChannelPicker returns Development label",
+      "should switch channel from LatestALS to DevALS via onSelection when showChannelPicker returns dev value",
       async () => {
         let state = createTestState()
         let view = State__SwitchVersion.View.make(state.channels.log)
@@ -1661,7 +1661,7 @@ describe("State__SwitchVersion", () => {
           async _downloadItems => {
             let downloadHeader =
               "Download (" ++
-                State__SwitchVersion.Download.channelPickerItem(
+                Connection__Download.Channel.pickerItem(
                   selectedChannel.contents,
                   ~selectedChannel=selectedChannel.contents,
                 ).label ++ ")"
@@ -1671,7 +1671,7 @@ describe("State__SwitchVersion", () => {
           [selectedItem],
           ~showChannelPicker=async (_items, _placeholder) => {
             resolvePickerCalled.contents()
-            Some("Development")
+            Some("dev")
           },
         )
 
@@ -1724,7 +1724,7 @@ describe("State__SwitchVersion", () => {
           [selectedItem],
           ~showChannelPicker=async (_items, _placeholder) => {
             resolvePickerCalled.contents()
-            Some("Development")
+            Some("dev")
           },
         )
 
@@ -1810,12 +1810,14 @@ describe("State__SwitchVersion", () => {
           ~showChannelPicker=async (_items, _placeholder) => {
             // Simulate VS Code hiding the main QuickPick when secondary picker opens
             view.quickPick->VSCode.QuickPick.hide
-            Some("Development")
+            Some("dev")
           },
         )
 
         await Test__Util.wait(200)
 
+        // Channel switch must have resolved to DevALS
+        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
         // View MUST NOT be destroyed during channel selection
         Assert.deepStrictEqual(sawDestroyed.contents, false)
         // After channel selection completes, the main QuickPick MUST be re-shown
@@ -2586,7 +2588,7 @@ describe("State__SwitchVersion", () => {
         // Verify the switch happened
         Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
 
-        // After channel switch, memento MUST store the exact channel label
+        // After channel switch, memento MUST store the canonical channel string
         Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("dev"))
       },
     )
@@ -2614,7 +2616,7 @@ describe("State__SwitchVersion", () => {
         let updateUI = async (downloadItems: array<(bool, string, string)>): unit => {
           let downloadHeader =
             "Download (" ++
-              State__SwitchVersion.Download.channelPickerItem(
+              Connection__Download.Channel.pickerItem(
                 selectedChannel.contents,
                 ~selectedChannel=selectedChannel.contents,
               ).label ++ ")"
@@ -2666,7 +2668,7 @@ describe("State__SwitchVersion", () => {
     )
 
     Async.it(
-      "should default to DevALS channel when memento contains invalid channel label",
+      "should default to DevALS channel when memento contains invalid channel string",
       async () => {
         let state = createTestState()
         await Memento.SelectedChannel.set(state.memento, "InvalidChannel")
@@ -2822,12 +2824,10 @@ describe("State__SwitchVersion", () => {
       },
     )
 
-    Async.it(
+    it(
       "should expose DevALS and LatestALS channels on Desktop",
-      async () => {
-        let platform = makeMockPlatform()
-        let channels = await State__SwitchVersion.Download.getAvailableChannels(platform)
-        Assert.deepStrictEqual(channels, [
+      () => {
+        Assert.deepStrictEqual(Connection__Download.Channel.all, [
           Connection__Download.Channel.DevALS,
           Connection__Download.Channel.LatestALS,
         ])
@@ -3153,105 +3153,6 @@ describe("State__SwitchVersion", () => {
     })
   })
 
-
-  describe("Channel picker items", () => {
-    it("labels should be exactly Latest and Development", () => {
-      let items = State__SwitchVersion.Download.channelPickerItems(
-        ~selectedChannel=Connection__Download.Channel.DevALS,
-      )
-      Assert.deepStrictEqual(
-        items->Array.map(i => i.label),
-        ["Latest", "Development"],
-      )
-    })
-
-    it("order should be Latest then Development", () => {
-      let items = State__SwitchVersion.Download.channelPickerItems(
-        ~selectedChannel=Connection__Download.Channel.LatestALS,
-      )
-      Assert.deepStrictEqual(
-        items->Array.map(i => i.label),
-        ["Latest", "Development"],
-      )
-    })
-
-    it("selected channel should have description 'selected', other should be empty", () => {
-      let itemsDevSelected = State__SwitchVersion.Download.channelPickerItems(
-        ~selectedChannel=Connection__Download.Channel.DevALS,
-      )
-      Assert.deepStrictEqual(
-        itemsDevSelected->Array.map(i => i.description),
-        ["", "selected"],
-      )
-
-      let itemsLatestSelected = State__SwitchVersion.Download.channelPickerItems(
-        ~selectedChannel=Connection__Download.Channel.LatestALS,
-      )
-      Assert.deepStrictEqual(
-        itemsLatestSelected->Array.map(i => i.description),
-        ["selected", ""],
-      )
-    })
-
-    it("Latest should have detail 'Tracks the latest stable release'", () => {
-      let items = State__SwitchVersion.Download.channelPickerItems(
-        ~selectedChannel=Connection__Download.Channel.DevALS,
-      )
-      let latestItem = items->Array.find(i => i.label == "Latest")
-      Assert.deepStrictEqual(
-        latestItem->Option.map(i => i.detail),
-        Some("Tracks the latest stable release"),
-      )
-    })
-
-    it("Development should have detail 'Tracks the latest commit of the master branch'", () => {
-      let items = State__SwitchVersion.Download.channelPickerItems(
-        ~selectedChannel=Connection__Download.Channel.LatestALS,
-      )
-      let devItem = items->Array.find(i => i.label == "Development")
-      Assert.deepStrictEqual(
-        devItem->Option.map(i => i.detail),
-        Some("Tracks the latest commit of the master branch"),
-      )
-    })
-
-    describe("channelFromLabel", () => {
-      it("should parse 'Latest' to LatestALS", () => {
-        Assert.deepStrictEqual(
-          State__SwitchVersion.Download.channelFromLabel("Latest"),
-          Some(Connection__Download.Channel.LatestALS),
-        )
-      })
-
-      it("should parse 'Development' to DevALS", () => {
-        Assert.deepStrictEqual(
-          State__SwitchVersion.Download.channelFromLabel("Development"),
-          Some(Connection__Download.Channel.DevALS),
-        )
-      })
-
-      it("should reject non-UI label 'DevALS'", () => {
-        Assert.deepStrictEqual(
-          State__SwitchVersion.Download.channelFromLabel("DevALS"),
-          None,
-        )
-      })
-
-      it("should reject non-UI label 'LatestALS'", () => {
-        Assert.deepStrictEqual(
-          State__SwitchVersion.Download.channelFromLabel("LatestALS"),
-          None,
-        )
-      })
-
-      it("should reject garbage input", () => {
-        Assert.deepStrictEqual(
-          State__SwitchVersion.Download.channelFromLabel("garbage"),
-          None,
-        )
-      })
-    })
-  })
 
   describe("ItemCreation", () => {
     describe(

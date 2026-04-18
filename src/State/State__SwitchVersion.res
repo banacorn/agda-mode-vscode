@@ -677,53 +677,6 @@ module Download = {
     variantToTag(variant),
   )
 
-  let channelToLabel = (channel: Connection__Download.Channel.t): string =>
-    switch channel {
-    | LatestALS => "LatestALS"
-    | DevALS => "DevALS"
-    }
-
-  let channelFromLabel = (label: string): option<Connection__Download.Channel.t> =>
-    switch label {
-    | "Latest" => Some(LatestALS)
-    | "Development" => Some(DevALS)
-    | _ => None
-    }
-
-  type channelPickerItem = {
-    label: string,
-    description: string,
-    detail: string,
-  }
-
-  let channelPickerItem = (
-    channel: Connection__Download.Channel.t,
-    ~selectedChannel: Connection__Download.Channel.t,
-  ): channelPickerItem => {
-    let description = channel == selectedChannel ? "selected" : ""
-    switch channel {
-    | LatestALS => {label: "Latest", description, detail: "Tracks the latest stable release"}
-    | DevALS => {
-        label: "Development",
-        description,
-        detail: "Tracks the latest commit of the master branch",
-      }
-    }
-  }
-
-  let channelPickerItems = (
-    ~selectedChannel: Connection__Download.Channel.t,
-  ): array<channelPickerItem> => {
-    open Connection__Download.Channel
-    [LatestALS, DevALS]->Array.map(ch => channelPickerItem(ch, ~selectedChannel))
-  }
-
-  let getAvailableChannels = async (_platformDeps: Platform.t): array<
-    Connection__Download.Channel.t,
-  > => {
-    [DevALS, LatestALS]
-  }
-
   // Create placeholder download items to prevent UI jitter.
   let getPlaceholderDownloadItems = async (platformDeps: Platform.t): array<(
     bool,
@@ -1025,7 +978,7 @@ module Handler = {
     view: View.t,
     selectedItems: array<Item.t>,
     ~showChannelPicker: (
-      array<Download.channelPickerItem>,
+      array<Connection__Download.Channel.pickerItem>,
       string,
     ) => promise<option<string>>=async (items, placeHolder) => {
       let result = await VSCode.Window.showQuickPickWithItems(
@@ -1033,7 +986,7 @@ module Handler = {
         {placeHolder, canPickMany: false},
         None,
       )
-      result->Option.map(item => item.label)
+      result->Option.map(item => item.value)
     },
   ) => {
     let _ = (
@@ -1045,13 +998,13 @@ module Handler = {
           | DownloadAction(_, versionString, _) when versionString == Constants.checkingAvailability =>
             ()
           | SelectOtherChannels =>
-            let pickerItems = Download.channelPickerItems(~selectedChannel=selectedChannel.contents)
+            let pickerItems = Connection__Download.Channel.pickerItems(~selectedChannel=selectedChannel.contents)
             view.pendingHides = view.pendingHides + 1
             try {
               let channelResult = await showChannelPicker(pickerItems, "Select download channel")
               switch channelResult {
-              | Some(label) =>
-                switch Download.channelFromLabel(label) {
+              | Some(value) =>
+                switch Connection__Download.Channel.fromString(value) {
                 | Some(channel) =>
                   await handleChannelSwitch(
                     state, platformDeps, manager, selectedChannel, channel, updateUI,
@@ -1312,7 +1265,7 @@ module Handler = {
     let updateUI = async (downloadItems: array<(bool, string, string)>): unit => {
       let downloadHeader =
         "Download (" ++
-          Download.channelPickerItem(
+          Connection__Download.Channel.pickerItem(
             selectedChannel.contents,
             ~selectedChannel=selectedChannel.contents,
           ).label ++ ")"
@@ -1341,7 +1294,7 @@ module Handler = {
     // Setup quickpick
     view->View.setPlaceholder("Switch Agda Version")
 
-    availableChannels := (await Download.getAvailableChannels(platformDeps))
+    availableChannels := Connection__Download.Channel.all
 
     // Clamp restored channel to available channels
     if !(availableChannels.contents->Array.includes(selectedChannel.contents)) {
