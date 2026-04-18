@@ -602,75 +602,6 @@ module Download = {
     | WASM => "als.wasm"
     }
 
-  let expectedPathForSource = (
-    globalStorageUri: VSCode.Uri.t,
-    source: Connection__Download.Source.t,
-  ): string => Connection__Download.expectedPathForSource(globalStorageUri, source)
-
-  let isDownloadedSource = async (
-    globalStorageUri: VSCode.Uri.t,
-    source: Connection__Download.Source.t,
-  ): bool =>
-    switch await FS.stat(Connection__Download.expectedUriForSource(globalStorageUri, source)) {
-    | Ok(_) => true
-    | Error(_) => false
-    }
-
-  type sourceDownloadItem = {
-    downloaded: bool,
-    versionString: string,
-    variantTag: string,
-    source: option<Connection__Download.Source.t>,
-  }
-
-  let suppressManagedVariants = async (
-    globalStorageUri: VSCode.Uri.t,
-    configPaths: array<string>,
-    downloadItems: array<sourceDownloadItem>,
-  ): array<sourceDownloadItem> => {
-    let shouldKeep = async item => {
-      switch item.source {
-      | None => true
-      | Some(source) =>
-        let expectedPath = expectedPathForSource(globalStorageUri, source)
-        let expectedCandidate = Candidate.make(expectedPath)
-        let inConfig = configPaths->Array.some(configPath =>
-          Candidate.equal(Candidate.make(configPath), expectedCandidate))
-        if !inConfig {
-          true
-        } else {
-          let fileExists =
-            (await FS.stat(Connection__Download.expectedUriForSource(globalStorageUri, source)))
-            ->Result.isOk
-          !fileExists
-        }
-      }
-    }
-    let keeps = await Promise.all(downloadItems->Array.map(shouldKeep))
-    downloadItems->Array.filterWithIndex((_, i) => Belt.Array.getExn(keeps, i))
-  }
-
-  let makeDownloadItem = async (
-    state: State.t,
-    variant: variant,
-    source: Connection__Download.Source.t,
-  ): sourceDownloadItem => {
-    let downloaded = await isDownloadedSource(state.globalStorageUri, source)
-    {
-      downloaded,
-      versionString: Connection__Download.Source.toVersionString(source),
-      variantTag: variantToTag(variant),
-      source: Some(source),
-    }
-  }
-
-  let unavailableSourceItem = (variant: variant): sourceDownloadItem => {
-    downloaded: false,
-    versionString: Constants.downloadUnavailable,
-    variantTag: variantToTag(variant),
-    source: None,
-  }
-
   let unavailableItem = (variant: variant): (bool, string, string) => (
     false,
     Constants.downloadUnavailable,
@@ -700,101 +631,15 @@ module Download = {
     state: State.t,
     platformDeps: Platform.t,
     ~channel: Connection__Download.Channel.t=DevALS,
-  ): array<(bool, string, string)> => {
-    module PlatformOps = unpack(platformDeps)
-
-    let allItems = switch await PlatformOps.determinePlatform() {
-    | Error(_) => [unavailableSourceItem(Native), unavailableSourceItem(WASM)]
-    | Ok(Connection__Download__Platform.Web) =>
-      let resolver = PlatformOps.resolveDownloadChannel(channel, true)
-      switch await resolver(state.memento, state.globalStorageUri, Connection__Download__Platform.Web) {
-      | Error(_) => [unavailableSourceItem(WASM)]
-      | Ok(Connection__Download.Source.FromURL(_, _, _)) => [unavailableSourceItem(WASM)]
-      | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
-        let release = descriptor.release
-        let makeSource = asset =>
-          Connection__Download.Source.FromGitHub(channel, {
-            Connection__Download__GitHub.DownloadDescriptor.asset: asset,
-            release: release,
-            saveAsFileName: descriptor.saveAsFileName,
-          })
-        let wasmAssets = switch channel {
-        | Connection__Download.Channel.DevALS => Connection__DevALS.allWasmAssets(release)
-        | Connection__Download.Channel.LatestALS =>
-          Connection__DevALS.allWasmAssets(release)
-        }
-        if Array.length(wasmAssets) == 0 {
-          [unavailableSourceItem(WASM)]
-        } else {
-          await Promise.all(
-            wasmAssets->Array.map(async asset =>
-              await makeDownloadItem(state, WASM, makeSource(asset))
-            ),
-          )
-        }
-      }
-    | Ok(platform) =>
-      let resolver = PlatformOps.resolveDownloadChannel(channel, true)
-      switch await resolver(state.memento, state.globalStorageUri, platform) {
-      | Error(_) => [unavailableSourceItem(Native), unavailableSourceItem(WASM)]
-      | Ok(Connection__Download.Source.FromURL(_, _, _)) =>
-        [unavailableSourceItem(Native), unavailableSourceItem(WASM)]
-      | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
-        let release = descriptor.release
-        let makeSource = asset =>
-          Connection__Download.Source.FromGitHub(channel, {
-            Connection__Download__GitHub.DownloadDescriptor.asset: asset,
-            release: release,
-            saveAsFileName: descriptor.saveAsFileName,
-          })
-        switch channel {
-        | Connection__Download.Channel.DevALS =>
-          let nativeAssets = Connection__DevALS.allNativeAssetsForPlatform(release, platform)
-          let wasmAssets = Connection__DevALS.allWasmAssets(release)
-          let nativeItems = await Promise.all(
-            nativeAssets->Array.map(async asset =>
-              await makeDownloadItem(state, Native, makeSource(asset))
-            ),
-          )
-          let wasmItems = await Promise.all(
-            wasmAssets->Array.map(async asset =>
-              await makeDownloadItem(state, WASM, makeSource(asset))
-            ),
-          )
-          Array.concat(nativeItems, wasmItems)
-        | Connection__Download.Channel.LatestALS =>
-          let nativeAssets = Connection__DevALS.allNativeAssetsForPlatform(release, platform)
-          let wasmAssets = Connection__DevALS.allWasmAssets(release)
-          let nativeItems = if Array.length(nativeAssets) == 0 {
-            [unavailableSourceItem(Native)]
-          } else {
-            await Promise.all(
-              nativeAssets->Array.map(async asset =>
-                await makeDownloadItem(state, Native, makeSource(asset))
-              ),
-            )
-          }
-          let wasmItems = if Array.length(wasmAssets) == 0 {
-            [unavailableSourceItem(WASM)]
-          } else {
-            await Promise.all(
-              wasmAssets->Array.map(async asset =>
-                await makeDownloadItem(state, WASM, makeSource(asset))
-              ),
-            )
-          }
-          Array.concat(nativeItems, wasmItems)
-        }
-      }
-    }
-
-    let filteredItems = await suppressManagedVariants(
+  ): array<(bool, string, string)> =>
+    await Connection__Download__Availability.getAll(
+      state.memento,
       state.globalStorageUri,
+      platformDeps,
       Config.Connection.getAgdaPaths(),
-      allItems,
+      ~channel,
+      ~downloadUnavailable=Constants.downloadUnavailable,
     )
-    filteredItems->Array.map(item => (item.downloaded, item.versionString, item.variantTag))
-  }
 }
 
 // Event handlers module for testability and debugging
@@ -897,8 +742,8 @@ module Handler = {
         | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
           let release = descriptor.release
           let assets = switch variant {
-          | Native => Connection__DevALS.allNativeAssetsForPlatform(release, platform)
-          | WASM => Connection__DevALS.allWasmAssets(release)
+          | Native => Connection__Download__Assets.nativeForPlatform(release, platform)
+          | WASM => Connection__Download__Assets.wasm(release)
           }
           let matchingSource = assets->Array.reduce(None, (found, asset) =>
             switch found {
@@ -972,7 +817,6 @@ module Handler = {
     state: State.t,
     platformDeps: Platform.t,
     manager: SwitchVersionManager.t,
-    availableChannels: ref<array<Connection__Download.Channel.t>>,
     selectedChannel: ref<Connection__Download.Channel.t>,
     updateUI,
     view: View.t,
@@ -1027,130 +871,21 @@ module Handler = {
           | DeleteDownloads =>
             Util.log("[ debug ] user clicked: Delete Downloads", "")
             view->View.destroy
-            let cleanedDirectories = ref([])
-            let failedUris = ref([])
-            let deleteRoot = async (uri: VSCode.Uri.t) => {
-              Util.log(
-                "[ debug ] delete downloads: deleting managed directory",
-                VSCode.Uri.toString(uri),
-              )
-              switch await FS.deleteRecursive(uri) {
-              | Ok() =>
-                Util.log(
-                  "[ debug ] delete downloads: deleted managed directory",
-                  VSCode.Uri.toString(uri),
-                )
-                cleanedDirectories := Array.concat(cleanedDirectories.contents, [uri])
-              | Error(error) =>
-                Util.log(
-                  "[ debug ] delete downloads: deleteRecursive failed",
-                  VSCode.Uri.toString(uri) ++ ": " ++ error,
-                )
-                switch await FS.stat(uri) {
-                | Ok(_) =>
-                  Util.log(
-                    "[ debug ] delete downloads: directory still exists after failed delete",
-                    VSCode.Uri.toString(uri),
-                  )
-                  failedUris := Array.concat(failedUris.contents, [uri])
-                | Error(_) =>
-                  // Missing directories are already clean from the perspective of Delete Downloads.
-                  Util.log(
-                    "[ debug ] delete downloads: directory already missing, treating as cleaned",
-                    VSCode.Uri.toString(uri),
-                  )
-                  cleanedDirectories := Array.concat(cleanedDirectories.contents, [uri])
-                }
-              }
-            }
-            let managedRoots = Connection__Download.managedDeleteRoots(state.globalStorageUri)
-            Util.log(
-              "[ debug ] delete downloads: globalStorageUri",
-              VSCode.Uri.toString(state.globalStorageUri),
-            )
-            Util.log(
-              "[ debug ] delete downloads: managed roots",
-              managedRoots->Array.map(root => VSCode.Uri.toString(root))->Array.join(" | "),
-            )
-            let rec deleteAllRoots = async (index: int): unit => {
-              if index < Array.length(managedRoots) {
-                await deleteRoot(Belt.Array.getExn(managedRoots, index))
-                await deleteAllRoots(index + 1)
-              }
-            }
-            await deleteAllRoots(0)
-            // Delete orphaned in-flight temp files at globalStorageUri
-            let inFlightUri = VSCode.Uri.joinPath(state.globalStorageUri, ["in-flight.download"])
-            let inFlightZipUri = VSCode.Uri.joinPath(state.globalStorageUri, ["in-flight.download.zip"])
-            let _ = await FS.delete(inFlightUri)
-            let _ = await FS.delete(inFlightZipUri)
-            // Clear cache for all repositories
-            await Memento.ALSReleaseCache.clear(state.memento, "agda", "agda-language-server")
-            await Memento.ALSReleaseCache.clear(state.memento, "banacorn", "agda-language-server")
-            Util.log(
-              "[ debug ] delete downloads: cleaned directories",
-              cleanedDirectories.contents
-              ->Array.map(dir => VSCode.Uri.toString(dir))
-              ->Array.join(" | "),
-            )
-            Util.log(
-              "[ debug ] delete downloads: failed uris",
-              failedUris.contents->Array.map(uri => VSCode.Uri.toString(uri))->Array.join(", "),
-            )
-            await Memento.ResolvedMetadata.clearUnderDirectories(
+            let result = await Connection__Download__Delete.run(
               state.memento,
-              cleanedDirectories.contents,
+              state.globalStorageUri,
+              state.channels.log,
             )
-            // Remove download-managed paths from connection.paths
-            let currentPaths = Config.Connection.getAgdaPaths()
-            Util.log(
-              "[ debug ] delete downloads: current connection.paths",
-              currentPaths->Array.join(" | "),
-            )
-            let filteredPaths = currentPaths->Array.filter(
-              candidate => {
-                let matchedDirectory =
-                  cleanedDirectories.contents->Array.reduce(None, (found, dirUri) =>
-                    switch found {
-                    | Some(_) => found
-                    | None =>
-                      if Candidate.isUnderDirectory(Candidate.make(candidate), dirUri) {
-                        Some(dirUri)
-                      } else {
-                        None
-                      }
-                    }
-                  )
-                switch matchedDirectory {
-                | Some(dirUri) =>
-                  Util.log(
-                    "[ debug ] delete downloads: removing connection.path candidate",
-                    candidate ++ " under " ++ VSCode.Uri.toString(dirUri),
-                  )
-                  false
-                | None =>
-                  Util.log(
-                    "[ debug ] delete downloads: preserving connection.path candidate",
-                    candidate,
-                  )
-                  true
-                }
-              },
-            )
-            Util.log(
-              "[ debug ] delete downloads: filtered connection.paths",
-              filteredPaths->Array.join(" | "),
-            )
-            await Config.Connection.setAgdaPaths(state.channels.log, filteredPaths)
             state.channels.log->Chan.emit(Log.SwitchVersionUI(SelectionCompleted))
-            if failedUris.contents->Array.length == 0 {
+            if result.failedUris->Array.length == 0 {
               VSCode.Window.showInformationMessage(
                 "All downloads and cache deleted",
                 [],
               )->Promise.done
             } else {
               VSCode.Window.showWarningMessage(
-                "Some downloads could not be deleted: " ++ failedUris.contents->Array.map(uri => VSCode.Uri.toString(uri))->Array.join(", "),
+                "Some downloads could not be deleted: " ++
+                  result.failedUris->Array.map(uri => VSCode.Uri.toString(uri))->Array.join(", "),
                 [],
               )->Promise.done
             }
@@ -1251,7 +986,6 @@ module Handler = {
   ) => {
     let manager = SwitchVersionManager.make(state)
     let view = View.make(state.channels.log)
-    let availableChannels = ref([Connection__Download.Channel.DevALS])
     let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
     | Some(label) =>
       Connection__Download.Channel.fromString(label)->Option.getOr(
@@ -1294,11 +1028,10 @@ module Handler = {
     // Setup quickpick
     view->View.setPlaceholder("Switch Agda Version")
 
-    availableChannels := Connection__Download.Channel.all
-
     // Clamp restored channel to available channels
-    if !(availableChannels.contents->Array.includes(selectedChannel.contents)) {
-      selectedChannel := availableChannels.contents->Array.get(0)->Option.getOr(Connection__Download.Channel.DevALS)
+    if !(Connection__Download.Channel.all->Array.includes(selectedChannel.contents)) {
+      selectedChannel :=
+        Connection__Download.Channel.all->Array.get(0)->Option.getOr(Connection__Download.Channel.DevALS)
     }
 
     // PHASE 1: Show cached items immediately with placeholders to prevent jitter
@@ -1318,7 +1051,6 @@ module Handler = {
         state,
         platformDeps,
         manager,
-        availableChannels,
         selectedChannel,
         updateUI,
         view,

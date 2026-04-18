@@ -527,7 +527,7 @@ module Module: Module = {
               Connection__Download.DownloadArtifact.parseName(descriptor.asset.name)
               ->Option.map(a => a.agdaVersion)
             wasmFallbackSource :=
-              Connection__DevALS.allWasmAssets(descriptor.release)
+              Connection__Download__Assets.wasm(descriptor.release)
               ->Array.find(asset =>
                 switch (nativeAgdaVersion, Connection__Download.DownloadArtifact.parseName(asset.name)) {
                 | (Some(nv), Some(wa)) => nv == wa.agdaVersion

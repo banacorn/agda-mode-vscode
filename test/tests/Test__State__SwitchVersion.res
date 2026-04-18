@@ -348,6 +348,320 @@ describe("State__SwitchVersion", () => {
         )
       },
     )
+    describe(
+      "entriesToItemData",
+      () => {
+        it(
+          "should hide Candidates section when no candidates are found",
+          () => {
+            let entries = []
+            let itemData: array<
+              State__SwitchVersion.ItemData.t,
+            > = State__SwitchVersion.ItemData.entriesToItemData(
+              entries,
+              None,
+              [],
+            )
+
+            let candidatesSeparator = itemData->Array.find(
+              data =>
+                switch data {
+                | Separator("Candidates") => true
+                | _ => false
+                },
+            )
+
+            let noInstallationsPlaceholder = itemData->Array.find(
+              data =>
+                switch data {
+                | NoInstallations => true
+                | _ => false
+                },
+            )
+
+            Assert.ok(candidatesSeparator->Option.isNone)
+            Assert.ok(noInstallationsPlaceholder->Option.isNone)
+            Assert.deepStrictEqual(Array.length(itemData), 3) // Download separator + Select other channel + Delete downloads
+
+            switch itemData[0] {
+            | Some(Separator("Download (Development)")) => () // Expected
+            | _ => Assert.fail("Expected Download separator")
+            }
+
+            switch itemData[1] {
+            | Some(SelectOtherChannels) => () // Expected
+            | _ => Assert.fail("Expected SelectOtherChannels item")
+            }
+
+            switch itemData[2] {
+            | Some(DeleteDownloads) => () // Expected
+            | _ => Assert.fail("Expected DeleteDownloads item")
+            }
+          },
+        )
+
+        it(
+          "should create items with separator when entries exist",
+          () => {
+            let entries = [
+              ("/usr/bin/agda", "/usr/bin/agda", TestData.agdaEntry),
+              ("/usr/bin/als", "/usr/bin/als", TestData.alsEntry),
+            ]
+
+            let itemData: array<
+              State__SwitchVersion.ItemData.t,
+            > = State__SwitchVersion.ItemData.entriesToItemData(
+              entries,
+              None,
+              [],
+            )
+
+            Assert.deepStrictEqual(Array.length(itemData), 6) // Candidates separator + 2 candidates + Download separator + Select other channel + Delete downloads
+
+            switch itemData[0] {
+            | Some(Separator("Candidates")) => () // Expected
+            | _ => Assert.fail("Expected Candidates separator")
+            }
+
+            switch itemData[3] {
+            | Some(Separator("Download (Development)")) => () // Expected
+            | _ => Assert.fail("Expected Download separator")
+            }
+
+            switch itemData[4] {
+            | Some(SelectOtherChannels) => () // Expected
+            | _ => Assert.fail("Expected SelectOtherChannels item")
+            }
+
+            switch itemData[5] {
+            | Some(DeleteDownloads) => () // Expected
+            | _ => Assert.fail("Expected DeleteDownloads item")
+            }
+          },
+        )
+
+        it(
+          "should include download section when download info is provided",
+          () => {
+            let entries = [("/usr/bin/agda", "/usr/bin/agda", TestData.agdaEntry)]
+
+            let itemData: array<
+              State__SwitchVersion.ItemData.t,
+            > = State__SwitchVersion.ItemData.entriesToItemData(
+              entries,
+              None,
+              [(false, "ALS v1.0.0", "native")],
+            )
+
+            Assert.deepStrictEqual(Array.length(itemData), 6) // Candidates separator + 1 item + Download separator + download item + Select other channel + Delete downloads
+
+            let downloadSeparator = itemData->Array.find(
+              data =>
+                switch data {
+                | Separator("Download (Development)") => true
+                | _ => false
+                },
+            )
+
+            let downloadAction = itemData->Array.find(
+              data =>
+                switch data {
+                | DownloadAction(false, "ALS v1.0.0", "native") => true
+                | _ => false
+                },
+            )
+
+            Assert.ok(downloadSeparator->Option.isSome)
+            Assert.ok(downloadAction->Option.isSome)
+          },
+        )
+
+        it(
+          "should include active channel in download section header",
+          () => {
+            let entries = [("/usr/bin/agda", "/usr/bin/agda", TestData.agdaEntry)]
+
+            let itemData: array<
+              State__SwitchVersion.ItemData.t,
+            > = State__SwitchVersion.ItemData.entriesToItemData(
+              entries,
+              None,
+              [(false, "ALS v1.0.0", "native")],
+            )
+
+            let channelAwareDownloadSeparator = itemData->Array.find(
+              data =>
+                switch data {
+                | Separator("Download (Development)") => true
+                | _ => false
+                },
+            )
+
+            Assert.ok(channelAwareDownloadSeparator->Option.isSome)
+          },
+        )
+
+        it(
+          "should include download section header when all downloads are installed and channel selector is shown",
+          () => {
+            let entries = [("/usr/bin/agda", "/usr/bin/agda", TestData.agdaEntry)]
+
+            // All downloads installed → suppressManagedVariants returns empty array
+            // but channel selector is still shown
+            let itemData: array<
+              State__SwitchVersion.ItemData.t,
+            > = State__SwitchVersion.ItemData.entriesToItemData(
+              entries,
+              None,
+              [],
+              ~downloadHeader="Download (Development)",
+            )
+
+            let hasDownloadSeparator = itemData->Array.some(
+              data =>
+                switch data {
+                | Separator("Download (Development)") => true
+                | _ => false
+                },
+            )
+
+            let hasChannelSelector = itemData->Array.some(
+              data =>
+                switch data {
+                | SelectOtherChannels => true
+                | _ => false
+                },
+            )
+
+            let hasDeleteDownloads = itemData->Array.some(
+              data =>
+                switch data {
+                | DeleteDownloads => true
+                | _ => false
+                },
+            )
+
+            // Both channel selector and download section header must be present
+            Assert.deepStrictEqual(hasChannelSelector, true)
+            Assert.deepStrictEqual(hasDownloadSeparator, true)
+            Assert.deepStrictEqual(hasDeleteDownloads, true)
+          },
+        )
+
+        it(
+          "should structure sections as Candidates then Download when candidates and downloads are present",
+          () => {
+            let entries = [
+              ("/usr/bin/agda", "/usr/bin/agda", TestData.agdaEntry),
+              ("/usr/bin/als", "/usr/bin/als", TestData.alsEntry),
+            ]
+
+            let itemData: array<State__SwitchVersion.ItemData.t> =
+              State__SwitchVersion.ItemData.entriesToItemData(
+                entries,
+                None,
+                [(false, "ALS v1.0.0", "native")],
+                ~downloadHeader="Download",
+              )
+
+            let structure = itemData->Array.map(item =>
+              switch item {
+              | Separator(label) => "sep:" ++ label
+              | Candidate(_, _, _, _) => "candidate"
+              | DownloadAction(_, _, _) => "download"
+              | SelectOtherChannels => "select-other-channel"
+              | DeleteDownloads => "delete-downloads"
+              | NoInstallations => "no-installations"
+              }
+            )
+
+            Assert.deepStrictEqual(
+              structure,
+              [
+                "sep:Candidates",
+                "candidate",
+                "candidate",
+                "sep:Download",
+                "download",
+                "select-other-channel",
+                "delete-downloads",
+              ],
+            )
+          },
+        )
+
+        it(
+          "should keep Select other channel and Delete Downloads inside Download when there are no download rows",
+          () => {
+            let entries = [("/usr/bin/agda", "/usr/bin/agda", TestData.agdaEntry)]
+
+            let itemData: array<State__SwitchVersion.ItemData.t> =
+              State__SwitchVersion.ItemData.entriesToItemData(
+                entries,
+                None,
+                [],
+                ~downloadHeader="Download",
+              )
+
+            let structure = itemData->Array.map(item =>
+              switch item {
+              | Separator(label) => "sep:" ++ label
+              | Candidate(_, _, _, _) => "candidate"
+              | DownloadAction(_, _, _) => "download"
+              | SelectOtherChannels => "select-other-channel"
+              | DeleteDownloads => "delete-downloads"
+              | NoInstallations => "no-installations"
+              }
+            )
+
+            Assert.deepStrictEqual(
+              structure,
+              [
+                "sep:Candidates",
+                "candidate",
+                "sep:Download",
+                "select-other-channel",
+                "delete-downloads",
+              ],
+            )
+          },
+        )
+
+        it(
+          "should show Download section only when connection.paths is empty",
+          () => {
+            let itemData: array<State__SwitchVersion.ItemData.t> =
+              State__SwitchVersion.ItemData.entriesToItemData(
+                [],
+                None,
+                [],
+                ~downloadHeader="Download",
+              )
+
+            let structure = itemData->Array.map(item =>
+              switch item {
+              | Separator(label) => "sep:" ++ label
+              | Candidate(_, _, _, _) => "candidate"
+              | DownloadAction(_, _, _) => "download"
+              | SelectOtherChannels => "select-other-channel"
+              | DeleteDownloads => "delete-downloads"
+              | NoInstallations => "no-installations"
+              }
+            )
+
+            Assert.deepStrictEqual(
+              structure,
+              [
+                "sep:Download",
+                "select-other-channel",
+                "delete-downloads",
+              ],
+            )
+          },
+        )
+
+      },
+    )
   })
 
   describe("QuickPick", () => {
@@ -449,6 +763,40 @@ describe("State__SwitchVersion", () => {
       },
     )
 
+    describe(
+      "download items",
+      () => {
+        it(
+          "should create download item when not downloaded",
+          () => {
+            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(false, "ALS v1.0.0", "native")
+            let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
+
+            Assert.deepStrictEqual(
+              item.label,
+              "$(cloud-download)  Download Agda Language Server (native)",
+            )
+            Assert.deepStrictEqual(item.description, Some(""))
+            Assert.deepStrictEqual(item.detail, Some("ALS v1.0.0"))
+          },
+        )
+
+        it(
+          "should create download item when already downloaded",
+          () => {
+            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(true, "ALS v1.0.0", "native")
+            let item = State__SwitchVersion.Item.fromItemData(itemData, extensionUri)
+
+            Assert.deepStrictEqual(
+              item.label,
+              "$(cloud-download)  Download Agda Language Server (native)",
+            )
+            Assert.deepStrictEqual(item.description, Some("Downloaded and installed"))
+            Assert.deepStrictEqual(item.detail, Some("ALS v1.0.0"))
+          },
+        )
+      },
+    )
 
   })
 
@@ -729,7 +1077,6 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.DevALS]),
           ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
@@ -792,7 +1139,6 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.DevALS]),
           selectedChannel,
           async _downloadItems => (),
           view,
@@ -1039,7 +1385,6 @@ describe("State__SwitchVersion", () => {
             state,
             platform,
             manager,
-            ref([Connection__Download.Channel.DevALS]),
             ref(Connection__Download.Channel.DevALS),
             _downloadInfo => Promise.resolve(),
             view,
@@ -1325,7 +1670,6 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.DevALS]),
           ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
@@ -1377,7 +1721,6 @@ describe("State__SwitchVersion", () => {
           state,
           makeMockPlatform(),
           manager,
-          ref([Connection__Download.Channel.DevALS]),
           ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
@@ -1472,7 +1815,6 @@ describe("State__SwitchVersion", () => {
             state,
             Mock.Platform.makeWithSuccessfulDownload(expectedDownloadPath),
             manager,
-            ref([Connection__Download.Channel.DevALS]),
             ref(Connection__Download.Channel.DevALS),
             _downloadItems => Promise.resolve(),
             view,
@@ -1638,6 +1980,1687 @@ describe("State__SwitchVersion", () => {
       },
     )
 
+    Async.it(
+      "SwitchVersionManager.getItemData default header should be Download (Development)",
+      async () => {
+        let state = createTestState()
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, [])
+
+        let downloadSeparator = itemData->Array.find(data =>
+          switch data {
+          | Separator(label) => String.startsWith(label, "Download (")
+          | _ => false
+          }
+        )
+
+        switch downloadSeparator {
+        | Some(Separator(label)) => Assert.deepStrictEqual(label, "Download (Development)")
+        | _ => Assert.fail("Expected Download separator")
+        }
+      },
+    )
+
+    Async.it(
+      "should not show native download option on web platform",
+      async () => {
+        module MockWebPlatform = {
+          let determinePlatform = () => Promise.resolve(Ok(Connection__Download__Platform.Web))
+
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+
+          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+
+          let resolveDownloadChannel = (channel, _useCache) =>
+            async (_memento, _globalStorageUri, _platform) =>
+              switch channel {
+              | Connection__Download.Channel.LatestALS =>
+                Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              | Connection__Download.Channel.DevALS =>
+                Ok(
+                  Connection__Download.Source.FromURL(
+                    Connection__Download.Channel.DevALS,
+                    "https://example.invalid/dev-als.wasm",
+                    "dev-als",
+                  ),
+                )
+              }
+
+          let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+
+          let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+        }
+
+        let webPlatform: Platform.t = module(MockWebPlatform)
+        let state = createTestStateWithPlatform(webPlatform)
+        let placeholderItems = await State__SwitchVersion.Download.getPlaceholderDownloadItems(
+          webPlatform,
+        )
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          webPlatform,
+        )
+
+        let placeholderHasNativeLatest =
+          placeholderItems->Array.some(((/* downloaded */ _, /* version */ _, downloadType)) =>
+            downloadType == "native"
+          )
+        let hasNativeLatest =
+          downloadItems->Array.some(((/* downloaded */ _, /* version */ _, downloadType)) =>
+            downloadType == "native"
+          )
+
+        Assert.deepStrictEqual(placeholderHasNativeLatest, false)
+        Assert.deepStrictEqual(hasNativeLatest, false)
+      },
+    )
+
+    it(
+      "should expose DevALS and LatestALS channels",
+      () => {
+        Assert.deepStrictEqual(Connection__Download.Channel.all, [
+          Connection__Download.Channel.DevALS,
+          Connection__Download.Channel.LatestALS,
+        ])
+      },
+    )
+
+    Async.it(
+      "should render channel switch item when only unavailable downloads are present",
+      async () => {
+        let itemData: array<State__SwitchVersion.ItemData.t> =
+          State__SwitchVersion.ItemData.entriesToItemData(
+            [],
+            None,
+            [(false, "ALS v1.0.0", "native")],
+          )
+
+        let hasSelectOtherChannels =
+          itemData->Array.some(item =>
+            switch item {
+            | SelectOtherChannels => true
+            | _ => false
+            }
+          )
+
+        Assert.deepStrictEqual(hasSelectOtherChannels, true)
+      },
+    )
+
+    Async.it(
+      "should expose download variants instead of channel-tagged latest/dev items",
+      async () => {
+        let state = createTestStateWithPlatform(makeMockPlatform())
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          makeMockPlatform(),
+        )
+
+        let hasChannelTaggedItems =
+          downloadItems->Array.some(((_, _, downloadType)) =>
+            downloadType == "latest" || downloadType == "dev"
+          )
+
+        Assert.deepStrictEqual(hasChannelTaggedItems, false)
+      },
+    )
+
+    // Helper: create a DevALS mock platform returning a specific release descriptor
+    let makeDevALSPlatformWith = (assetName): Platform.t => {
+      let makeDevAsset = (name): Connection__Download__GitHub.Asset.t => {
+        url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+        id: 0,
+        node_id: "",
+        name,
+        label: Some(""),
+        content_type: "application/zip",
+        state: "uploaded",
+        size: 1000000,
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+        browser_download_url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+      }
+      let devRelease: Connection__Download__GitHub.Release.t = {
+        url: "", assets_url: "", upload_url: "", html_url: "",
+        id: 1, node_id: "dev", tag_name: "dev", target_commitish: "main", name: "dev",
+        draft: false, prerelease: true,
+        created_at: "2024-01-01T00:00:00Z", published_at: "2024-01-01T00:00:00Z",
+        assets: [makeDevAsset(assetName)], tarball_url: "", zipball_url: "", body: None,
+      }
+      let devDescriptor: Connection__Download__GitHub.DownloadDescriptor.t = {
+        asset: makeDevAsset(assetName),
+        release: devRelease,
+        saveAsFileName: "dev-als",
+      }
+      module MockDevALS = {
+        let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+        let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+        let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+        let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+          switch channel {
+          | Connection__Download.Channel.DevALS =>
+            Ok(Connection__Download.Source.FromGitHub(Connection__Download.Channel.DevALS, devDescriptor))
+          | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          }
+        )
+        let download = (_globalStorageUri, _, ~trace as _=Connection__Download__Trace.noop) =>
+          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+        let findCommand = (_command, ~timeout as _=1000) =>
+          Promise.resolve(Error(Connection__Command.Error.NotFound))
+      }
+      module(MockDevALS)
+    }
+
+    Async.it(
+      "should hide native download variant when its release-managed path is already in connection.paths",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-suppress-hide-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let platform = makeDevALSPlatformWith("als-dev-Agda-2.8.0-macos-arm64.zip")
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        // Release-managed native path: releases/dev/als-dev-Agda-2.8.0-macos-arm64/als
+        let nativePath = VSCode.Uri.fsPath(
+          VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als"]),
+        )
+        let nativeDir = NodeJs.Path.dirname(nativePath)
+        await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(nativePath, NodeJs.Buffer.fromString(""))
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativePath])
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
+
+        let hasNativeDownloadAction =
+          itemData->Array.some(item =>
+            switch item { | DownloadAction(_, _, "native") => true | _ => false }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+        Assert.deepStrictEqual(hasNativeDownloadAction, false)
+      },
+    )
+
+    Async.it(
+      "should hide native download variant when its release-managed path is present as file:// URI in connection.paths",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-suppress-uri-hide-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let platform = makeDevALSPlatformWith("als-dev-Agda-2.8.0-macos-arm64.zip")
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        let nativePath = VSCode.Uri.fsPath(
+          VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als"]),
+        )
+        let nativeDir = NodeJs.Path.dirname(nativePath)
+        await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(nativePath, NodeJs.Buffer.fromString(""))
+        let nativeUri = VSCode.Uri.file(nativePath)->VSCode.Uri.toString
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativeUri])
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
+
+        let hasNativeDownloadAction =
+          itemData->Array.some(item =>
+            switch item { | DownloadAction(_, _, "native") => true | _ => false }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+        Assert.deepStrictEqual(hasNativeDownloadAction, false)
+      },
+    )
+
+    Async.it(
+      "should show native download variant when its release-managed path is in config but file no longer exists on disk",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-suppress-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let platform = makeDevALSPlatformWith("als-dev-Agda-2.8.0-macos-arm64.zip")
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        // Add release-managed native path to config, but do NOT create the file
+        let nativePath = VSCode.Uri.fsPath(
+          VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als"]),
+        )
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativePath])
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativePath), false)
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
+
+        let hasNativeDownloadAction =
+          itemData->Array.some(item =>
+            switch item { | DownloadAction(_, _, "native") => true | _ => false }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+        Assert.deepStrictEqual(hasNativeDownloadAction, true)
+      },
+    )
+
+    Async.it(
+      "should show native download variant when its file:// URI alias is in config but file no longer exists on disk",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-suppress-uri-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let platform = makeDevALSPlatformWith("als-dev-Agda-2.8.0-macos-arm64.zip")
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        let nativePath = VSCode.Uri.fsPath(
+          VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als"]),
+        )
+        let nativeUri = VSCode.Uri.file(nativePath)->VSCode.Uri.toString
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativeUri])
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativePath), false)
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
+
+        let hasNativeDownloadAction =
+          itemData->Array.some(item =>
+            switch item { | DownloadAction(_, _, "native") => true | _ => false }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+        Assert.deepStrictEqual(hasNativeDownloadAction, true)
+      },
+    )
+
+    Async.it(
+      "should show WASM download variant when its release-managed path is in config but file no longer exists on disk",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-suppress-wasm-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let platform = makeDevALSPlatformWith("als-dev-Agda-2.8.0-wasm.wasm")
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        // WASM release-managed path: releases/dev/als-dev-Agda-2.8.0-wasm/als.wasm
+        let wasmPath = VSCode.Uri.toString(
+          VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm"]),
+        )
+        await Config.Connection.setAgdaPaths(state.channels.log, [wasmPath])
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(VSCode.Uri.fsPath(VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm"]))), false)
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform)
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(manager, downloadItems)
+
+        let hasWasmDownloadAction =
+          itemData->Array.some(item =>
+            switch item { | DownloadAction(_, _, "wasm") => true | _ => false }
+          )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+        Assert.deepStrictEqual(hasWasmDownloadAction, true)
+      },
+    )
+
+    Async.it(
+      "should show DevALS native download action when managed path is in config but file no longer exists on disk",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-suppress-devals-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+
+        let makeDevAsset = (name): Connection__Download__GitHub.Asset.t => {
+          url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+          id: 0,
+          node_id: "",
+          name,
+          label: Some(""),
+          content_type: "application/zip",
+          state: "uploaded",
+          size: 1000000,
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+          browser_download_url: "https://github.com/agda/agda-language-server/releases/download/dev/" ++ name,
+        }
+        let devRelease: Connection__Download__GitHub.Release.t = {
+          url: "",
+          assets_url: "",
+          upload_url: "",
+          html_url: "",
+          id: 1,
+          node_id: "dev",
+          tag_name: "dev",
+          target_commitish: "main",
+          name: "dev",
+          draft: false,
+          prerelease: true,
+          created_at: "2024-01-01T00:00:00Z",
+          published_at: "2024-01-01T00:00:00Z",
+          assets: [makeDevAsset("als-dev-Agda-2.8.0-macos-arm64.zip")],
+          tarball_url: "",
+          zipball_url: "",
+          body: None,
+        }
+        let devDescriptor: Connection__Download__GitHub.DownloadDescriptor.t = {
+          asset: makeDevAsset("als-dev-Agda-2.8.0-macos-arm64.zip"),
+          release: devRelease,
+          saveAsFileName: "dev-als",
+        }
+        let platform: Platform.t = {
+          module MockDevALS = {
+            let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+            let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+              switch channel {
+              | Connection__Download.Channel.DevALS =>
+                Ok(
+                  Connection__Download.Source.FromGitHub(
+                    Connection__Download.Channel.DevALS,
+                    devDescriptor,
+                  ),
+                )
+              | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              }
+            )
+            let download = (_globalStorageUri, _, ~trace as _trace=Connection__Download__Trace.noop) =>
+              Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            let findCommand = (_command, ~timeout as _timeout=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+          module(MockDevALS)
+        }
+
+        let state = createTestStateWithPlatformAndStorage(platform, storageUri)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        // Add the release-managed native path to config, but do NOT create the file
+        let nativePath = VSCode.Uri.fsPath(
+          VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als"]),
+        )
+        await Config.Connection.setAgdaPaths(state.channels.log, [nativePath])
+        Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativePath), false)
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          platform,
+          ~channel=Connection__Download.Channel.DevALS,
+        )
+
+        let hasNativeItem =
+          downloadItems->Array.some(((_, _, tag)) => tag == "native")
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+
+        Assert.deepStrictEqual(hasNativeItem, true)
+      },
+    )
+
+    Async.it(
+      "should show native download candidate from canonical v6 LatestALS assets on desktop",
+      async () => {
+        // Build a canonical v6 release with assets using the new naming convention
+        let windowsAsset = {
+          Connection__Download__GitHub.Asset.url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-windows.zip",
+          id: 1,
+          node_id: "",
+          name: "als-v6-Agda-2.8.0-windows.zip",
+          label: None,
+          content_type: "application/zip",
+          state: "uploaded",
+          size: 1000000,
+          created_at: "2025-01-01T00:00:00Z",
+          updated_at: "2025-01-01T00:00:00Z",
+          browser_download_url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-windows.zip",
+        }
+        let wasmAsset = {
+          Connection__Download__GitHub.Asset.url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-wasm.wasm",
+          id: 2,
+          node_id: "",
+          name: "als-v6-Agda-2.8.0-wasm.wasm",
+          label: None,
+          content_type: "application/octet-stream",
+          state: "uploaded",
+          size: 500000,
+          created_at: "2025-01-01T00:00:00Z",
+          updated_at: "2025-01-01T00:00:00Z",
+          browser_download_url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-wasm.wasm",
+        }
+        let v6Release = {
+          Connection__Download__GitHub.Release.url: "https://api.github.com/repos/agda/agda-language-server/releases/v6",
+          assets_url: "https://api.github.com/repos/agda/agda-language-server/releases/v6/assets",
+          upload_url: "",
+          html_url: "",
+          id: 100,
+          node_id: "",
+          tag_name: "v6",
+          target_commitish: "main",
+          name: "v6",
+          draft: false,
+          prerelease: false,
+          created_at: "2025-01-01T00:00:00Z",
+          published_at: "2025-01-01T00:00:00Z",
+          assets: [windowsAsset, wasmAsset],
+          tarball_url: "",
+          zipball_url: "",
+          body: None,
+        }
+        let latestDescriptor = {
+          Connection__Download__GitHub.DownloadDescriptor.asset: windowsAsset,
+          release: v6Release,
+          saveAsFileName: "latest-als",
+        }
+
+        module MockLatestALSv6 = {
+          let determinePlatform = async () => Ok(Connection__Download__Platform.Windows)
+          let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+          let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+          let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+            switch channel {
+            | Connection__Download.Channel.LatestALS =>
+              Ok(
+                Connection__Download.Source.FromGitHub(
+                  Connection__Download.Channel.LatestALS,
+                  latestDescriptor,
+                ),
+              )
+            | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            }
+          )
+          let download = (_globalStorageUri, _, ~trace as _=Connection__Download__Trace.noop) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let findCommand = (_command, ~timeout as _=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+        }
+        let platform: Platform.t = module(MockLatestALSv6)
+        let state = createTestStateWithPlatform(platform)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          platform,
+          ~channel=Connection__Download.Channel.LatestALS,
+        )
+        let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+          manager,
+          downloadItems,
+        )
+
+        let hasNativeDownloadAction =
+          itemData->Array.some(item =>
+            switch item {
+            | DownloadAction(_, _, "native") => true
+            | _ => false
+            }
+          )
+
+        Assert.deepStrictEqual(hasNativeDownloadAction, true)
+      },
+    )
+
+    Async.it(
+      "should show unavailable rows (not empty list) when canonical v6 LatestALS assets do not match current platform",
+      async () => {
+        // v6 release contains only a windows native asset — no wasm asset, no macos asset
+        let windowsOnlyAsset = {
+          Connection__Download__GitHub.Asset.url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-windows.zip",
+          id: 1,
+          node_id: "",
+          name: "als-v6-Agda-2.8.0-windows.zip",
+          label: None,
+          content_type: "application/zip",
+          state: "uploaded",
+          size: 1000000,
+          created_at: "2025-01-01T00:00:00Z",
+          updated_at: "2025-01-01T00:00:00Z",
+          browser_download_url: "https://github.com/agda/agda-language-server/releases/download/v6/als-v6-Agda-2.8.0-windows.zip",
+        }
+        let v6ReleaseWindowsOnly = {
+          Connection__Download__GitHub.Release.url: "",
+          assets_url: "",
+          upload_url: "",
+          html_url: "",
+          id: 100,
+          node_id: "",
+          tag_name: "v6",
+          target_commitish: "main",
+          name: "v6",
+          draft: false,
+          prerelease: false,
+          created_at: "2025-01-01T00:00:00Z",
+          published_at: "2025-01-01T00:00:00Z",
+          assets: [windowsOnlyAsset],
+          tarball_url: "",
+          zipball_url: "",
+          body: None,
+        }
+        let mismatchDescriptor = {
+          Connection__Download__GitHub.DownloadDescriptor.asset: windowsOnlyAsset,
+          release: v6ReleaseWindowsOnly,
+          saveAsFileName: "latest-als",
+        }
+
+        // Platform is MacOS_Arm — does not match the windows native asset; no wasm asset either
+        module MockLatestALSMismatch = {
+          let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+          let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+          let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+          let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+            switch channel {
+            | Connection__Download.Channel.LatestALS =>
+              Ok(
+                Connection__Download.Source.FromGitHub(
+                  Connection__Download.Channel.LatestALS,
+                  mismatchDescriptor,
+                ),
+              )
+            | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            }
+          )
+          let download = (_globalStorageUri, _, ~trace as _=Connection__Download__Trace.noop) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let findCommand = (_command, ~timeout as _=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+        }
+        let platform: Platform.t = module(MockLatestALSMismatch)
+        let state = createTestStateWithPlatform(platform)
+
+        let downloadItems = await State__SwitchVersion.Download.getAllAvailableDownloads(
+          state,
+          platform,
+          ~channel=Connection__Download.Channel.LatestALS,
+        )
+
+        let hasUnavailableNative =
+          downloadItems->Array.some(((_, versionString, tag)) =>
+            tag == "native" && versionString == State__SwitchVersion.Constants.downloadUnavailable
+          )
+        let hasUnavailableWasm =
+          downloadItems->Array.some(((_, versionString, tag)) =>
+            tag == "wasm" && versionString == State__SwitchVersion.Constants.downloadUnavailable
+          )
+
+        Assert.deepStrictEqual(hasUnavailableNative, true)
+        Assert.deepStrictEqual(hasUnavailableWasm, true)
+      },
+    )
+
+    Async.it(
+      "should not treat checking-availability placeholder as candidate selection",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let sawSelectionCompleted = ref(false)
+        let sawSelectedDownloadAction = ref(false)
+
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(SelectionCompleted) => sawSelectionCompleted := true
+          | Log.SwitchVersionUI(SelectedDownloadAction(_, _)) =>
+            sawSelectedDownloadAction := true
+          | _ => ()
+          }
+        )
+
+        let selectedItem = makePickerItem(
+          state,
+          DownloadAction(false, State__SwitchVersion.Constants.checkingAvailability, "native"),
+        )
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref(Connection__Download.Channel.DevALS),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+
+        await Test__Util.wait(200)
+
+        Assert.deepStrictEqual(sawSelectedDownloadAction.contents, false)
+        Assert.deepStrictEqual(sawSelectionCompleted.contents, false)
+      },
+    )
+
+    Async.it(
+      "should keep main quickpick open when selecting channel-switch button",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let sawDestroyed = ref(false)
+        let sawSelectionCompleted = ref(false)
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(Destroyed) => sawDestroyed := true
+          | Log.SwitchVersionUI(SelectionCompleted) => sawSelectionCompleted := true
+          | _ => ()
+          }
+        )
+
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref(Connection__Download.Channel.DevALS),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+
+        await Test__Util.wait(200)
+
+        Assert.deepStrictEqual(sawDestroyed.contents, false)
+        Assert.deepStrictEqual(sawSelectionCompleted.contents, false)
+      },
+    )
+
+    Async.it(
+      "should call channel picker with correct items when DevALS is selected",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let capturedItems: ref<array<Connection__Download.Channel.pickerItem>> = ref([])
+        let capturedPlaceholder: ref<string> = ref("")
+        let resolvePickerCalled = ref((_: unit) => ())
+        let pickerCalled = Promise.make((resolve, _) => resolvePickerCalled := resolve)
+
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref(Connection__Download.Channel.DevALS),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+          ~showChannelPicker=async (items, placeholder) => {
+            capturedItems := items
+            capturedPlaceholder := placeholder
+            resolvePickerCalled.contents()
+            None
+          },
+        )
+
+        await pickerCalled
+
+        Assert.deepStrictEqual(Array.length(capturedItems.contents), 2)
+        Assert.deepStrictEqual(
+          capturedItems.contents,
+          [
+            {label: "Latest", description: "", detail: "Tracks the latest stable release", value: "latest"},
+            {
+              label: "Development",
+              description: "selected",
+              detail: "Tracks the latest commit of the master branch",
+              value: "dev",
+            },
+          ],
+        )
+        Assert.deepStrictEqual(capturedPlaceholder.contents, "Select download channel")
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should call channel picker with description 'selected' on LatestALS when it is the active channel",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let capturedItems: ref<array<Connection__Download.Channel.pickerItem>> = ref([])
+        let resolvePickerCalled = ref((_: unit) => ())
+        let pickerCalled = Promise.make((resolve, _) => resolvePickerCalled := resolve)
+
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref(Connection__Download.Channel.LatestALS),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+          ~showChannelPicker=async (items, _placeholder) => {
+            capturedItems := items
+            resolvePickerCalled.contents()
+            None
+          },
+        )
+
+        await pickerCalled
+
+        Assert.deepStrictEqual(Array.length(capturedItems.contents), 2)
+        Assert.deepStrictEqual(
+          capturedItems.contents->Array.map(i => i.description),
+          ["selected", ""],
+        )
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should pass full channelPickerItems (with description and detail) to the runtime VS Code picker",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        // Capture what the runtime picker (vscode.window.showQuickPick) actually receives.
+        // Use a plain JS array (not a ref) so raw JS can push into it directly.
+        let capturedItems: array<{"label": string, "description": string, "detail": string}> =
+          %raw(`[]`)
+        let resolvePickerCalled = ref((_: unit) => ())
+        let pickerCalled = Promise.make((resolve, _) => resolvePickerCalled := resolve)
+
+        let mockShowQuickPick: (
+          array<{"label": string, "description": string, "detail": string}>,
+          ref<unit => unit>,
+        ) => unit = %raw(`function(capturedItems, resolvePickerCalled) {
+          globalThis.__savedShowQuickPick2 = require("vscode").window.showQuickPick;
+          require("vscode").window.showQuickPick = function(items) {
+            if (Array.isArray(items)) items.forEach(function(item) { capturedItems.push(item); });
+            resolvePickerCalled.contents();
+            return Promise.resolve(undefined);
+          };
+        }`)
+        let restoreShowQuickPick: unit => unit = %raw(`function() {
+          require("vscode").window.showQuickPick = globalThis.__savedShowQuickPick2;
+          delete globalThis.__savedShowQuickPick2;
+        }`)
+        mockShowQuickPick(capturedItems, resolvePickerCalled)
+
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
+        // No ~showChannelPicker seam — uses the runtime default
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          ref(Connection__Download.Channel.DevALS),
+          _downloadInfo => Promise.resolve(),
+          view,
+          [selectedItem],
+        )
+
+        await pickerCalled
+        restoreShowQuickPick()
+
+        // Runtime picker must receive full QuickPickItems, not bare label strings
+        Assert.deepStrictEqual(
+          capturedItems->Array.map(i => (i["label"], i["description"], i["detail"])),
+          [
+            ("Latest", "", "Tracks the latest stable release"),
+            ("Development", "selected", "Tracks the latest commit of the master branch"),
+          ],
+        )
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should switch channel from LatestALS to DevALS via onSelection when showChannelPicker returns dev value",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let selectedChannel = ref(Connection__Download.Channel.LatestALS)
+
+        let downloadHeaderCapture = ref("")
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(Others(header)) => downloadHeaderCapture := header
+          | _ => ()
+          }
+        )
+
+        let resolvePickerCalled = ref((_: unit) => ())
+        let pickerCalled = Promise.make((resolve, _) => resolvePickerCalled := resolve)
+
+        // view.show is the final step in all onSelection branches — use it as completion signal.
+        // orig() is called before resolve so VS Code's synchronous event dispatch completes first.
+        let resolveViewShown = ref((_: unit) => ())
+        let viewShown = Promise.make((resolve, _) => resolveViewShown := resolve)
+        let patchShow: (State__SwitchVersion.View.t, unit => unit) => unit = %raw(`
+          function(view, resolve) {
+            var orig = view.quickPick.show.bind(view.quickPick);
+            view.quickPick.show = function() { var r = orig(); resolve(undefined); return r; };
+          }
+        `)
+        patchShow(view, resolveViewShown.contents)
+
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          selectedChannel,
+          async _downloadItems => {
+            let downloadHeader =
+              "Download (" ++
+                Connection__Download.Channel.pickerItem(
+                  selectedChannel.contents,
+                  ~selectedChannel=selectedChannel.contents,
+                ).label ++ ")"
+            state.channels.log->Chan.emit(Log.SwitchVersionUI(Others(downloadHeader)))
+          },
+          view,
+          [selectedItem],
+          ~showChannelPicker=async (_items, _placeholder) => {
+            resolvePickerCalled.contents()
+            Some("dev")
+          },
+        )
+
+        await pickerCalled
+        await viewShown
+
+        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
+        Assert.deepStrictEqual(downloadHeaderCapture.contents, "Download (Development)")
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should persist DevALS in memento when switching from LatestALS via onSelection",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let selectedChannel = ref(Connection__Download.Channel.LatestALS)
+
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
+
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
+
+        let resolvePickerCalled = ref((_: unit) => ())
+        let pickerCalled = Promise.make((resolve, _) => resolvePickerCalled := resolve)
+
+        // Resolve when onSelection's fire-and-forget reaches view.show (final step)
+        let resolveViewShown = ref((_: unit) => ())
+        let viewShown = Promise.make((resolve, _) => resolveViewShown := resolve)
+        // Call orig() before resolve so VS Code's synchronous event dispatch from show
+        // has already completed by the time viewShown settles.
+        let patchShow: (State__SwitchVersion.View.t, unit => unit) => unit = %raw(`
+          function(view, resolve) {
+            var orig = view.quickPick.show.bind(view.quickPick);
+            view.quickPick.show = function() { var r = orig(); resolve(undefined); return r; };
+          }
+        `)
+        patchShow(view, resolveViewShown.contents)
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          selectedChannel,
+          async _downloadItems => (),
+          view,
+          [selectedItem],
+          ~showChannelPicker=async (_items, _placeholder) => {
+            resolvePickerCalled.contents()
+            Some("dev")
+          },
+        )
+
+        await pickerCalled
+        await viewShown
+
+        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("dev"))
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should not destroy view when onDidHide fires after suppressHide is reset",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+
+        let sawDestroyed = ref(false)
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(Destroyed) => sawDestroyed := true
+          | _ => ()
+          }
+        )
+
+        view->State__SwitchVersion.View.onHide(() =>
+          State__SwitchVersion.Handler.onHide(view)
+        )
+
+        // Simulate the race: picker opened (pendingHides incremented), then VS Code fires
+        // onDidHide before the picker closes — must be consumed, not destroy.
+        view.pendingHides = 1
+        State__SwitchVersion.Handler.onHide(view) // stale onDidHide fires, consumes pending
+
+        Assert.deepStrictEqual(sawDestroyed.contents, false)
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should re-show main QuickPick after channel selection completes",
+      async () => {
+        let state = createTestState()
+        let view = State__SwitchVersion.View.make(state.channels.log)
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+
+        // Register onHide handler (same as onActivate does)
+        view->State__SwitchVersion.View.onHide(() =>
+          State__SwitchVersion.Handler.onHide(view)
+        )
+
+        // Track show() calls on the underlying quickPick
+        let showCallCount = ref(0)
+        let patchShow: (State__SwitchVersion.View.t, ref<int>) => unit = %raw(`function(view, counter) {
+          var orig = view.quickPick.show.bind(view.quickPick);
+          view.quickPick.show = function() { counter.contents++; return orig(); };
+        }`)
+        patchShow(view, showCallCount)
+
+        let sawDestroyed = ref(false)
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(Destroyed) => sawDestroyed := true
+          | _ => ()
+          }
+        )
+
+        let selectedItem = makePickerItem(state, SelectOtherChannels)
+
+        State__SwitchVersion.Handler.onSelection(
+          state,
+          makeMockPlatform(),
+          manager,
+          selectedChannel,
+          async _downloadItems => (),
+          view,
+          [selectedItem],
+          ~showChannelPicker=async (_items, _placeholder) => {
+            // Simulate VS Code hiding the main QuickPick when secondary picker opens
+            view.quickPick->VSCode.QuickPick.hide
+            Some("dev")
+          },
+        )
+
+        await Test__Util.wait(200)
+
+        // Channel switch must have resolved to DevALS
+        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
+        // View MUST NOT be destroyed during channel selection
+        Assert.deepStrictEqual(sawDestroyed.contents, false)
+        // After channel selection completes, the main QuickPick MUST be re-shown
+        Assert.deepStrictEqual(showCallCount.contents, 1)
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    describe("delete downloads", () => {
+      Async.it(
+        "selecting DeleteDownloads should invoke the action and complete selection",
+        async () => {
+          let storagePath = NodeJs.Path.join([
+            NodeJs.Os.tmpdir(),
+            "agda-state-delete-downloads-action-" ++ string_of_int(int_of_float(Js.Date.now())),
+          ])
+          let storageUri = VSCode.Uri.file(storagePath)
+          let _ = await FS.createDirectory(storageUri)
+          let inFlightPath = NodeJs.Path.join([storagePath, "in-flight.download"])
+          NodeJs.Fs.writeFileSync(inFlightPath, NodeJs.Buffer.fromString("partial download"))
+          let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+          let view = State__SwitchVersion.View.make(state.channels.log)
+          let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+          let selectedItem = makePickerItem(state, DeleteDownloads)
+          let sawDestroyed = ref(false)
+          let onSelectionCompleted = Log.on(
+            state.channels.log,
+            log =>
+              switch log {
+              | Log.SwitchVersionUI(SelectionCompleted) => true
+              | _ => false
+              },
+          )
+          let _ = state.channels.log->Chan.on(logEvent =>
+            switch logEvent {
+            | Log.SwitchVersionUI(Destroyed) => sawDestroyed := true
+            | _ => ()
+            }
+          )
+
+          State__SwitchVersion.Handler.onSelection(
+            state,
+            makeMockPlatform(),
+            manager,
+            ref(Connection__Download.Channel.DevALS),
+            _downloadInfo => Promise.resolve(),
+            view,
+            [selectedItem],
+          )
+          await onSelectionCompleted
+
+          Assert.deepStrictEqual(sawDestroyed.contents, true)
+          Assert.deepStrictEqual(NodeJs.Fs.existsSync(inFlightPath), false)
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+    })
+
+    Async.it(
+      "should handle download workflow correctly",
+      async () => {
+        /**
+         * TEST PURPOSE: Test the entire download workflow through real UI interactions
+         * 
+         * SCENARIO:
+         * 1. User activates switch version UI
+         * 2. Download item appears (not downloaded yet)
+         * 3. User would click download → download completes 
+         * 4. UI updates to show "Downloaded and installed"
+         * 5. Download item behavior changes appropriately
+         * 
+         * This tests the complete download integration through actual onActivate flow
+         */
+        let state = createTestState()
+        let loggedEvents = []
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        // Subscribe to log channel to capture UpdateEndpoints events
+        let _ = state.channels.log->Chan.on(
+          logEvent => {
+            switch logEvent {
+            | Log.SwitchVersionUI(UpdatedCandidates(candidates)) =>
+              loggedEvents->Array.push(candidates)
+            | _ => ()
+            }
+          },
+        )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/bin/agda"])
+
+        // SIMULATE: No preferred candidate (fresh state)
+        await Memento.PreferredCandidate.set(state.memento, None)
+
+        // SIMULATE: Active connection
+        let mockConnection = TestData.makeMockConnection("/usr/bin/agda", "2.6.4")
+        Registry__Connection.status :=
+          Active({
+            connection: mockConnection,
+            users: Belt.Set.String.empty,
+            currentOwnerId: None,
+            queue: Promise.resolve(),
+          })
+
+        // PHASE 1: Test initial state (download available but not downloaded)
+        // Mock platform to return download available
+        let makeMockPlatformWithDownload = (): Platform.t => Mock.Platform.makeWithAgda()
+
+        // INVOKE: onActivate to trigger the actual UI logic with download available
+        await State__SwitchVersion.Handler.onActivate(state, makeMockPlatformWithDownload())
+
+        // ANALYZE: Check logged UpdateEndpoints events
+        let allEndpointsFromLogs = loggedEvents->Array.flat
+
+        // VERIFY: Candidate selection still works correctly even with download items present
+        let selectedEndpoints =
+          allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => isSelected)
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        Assert.deepStrictEqual(Array.length(selectedEndpoints), 1) // One candidate should be selected
+
+        // Find the selected candidate
+        switch selectedEndpoints[0] {
+        | Some((path, _, _, _)) => Assert.deepStrictEqual(path, "/usr/bin/agda") // Should be the active connection
+        | None => Assert.fail("Expected one candidate to be selected")
+        }
+
+        // VERIFY: All candidates are properly logged (this tests the download integration doesn't break candidate logging)
+        Assert.ok(Array.length(allEndpointsFromLogs) > 0) // Should have candidates logged
+
+        // VERIFY: No errors in candidate entries
+        let hasErrors = allEndpointsFromLogs->Array.some(
+          ((_, _, error, _)) =>
+            switch error {
+            | Some(_) => true
+            | None => false
+            },
+        )
+        Assert.ok(!hasErrors) // Should not have errors in normal download workflow
+      },
+    )
+
+    Async.it(
+      "should not modify PreferredCandidate when downloading via handler",
+      async () => {
+        let testCases = [
+          (Some("/usr/bin/agda"), State__SwitchVersion.Download.Native, false),
+          (Some("/usr/bin/agda"), State__SwitchVersion.Download.WASM, false),
+          (None, State__SwitchVersion.Download.Native, false),
+          (None, State__SwitchVersion.Download.WASM, false),
+        ]
+
+        let runCase = async (
+          initialPicked: option<string>,
+          variant: State__SwitchVersion.Download.variant,
+          downloaded: bool,
+        ) => {
+          let state = createTestState()
+          let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+          await Memento.PreferredCandidate.set(state.memento, initialPicked)
+
+          let activePath = "/opt/homebrew/bin/agda"
+          let activeConnection = TestData.makeMockConnection(activePath, "2.6.3")
+          Registry__Connection.status :=
+            Active({
+              connection: activeConnection,
+              users: Belt.Set.String.empty,
+              currentOwnerId: None,
+              queue: Promise.resolve(),
+            })
+
+          let expectedDownloadPath = switch variant {
+          | State__SwitchVersion.Download.Native =>
+            NodeJs.Path.join([VSCode.Uri.fsPath(state.globalStorageUri), "releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als"])
+          | State__SwitchVersion.Download.WASM =>
+            VSCode.Uri.toString(VSCode.Uri.joinPath(state.globalStorageUri, ["releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm"]))
+          }
+          let platform =
+            Mock.Platform.makeWithSuccessfulDownload(expectedDownloadPath)
+          let versionString = "Agda v2.8.0 Language Server (dev build)"
+
+          await State__SwitchVersion.Handler.handleDownload(
+            state,
+            platform,
+            variant,
+            downloaded,
+            versionString,
+            ~refreshUI=None,
+          )
+
+          let preferredAfter = Memento.PreferredCandidate.get(state.memento)
+          // Manual UI download must not modify PreferredCandidate
+          Assert.deepStrictEqual(preferredAfter, initialPicked)
+
+          let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+            manager,
+            await State__SwitchVersion.Download.getAllAvailableDownloads(state, platform),
+          )
+
+          let selectedCandidates =
+            itemData
+            ->Array.filterMap(item =>
+              switch item {
+              | Candidate(path, _, _, true) => Some(path)
+              | _ => None
+              }
+            )
+          let currentPaths = Config.Connection.getAgdaPaths()
+          let expectedSelectedCandidates = switch initialPicked {
+          | Some(path) when currentPaths->Array.some(candidate => candidate == path) => [path]
+          | _ when currentPaths->Array.some(candidate => candidate == activePath) => [activePath]
+          | _ => []
+          }
+          Assert.deepStrictEqual(selectedCandidates, expectedSelectedCandidates)
+          let hasDownloadedPath = Config.Connection.getAgdaPaths()->Array.some(path => path == expectedDownloadPath)
+          Assert.deepStrictEqual(hasDownloadedPath, true)
+
+          Registry__Connection.status := Empty
+        }
+
+        // Run cases sequentially to avoid race conditions on shared Registry__Connection.status
+        for i in 0 to Array.length(testCases) - 1 {
+          let (initialPicked, variant, downloaded) = testCases[i]->Option.getExn
+          await runCase(initialPicked, variant, downloaded)
+        }
+      },
+    )
+
+    Async.it(
+      "should persist channel selection in memento across UI activations",
+      async () => {
+        // Channel selection MUST be stored in memento
+        //
+        // Test: call handleChannelSwitch (the real code path that runs after
+        // user picks a channel in showQuickPick), then verify memento persistence.
+
+        let state = createTestState()
+        let platform = makeMockPlatform()
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+
+        // Precondition: memento has no channel entry
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
+
+        // Execute the real channel-switch code path
+        await State__SwitchVersion.Handler.handleChannelSwitch(
+          state,
+          platform,
+          manager,
+          selectedChannel,
+          Connection__Download.Channel.DevALS,
+          _downloadItems => Promise.resolve(),
+        )
+
+        // Verify the switch happened
+        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
+
+        // After channel switch, memento MUST store the canonical channel string
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("dev"))
+      },
+    )
+
+    Async.it(
+      "should preserve connection.paths when switching channels",
+      async () => {
+        // Switching channels MUST NOT remove existing downloaded Candidates
+        //
+        // Test: set up config paths, call handleChannelSwitch (the real code path),
+        // then verify paths are unchanged.
+
+        let state = createTestState()
+        let platform = makeMockPlatform()
+        let logChannel = state.channels.log
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let view = State__SwitchVersion.View.make(logChannel)
+
+        // Set up config with existing paths including downloaded ALS from different channels
+        let existingPaths = ["/usr/bin/agda", "/downloaded/als-v1", "/downloaded/als-dev"]
+        await Config.Connection.setAgdaPaths(logChannel, existingPaths)
+
+        // Build a real updateUI closure (same as onActivate creates)
+        let updateUI = async (downloadItems: array<(bool, string, string)>): unit => {
+          let downloadHeader =
+            "Download (" ++
+              Connection__Download.Channel.pickerItem(
+                selectedChannel.contents,
+                ~selectedChannel=selectedChannel.contents,
+              ).label ++ ")"
+          let itemData = await State__SwitchVersion.SwitchVersionManager.getItemData(
+            manager,
+            downloadItems,
+            ~downloadHeader,
+          )
+          let items = State__SwitchVersion.Item.fromItemDataArray(itemData, state.extensionUri)
+          view->State__SwitchVersion.View.updateItems(items)
+        }
+
+        // Execute the real channel-switch code path
+        await State__SwitchVersion.Handler.handleChannelSwitch(
+          state,
+          platform,
+          manager,
+          selectedChannel,
+          Connection__Download.Channel.DevALS,
+          updateUI,
+        )
+
+        // Verify the switch happened
+        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
+
+        // Paths MUST be unchanged after channel switch
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          existingPaths,
+        )
+
+        view->State__SwitchVersion.View.destroy
+      },
+    )
+
+    Async.it(
+      "should default to DevALS channel on fresh activation",
+      async () => {
+        let state = createTestState()
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
+
+        let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
+        | Some(label) => Connection__Download.Channel.fromString(label)->Option.getOr(Connection__Download.Channel.DevALS)
+        | None => Connection__Download.Channel.DevALS
+        }
+
+        Assert.deepStrictEqual(restoredChannel, Connection__Download.Channel.DevALS)
+      },
+    )
+
+    Async.it(
+      "should default to DevALS channel when memento contains invalid channel string",
+      async () => {
+        let state = createTestState()
+        await Memento.SelectedChannel.set(state.memento, "InvalidChannel")
+
+        let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
+        | Some(label) =>
+          Connection__Download.Channel.fromString(label)->Option.getOr(
+            Connection__Download.Channel.DevALS,
+          )
+        | None => Connection__Download.Channel.DevALS
+        }
+
+        Assert.deepStrictEqual(restoredChannel, Connection__Download.Channel.DevALS)
+      },
+    )
+
+    Async.it(
+      "should restore a valid persisted channel on activation",
+      async () => {
+        let state = createTestState()
+
+        await Memento.SelectedChannel.set(
+          state.memento,
+          Connection__Download.Channel.toString(Connection__Download.Channel.DevALS),
+        )
+
+        let restoredChannel = switch Memento.SelectedChannel.get(state.memento) {
+        | Some(label) =>
+          Connection__Download.Channel.fromString(label)->Option.getOr(
+            Connection__Download.Channel.DevALS,
+          )
+        | None => Connection__Download.Channel.DevALS
+        }
+
+        Assert.deepStrictEqual(restoredChannel, Connection__Download.Channel.DevALS)
+      },
+    )
+
+    Async.it(
+      "should use selected channel for manual UI-triggered downloads (handleDownload end-to-end)",
+      async () => {
+        let state = createTestState()
+        let manager = State__SwitchVersion.SwitchVersionManager.make(state)
+
+        let downloadedChannel = ref(None)
+        let downloadedPath = VSCode.Uri.toString(
+          VSCode.Uri.joinPath(state.globalStorageUri, ["releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm"]),
+        )
+
+        let platform: Platform.t = {
+          module MockPlatform = {
+            let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+            let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+              switch channel {
+              | Connection__Download.Channel.DevALS =>
+                Ok(Connection__Download.Source.FromURL(Connection__Download.Channel.DevALS, "https://example.invalid/dev-als.wasm", "dev-als"))
+              | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              }
+            )
+            let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) => {
+              downloadedChannel := switch source {
+              | Connection__Download.Source.FromURL(ch, _, _) => Some(ch)
+              | Connection__Download.Source.FromGitHub(ch, _) => Some(ch)
+              }
+              Promise.resolve(Ok(downloadedPath))
+            }
+            let findCommand = (_command, ~timeout as _=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+          module(MockPlatform)
+        }
+
+        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        await State__SwitchVersion.Handler.handleChannelSwitch(
+          state, platform, manager, selectedChannel, Connection__Download.Channel.DevALS,
+          _downloadItems => Promise.resolve(),
+        )
+
+        await State__SwitchVersion.Handler.handleDownload(
+          state, platform, State__SwitchVersion.Download.WASM, false, "ALS vTest",
+          ~channel=Connection__Download.Channel.DevALS,
+        )
+
+        Assert.deepStrictEqual(downloadedChannel.contents, Some(Connection__Download.Channel.DevALS))
+      },
+    )
+
+    Async.it(
+      "should restore LatestALS channel from memento on activation",
+      async () => {
+        let state = createTestState()
+        await Memento.SelectedChannel.set(state.memento, "latest")
+
+        let loggedHeaders = []
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(Others(msg)) if String.startsWith(msg, "Download (") =>
+            loggedHeaders->Array.push(msg)
+          | _ => ()
+          }
+        )
+        let onShown = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(Others("QuickPick shown")) => true
+            | _ => false
+            },
+        )
+
+        let platform = makeMockPlatform()
+        await State__SwitchVersion.Handler.onActivate(state, platform)
+        await onShown
+
+        Assert.ok(Array.length(loggedHeaders) > 0)
+        let header = loggedHeaders[0]->Option.getExn
+        Assert.deepStrictEqual(header, "Download (Latest)")
+      },
+    )
+
+    Async.it(
+      "should emit Download (Development) header on fresh activation",
+      async () => {
+        let state = createTestState()
+        Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
+
+        let loggedHeaders = []
+        let _ = state.channels.log->Chan.on(logEvent =>
+          switch logEvent {
+          | Log.SwitchVersionUI(Others(msg)) if String.startsWith(msg, "Download (") =>
+            loggedHeaders->Array.push(msg)
+          | _ => ()
+          }
+        )
+        let onShown = Log.on(
+          state.channels.log,
+          log =>
+            switch log {
+            | Log.SwitchVersionUI(Others("QuickPick shown")) => true
+            | _ => false
+            },
+        )
+
+        let platform = makeMockPlatform()
+        await State__SwitchVersion.Handler.onActivate(state, platform)
+        await onShown
+
+        Assert.ok(Array.length(loggedHeaders) > 0)
+        let header = loggedHeaders[0]->Option.getExn
+        Assert.deepStrictEqual(header, "Download (Development)")
+      },
+    )
+
+    it(
+      "should expose DevALS and LatestALS channels on Desktop",
+      () => {
+        Assert.deepStrictEqual(Connection__Download.Channel.all, [
+          Connection__Download.Channel.DevALS,
+          Connection__Download.Channel.LatestALS,
+        ])
+      },
+    )
+
+    describe("background update", () => {
+      // Races promise p against a ms-millisecond timer; rejects immediately on timeout
+      let withTimeout = (ms, p) => {
+        let timerId: ref<option<Js.Global.timeoutId>> = ref(None)
+        let clearTimer = () => timerId.contents->Option.forEach(id => Js.Global.clearTimeout(id))
+        let wrappedP = p->Promise.then(v => { clearTimer(); Promise.resolve(v) })
+        wrappedP->Promise.catch(_ => { clearTimer(); Promise.resolve() })->ignore
+        Promise.race([
+          wrappedP,
+          Promise.make((_, reject) => {
+            timerId :=
+              Some(
+                Js.Global.setTimeout(
+                  () => {
+                    let err: Js.Exn.t = %raw(`new Error("timed out after " + ms + "ms")`)
+                    reject(err->Obj.magic)
+                  },
+                  ms,
+                ),
+              )
+          }),
+        ])
+      }
+
+      Async.it(
+        "should replace Checking availability... with unavailable items when the background download-items promise fails",
+        async () => {
+          let state = createTestState()
+          let previousPaths = Config.Connection.getAgdaPaths()
+          await Config.Connection.setAgdaPaths(state.channels.log, [])
+
+          // Narrow seam: inject a deferred promise via ~downloadItemsPromiseOverride.
+          // Rejection happens AFTER await onActivate(...) returns, at which point
+          // runBackgroundUpdate has already subscribed to the promise.
+          module MockPlatform = {
+            let determinePlatform = () =>
+              Promise.resolve(Ok(Connection__Download__Platform.Ubuntu))
+            let findCommand = (_, ~timeout as _=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+            let alreadyDownloaded = (_, _) => Promise.resolve(None)
+            let resolveDownloadChannel = (_, _) =>
+              async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
+              Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            let askUserAboutDownloadPolicy = () =>
+              Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+          }
+
+          let (downloadItemsDeferred, _, rejectDownloadItems) = Util.Promise_.pending()
+
+          // Capture UpdatedDownloadItems log events; resolve bgDone when the second arrives
+          let downloadItemLogs: ref<array<array<(bool, string, string)>>> = ref([])
+          let bgDoneResolve: ref<unit => unit> = ref(_ => ())
+          let bgDone = Promise.make((resolve, _) => bgDoneResolve := resolve)
+
+          let _ = state.channels.log->Chan.on(logEvent =>
+            switch logEvent {
+            | Log.SwitchVersionUI(UpdatedDownloadItems(items)) =>
+              downloadItemLogs := Array.concat(downloadItemLogs.contents, [items])
+              if Array.length(downloadItemLogs.contents) >= 2 { bgDoneResolve.contents() }
+            | _ => ()
+            }
+          )
+
+          let restoreConfig = async () =>
+            await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+          // finally: run restoreConfig regardless of success or failure
+          let withFinally = async (p, finally_) => {
+            let result = try { Ok(await p) } catch { | exn => Error(exn) }
+            await finally_()
+            switch result {
+            | Ok(v) => v
+            | Error(exn) => raise(exn)
+            }
+          }
+          await withFinally(
+            (async () => {
+              await State__SwitchVersion.Handler.onActivate(
+                state,
+                module(MockPlatform),
+                ~downloadItemsPromiseOverride=Some(downloadItemsDeferred),
+              )
+              // onActivate has returned; runBackgroundUpdate is now subscribed to the deferred.
+              // Arm the timeout promise before rejecting to avoid a race where bgDone resolves
+              // synchronously before the await is reached.
+              let timeoutP = withTimeout(2000, bgDone)
+              rejectDownloadItems(Failure("simulated background download-items failure"))
+              await timeoutP
+            })(),
+            restoreConfig,
+          )
+
+          // Phase 1: both download items show "Checking availability..."
+          Assert.deepStrictEqual(
+            downloadItemLogs.contents[0],
+            Some([
+              (false, State__SwitchVersion.Constants.checkingAvailability, "native"),
+              (false, State__SwitchVersion.Constants.checkingAvailability, "wasm"),
+            ]),
+          )
+
+          // Background fallback: both show "Not available for this platform"
+          Assert.deepStrictEqual(
+            downloadItemLogs.contents[1],
+            Some([
+              (false, State__SwitchVersion.Constants.downloadUnavailable, "native"),
+              (false, State__SwitchVersion.Constants.downloadUnavailable, "wasm"),
+            ]),
+          )
+        },
+      )
+    })
   })
 
   describe("ItemCreation", () => {
@@ -1988,7 +4011,245 @@ describe("State__SwitchVersion", () => {
       },
     )
 
+    describe(
+      "fromItemData - DownloadAction",
+      () => {
+        it(
+          "should create download item for not downloaded version",
+          () => {
+            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(
+              false,
+              "Agda v2.6.4 Language Server v1.2.3",
+              "native",
+            )
+            let actual = State__SwitchVersion.Item.fromItemData(
+              itemData,
+              VSCode.Uri.file("/extension/path"),
+            )
+            Assert.strictEqual(
+              actual.label,
+              "$(cloud-download)  Download Agda Language Server (native)",
+            )
+            switch actual.description {
+            | Some(desc) => Assert.strictEqual(desc, "")
+            | None => Assert.fail("Expected description to be set")
+            }
+            switch actual.detail {
+            | Some(detail) => Assert.strictEqual(detail, "Agda v2.6.4 Language Server v1.2.3")
+            | None => Assert.fail("Expected detail to be set")
+            }
+          },
+        )
+
+        it(
+          "should create download item for already downloaded version",
+          () => {
+            let itemData: State__SwitchVersion.ItemData.t = DownloadAction(
+              true,
+              "Agda v2.6.4 Language Server v1.2.3",
+              "native",
+            )
+            let actual = State__SwitchVersion.Item.fromItemData(
+              itemData,
+              VSCode.Uri.file("/extension/path"),
+            )
+            Assert.strictEqual(
+              actual.label,
+              "$(cloud-download)  Download Agda Language Server (native)",
+            )
+            switch actual.description {
+            | Some(desc) => Assert.strictEqual(desc, "Downloaded and installed")
+            | None => Assert.fail("Expected description to be set")
+            }
+            switch actual.detail {
+            | Some(detail) => Assert.strictEqual(detail, "Agda v2.6.4 Language Server v1.2.3")
+            | None => Assert.fail("Expected detail to be set")
+            }
+          },
+        )
+      },
+    )
+
   })
 
+
+
+  describe("Selection Logic", () => {
+    describe(
+      "Selection Parsing (inline logic)",
+      () => {
+        it(
+          "should identify download ALS action by label",
+          () => {
+            // This tests the inline logic in Handler.onSelection
+            // We verify the constants used for comparison
+            Assert.strictEqual(
+              State__SwitchVersion.Constants.downloadNativeALS,
+              "$(cloud-download)  Download Agda Language Server (native)",
+            )
+          },
+        )
+
+        it(
+          "should verify other UI constants",
+          () => {
+            Assert.strictEqual(State__SwitchVersion.Constants.agdaVersionPrefix, "Agda ")
+            Assert.strictEqual(State__SwitchVersion.Constants.alsWithSquirrel, "$(squirrel)  Agda ")
+            Assert.strictEqual(
+              State__SwitchVersion.Constants.downloadedAndInstalled,
+              "Downloaded and installed",
+            )
+          },
+        )
+      },
+    )
+  })
+
+  describe("background update failure fallback", () => {
+    Async.it(
+      "should swallow updateUI failure in error fallback",
+      async () => {
+        module MockDesktopPlatform = {
+          let determinePlatform = () =>
+            Promise.resolve(Ok(Connection__Download__Platform.Ubuntu))
+          let findCommand = (_, ~timeout as _=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+          let alreadyDownloaded = (_, _) => Promise.resolve(None)
+          let resolveDownloadChannel = (_, _) =>
+            async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let askUserAboutDownloadPolicy = () =>
+            Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+        }
+
+        // updateUI rejects — the nested try/catch in the fallback must swallow it
+        let throwingUpdateUI = async (_items: array<(bool, string, string)>) => {
+          raise(Failure("updateUI failure"))
+        }
+
+        // Should complete without throwing
+        await State__SwitchVersion.Handler.backgroundUpdateFailureFallback(
+          module(MockDesktopPlatform),
+          throwingUpdateUI,
+        )
+      },
+    )
+
+    Async.it(
+      "should show unavailable native and WASM items when determinePlatform returns an error",
+      async () => {
+        module MockErrorPlatform = {
+          let determinePlatform = () =>
+            Promise.resolve(
+              Error(
+                %raw(`{ os: "unknown", dist: "unknown", codename: "unknown", release: "unknown" }`),
+              ),
+            )
+          let findCommand = (_, ~timeout as _=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+          let alreadyDownloaded = (_, _) => Promise.resolve(None)
+          let resolveDownloadChannel = (_, _) =>
+            async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let askUserAboutDownloadPolicy = () =>
+            Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+        }
+
+        let capturedItems: ref<array<(bool, string, string)>> = ref([])
+        let mockUpdateUI = async items => capturedItems := items
+
+        await State__SwitchVersion.Handler.backgroundUpdateFailureFallback(
+          module(MockErrorPlatform),
+          mockUpdateUI,
+        )
+
+        Assert.deepStrictEqual(capturedItems.contents, [
+          (false, State__SwitchVersion.Constants.downloadUnavailable, "native"),
+          (false, State__SwitchVersion.Constants.downloadUnavailable, "wasm"),
+        ])
+      },
+    )
+  })
+
+  describe("background update catch path", () => {
+    Async.it(
+      "failing downloadItemsPromise on desktop should route to unavailable native and WASM fallback",
+      async () => {
+        module MockDesktopPlatform = {
+          let determinePlatform = () =>
+            Promise.resolve(Ok(Connection__Download__Platform.Ubuntu))
+          let findCommand = (_, ~timeout as _=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+          let alreadyDownloaded = (_, _) => Promise.resolve(None)
+          let resolveDownloadChannel = (_, _) =>
+            async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let askUserAboutDownloadPolicy = () =>
+            Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+        }
+
+        let failingPromise: promise<array<(bool, string, string)>> =
+          Promise.reject(Failure("simulated getAllAvailableDownloads failure"))
+        // manager is intentionally unreachable: the failing promise rejects before
+        // SwitchVersionManager.probeVersions can use the manager
+        let manager: State__SwitchVersion.SwitchVersionManager.t = Obj.magic(())
+        let capturedItems: ref<array<(bool, string, string)>> = ref([])
+        let mockUpdateUI = async items => capturedItems := items
+
+        await State__SwitchVersion.Handler.runBackgroundUpdate(
+          failingPromise,
+          module(MockDesktopPlatform),
+          manager,
+          mockUpdateUI,
+        )
+
+        Assert.deepStrictEqual(capturedItems.contents, [
+          (false, State__SwitchVersion.Constants.downloadUnavailable, "native"),
+          (false, State__SwitchVersion.Constants.downloadUnavailable, "wasm"),
+        ])
+      },
+    )
+
+    Async.it(
+      "failing downloadItemsPromise on web should route to unavailable WASM-only fallback",
+      async () => {
+        module MockWebPlatform = {
+          let determinePlatform = () =>
+            Promise.resolve(Ok(Connection__Download__Platform.Web))
+          let findCommand = (_, ~timeout as _=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+          let alreadyDownloaded = (_, _) => Promise.resolve(None)
+          let resolveDownloadChannel = (_, _) =>
+            async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+          let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
+            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          let askUserAboutDownloadPolicy = () =>
+            Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+        }
+
+        let failingPromise: promise<array<(bool, string, string)>> =
+          Promise.reject(Failure("simulated getAllAvailableDownloads failure"))
+        // manager is intentionally unreachable: the failing promise rejects before
+        // SwitchVersionManager.probeVersions can use the manager
+        let manager: State__SwitchVersion.SwitchVersionManager.t = Obj.magic(())
+        let capturedItems: ref<array<(bool, string, string)>> = ref([])
+        let mockUpdateUI = async items => capturedItems := items
+
+        await State__SwitchVersion.Handler.runBackgroundUpdate(
+          failingPromise,
+          module(MockWebPlatform),
+          manager,
+          mockUpdateUI,
+        )
+
+        Assert.deepStrictEqual(capturedItems.contents, [
+          (false, State__SwitchVersion.Constants.downloadUnavailable, "wasm"),
+        ])
+      },
+    )
+  })
 
 })

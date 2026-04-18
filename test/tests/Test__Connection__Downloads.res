@@ -32,12 +32,6 @@ describe("Connection Downloads", () => {
     )
   }
 
-  let makeDeleteDownloadsItem = (state: State.t) =>
-    State__SwitchVersion.Item.fromItemData(
-      State__SwitchVersion.ItemData.DeleteDownloads,
-      state.extensionUri,
-    )
-
   let createStorageUri = async prefix => {
     let storagePath = NodeJs.Path.join([
       NodeJs.Os.tmpdir(),
@@ -60,32 +54,12 @@ describe("Connection Downloads", () => {
   }
 
   let invokeDeleteDownloads = async (state: State.t) => {
-    let view = State__SwitchVersion.View.make(state.channels.log)
-    let manager = State__SwitchVersion.SwitchVersionManager.make(state)
-    let selectedItem = makeDeleteDownloadsItem(state)
-
-    let onSelectionCompleted = Log.on(
+    let _ = await Connection__Download__Delete.run(
+      state.memento,
+      state.globalStorageUri,
       state.channels.log,
-      log =>
-        switch log {
-        | Log.SwitchVersionUI(SelectionCompleted) => true
-        | _ => false
-        },
     )
-
-    State__SwitchVersion.Handler.onSelection(
-      state,
-      makeMockPlatform(),
-      manager,
-      ref([Connection__Download.Channel.DevALS]),
-      ref(Connection__Download.Channel.DevALS),
-      _downloadInfo => Promise.resolve(),
-      view,
-      [selectedItem],
-    )
-
-    await onSelectionCompleted
-    view->State__SwitchVersion.View.destroy
+    ()
   }
 
   let withDeleteFailureFor: string => unit => unit = %raw(`function(failedFsPath) {
@@ -1092,6 +1066,361 @@ describe("Connection Downloads", () => {
         },
       )
 
+    })
+
+    describe("connection.paths", () => {
+      Async.it(
+        "should remove release-managed native candidate from connection.paths",
+        async () => {
+          let storageUri = await createStorageUri("agda-delete-release-native")
+          let state = createTestStateWithStorage(storageUri)
+          let keepPath = "/usr/local/bin/agda"
+          let nativePath = VSCode.Uri.joinPath(storageUri, [
+            "releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als",
+          ])->VSCode.Uri.fsPath
+
+          await Config.Connection.setAgdaPaths(state.channels.log, [keepPath, nativePath])
+          await invokeDeleteDownloads(state)
+
+          Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath])
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+
+      Async.it(
+        "should remove release-managed WASM candidate from connection.paths",
+        async () => {
+          let storageUri = await createStorageUri("agda-delete-release-wasm")
+          let state = createTestStateWithStorage(storageUri)
+          let keepPath = "/usr/local/bin/agda"
+          let wasmUri = VSCode.Uri.joinPath(storageUri, [
+            "releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm",
+          ])->VSCode.Uri.toString
+
+          await Config.Connection.setAgdaPaths(state.channels.log, [keepPath, wasmUri])
+          await invokeDeleteDownloads(state)
+
+          Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [keepPath])
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+
+      Async.it(
+        "should remove all release-managed candidates and preserve user-managed candidates",
+        async () => {
+          let storageUri = await createStorageUri("agda-delete-release-all")
+          let state = createTestStateWithStorage(storageUri)
+          let keepPath = "/usr/local/bin/agda"
+          let keepBareCommand = "agda"
+          let keepUri = "vscode-userdata:/global/user-managed/als.wasm"
+          let devNativePath = VSCode.Uri.joinPath(storageUri, [
+            "releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als",
+          ])->VSCode.Uri.fsPath
+          let devWasmUri = VSCode.Uri.joinPath(storageUri, [
+            "releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm",
+          ])->VSCode.Uri.toString
+          let v6NativePath = VSCode.Uri.joinPath(storageUri, [
+            "releases", "v6", "als-v6-Agda-2.8.0-macos-arm64", "als",
+          ])->VSCode.Uri.fsPath
+
+          await Config.Connection.setAgdaPaths(
+            state.channels.log,
+            [keepPath, devNativePath, keepBareCommand, devWasmUri, keepUri, v6NativePath],
+          )
+          await invokeDeleteDownloads(state)
+
+          Assert.deepStrictEqual(
+            Config.Connection.getAgdaPaths(),
+            [keepPath, keepBareCommand, keepUri],
+          )
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+    })
+
+    describe("resolved metadata", () => {
+      Async.it(
+        "should preserve non-download ResolvedMetadata and remove release-managed ResolvedMetadata",
+        async () => {
+          let storageUri = await createStorageUri("agda-delete-metadata-release")
+          let state = createTestStateWithStorage(storageUri)
+          let keepPath = "/usr/local/bin/agda"
+          let releasedPath = VSCode.Uri.joinPath(storageUri, [
+            "releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als",
+          ])->VSCode.Uri.fsPath
+
+          let keepResolved: Connection__Candidate.Resolved.t = {
+            original: Connection__Candidate.make(keepPath),
+            resource: VSCode.Uri.file(keepPath),
+          }
+          let releasedResolved: Connection__Candidate.Resolved.t = {
+            original: Connection__Candidate.make(releasedPath),
+            resource: VSCode.Uri.file(releasedPath),
+          }
+
+          await Memento.ResolvedMetadata.setKind(
+            state.memento,
+            keepResolved,
+            Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+          )
+          await Memento.ResolvedMetadata.setKind(
+            state.memento,
+            releasedResolved,
+            Memento.ResolvedMetadata.ALS(Native, None),
+          )
+
+          await invokeDeleteDownloads(state)
+
+          Assert.deepStrictEqual(
+            Memento.ResolvedMetadata.get(state.memento, keepResolved)->Option.map(entry => entry.kind),
+            Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+          )
+          Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, releasedResolved), None)
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+
+      Async.it(
+        "should remove ResolvedMetadata for all release-managed artifacts and preserve unrelated resources",
+        async () => {
+          let storageUri = await createStorageUri("agda-delete-metadata-all-release")
+          let state = createTestStateWithStorage(storageUri)
+          let keepFilePath = "/usr/local/bin/agda"
+          let keepUri = VSCode.Uri.parse("vscode-userdata:/global/user-managed/als.wasm")
+
+          let devNativeResolved: Connection__Candidate.Resolved.t = {
+            original: Connection__Candidate.make(
+              VSCode.Uri.joinPath(storageUri, [
+                "releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als",
+              ])->VSCode.Uri.fsPath,
+            ),
+            resource: VSCode.Uri.joinPath(storageUri, [
+              "releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als",
+            ]),
+          }
+          let devWasmResolved: Connection__Candidate.Resolved.t = {
+            original: Connection__Candidate.make(
+              VSCode.Uri.joinPath(storageUri, [
+                "releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm",
+              ])->VSCode.Uri.toString,
+            ),
+            resource: VSCode.Uri.joinPath(storageUri, [
+              "releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm",
+            ]),
+          }
+          let v6NativeResolved: Connection__Candidate.Resolved.t = {
+            original: Connection__Candidate.make(
+              VSCode.Uri.joinPath(storageUri, [
+                "releases", "v6", "als-v6-Agda-2.8.0-macos-arm64", "als",
+              ])->VSCode.Uri.fsPath,
+            ),
+            resource: VSCode.Uri.joinPath(storageUri, [
+              "releases", "v6", "als-v6-Agda-2.8.0-macos-arm64", "als",
+            ]),
+          }
+          let keepFileResolved: Connection__Candidate.Resolved.t = {
+            original: Connection__Candidate.make(keepFilePath),
+            resource: VSCode.Uri.file(keepFilePath),
+          }
+          let keepUriResolved: Connection__Candidate.Resolved.t = {
+            original: Connection__Candidate.make(keepUri->VSCode.Uri.toString),
+            resource: keepUri,
+          }
+
+          await Memento.ResolvedMetadata.setKind(state.memento, devNativeResolved, Memento.ResolvedMetadata.ALS(Native, None))
+          await Memento.ResolvedMetadata.setKind(state.memento, devWasmResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+          await Memento.ResolvedMetadata.setKind(state.memento, v6NativeResolved, Memento.ResolvedMetadata.ALS(Native, None))
+          await Memento.ResolvedMetadata.setKind(state.memento, keepFileResolved, Memento.ResolvedMetadata.Agda(Some("2.7.0.1")))
+          await Memento.ResolvedMetadata.setKind(state.memento, keepUriResolved, Memento.ResolvedMetadata.ALS(WASM, None))
+
+          await invokeDeleteDownloads(state)
+
+          Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, devNativeResolved), None)
+          Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, devWasmResolved), None)
+          Assert.deepStrictEqual(Memento.ResolvedMetadata.get(state.memento, v6NativeResolved), None)
+          Assert.deepStrictEqual(
+            Memento.ResolvedMetadata.get(state.memento, keepFileResolved)->Option.map(entry => entry.kind),
+            Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+          )
+          Assert.deepStrictEqual(
+            Memento.ResolvedMetadata.get(state.memento, keepUriResolved)->Option.map(entry => entry.kind),
+            Some(Memento.ResolvedMetadata.ALS(WASM, None)),
+          )
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+
+      Async.it(
+        "should preserve ResolvedMetadata under releases/ when that directory fails to delete",
+        async () => {
+          let storageUri = await createStorageUri("agda-delete-metadata-partial-release")
+          let releasesUri = VSCode.Uri.joinPath(storageUri, ["releases"])
+          let _ = await FS.createDirectory(releasesUri)
+          let state = createTestStateWithStorage(storageUri)
+          let keepPath = "/usr/local/bin/agda"
+          let releasedPath = VSCode.Uri.joinPath(storageUri, [
+            "releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als",
+          ])->VSCode.Uri.fsPath
+
+          let keepResolved: Connection__Candidate.Resolved.t = {
+            original: Connection__Candidate.make(keepPath),
+            resource: VSCode.Uri.file(keepPath),
+          }
+          let releasedResolved: Connection__Candidate.Resolved.t = {
+            original: Connection__Candidate.make(releasedPath),
+            resource: VSCode.Uri.file(releasedPath),
+          }
+
+          await Memento.ResolvedMetadata.setKind(
+            state.memento,
+            keepResolved,
+            Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+          )
+          await Memento.ResolvedMetadata.setKind(
+            state.memento,
+            releasedResolved,
+            Memento.ResolvedMetadata.ALS(Native, None),
+          )
+
+          let restoreDeleteRecursive = withDeleteFailureFor(releasesUri->VSCode.Uri.fsPath)
+
+          await invokeDeleteDownloads(state)
+          restoreDeleteRecursive()
+
+          Assert.deepStrictEqual(
+            Memento.ResolvedMetadata.get(state.memento, keepResolved)->Option.map(entry => entry.kind),
+            Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+          )
+          Assert.deepStrictEqual(
+            Memento.ResolvedMetadata.get(state.memento, releasedResolved)->Option.map(entry => entry.kind),
+            Some(Memento.ResolvedMetadata.ALS(Native, None)),
+          )
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+    })
+
+    describe("release cache", () => {
+      Async.it(
+        "should clear managed ALSReleaseCache repos and preserve unrelated repo cache",
+        async () => {
+          let storageUri = await createStorageUri("agda-switch-version-delete-release-cache")
+          let state = createTestStateWithStorage(storageUri)
+
+          let now = Date.make()
+          await Memento.ALSReleaseCache.setTimestamp(state.memento, "agda", "agda-language-server", now)
+          await Memento.ALSReleaseCache.setReleases(state.memento, "agda", "agda-language-server", "agda-cache")
+          await Memento.ALSReleaseCache.setTimestamp(state.memento, "banacorn", "agda-language-server", now)
+          await Memento.ALSReleaseCache.setReleases(state.memento, "banacorn", "agda-language-server", "banacorn-cache")
+          await Memento.ALSReleaseCache.setTimestamp(state.memento, "other", "repo", now)
+          await Memento.ALSReleaseCache.setReleases(state.memento, "other", "repo", "other-cache")
+
+          await invokeDeleteDownloads(state)
+
+          let agdaReleases: option<string> = Memento.ALSReleaseCache.getReleases(
+            state.memento,
+            "agda",
+            "agda-language-server",
+          )
+          let banacornReleases: option<string> = Memento.ALSReleaseCache.getReleases(
+            state.memento,
+            "banacorn",
+            "agda-language-server",
+          )
+          let otherReleases: option<string> = Memento.ALSReleaseCache.getReleases(
+            state.memento,
+            "other",
+            "repo",
+          )
+
+          Assert.deepStrictEqual(Memento.ALSReleaseCache.getTimestamp(state.memento, "agda", "agda-language-server"), None)
+          Assert.deepStrictEqual(agdaReleases, None)
+          Assert.deepStrictEqual(Memento.ALSReleaseCache.getTimestamp(state.memento, "banacorn", "agda-language-server"), None)
+          Assert.deepStrictEqual(banacornReleases, None)
+          Assert.deepStrictEqual(Memento.ALSReleaseCache.getTimestamp(state.memento, "other", "repo")->Option.isSome, true)
+          Assert.deepStrictEqual(otherReleases, Some("other-cache"))
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+    })
+
+    describe("memento", () => {
+      Async.it(
+        "should leave PreferredCandidate unchanged when it points to a release-managed path",
+        async () => {
+          let storageUri = await createStorageUri("agda-delete-memento-release-preferred")
+          let state = createTestStateWithStorage(storageUri)
+          let releaseManagedPath = VSCode.Uri.joinPath(storageUri, [
+            "releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als",
+          ])->VSCode.Uri.fsPath
+
+          await Memento.PreferredCandidate.set(state.memento, Some(releaseManagedPath))
+          await Config.Connection.setAgdaPaths(
+            state.channels.log,
+            ["/usr/bin/agda", releaseManagedPath],
+          )
+
+          await invokeDeleteDownloads(state)
+
+          Assert.deepStrictEqual(Memento.PreferredCandidate.get(state.memento), Some(releaseManagedPath))
+          Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/bin/agda"])
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+
+      Async.it(
+        "should leave PreferredCandidate unchanged when it points to a user-managed path",
+        async () => {
+          let storageUri = await createStorageUri("agda-delete-memento-user-preferred")
+          let state = createTestStateWithStorage(storageUri)
+          let userPath = "/usr/local/bin/agda"
+          let releaseManagedPath = VSCode.Uri.joinPath(storageUri, [
+            "releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als",
+          ])->VSCode.Uri.fsPath
+
+          await Memento.PreferredCandidate.set(state.memento, Some(userPath))
+          await Config.Connection.setAgdaPaths(
+            state.channels.log,
+            [userPath, releaseManagedPath],
+          )
+
+          await invokeDeleteDownloads(state)
+
+          Assert.deepStrictEqual(Memento.PreferredCandidate.get(state.memento), Some(userPath))
+          Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [userPath])
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
+    })
+
+    describe("in-flight files", () => {
+      Async.it(
+        "should delete orphaned in-flight.download and in-flight.download.zip files",
+        async () => {
+          let storageUri = await createStorageUri("agda-switch-delete-inflight")
+          let state = createTestStateWithStorage(storageUri)
+          let inFlightUri = VSCode.Uri.joinPath(storageUri, ["in-flight.download"])
+          let inFlightZipUri = VSCode.Uri.joinPath(storageUri, ["in-flight.download.zip"])
+          NodeJs.Fs.writeFileSync(inFlightUri->VSCode.Uri.fsPath, NodeJs.Buffer.fromString("partial download"))
+          NodeJs.Fs.writeFileSync(inFlightZipUri->VSCode.Uri.fsPath, NodeJs.Buffer.fromString("partial zip"))
+
+          await invokeDeleteDownloads(state)
+
+          Assert.deepStrictEqual((await FS.stat(inFlightUri))->Result.isError, true)
+          Assert.deepStrictEqual((await FS.stat(inFlightZipUri))->Result.isError, true)
+
+          let _ = await FS.deleteRecursive(storageUri)
+        },
+      )
     })
   })
 })

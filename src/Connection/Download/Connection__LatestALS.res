@@ -8,25 +8,10 @@ let makeRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
 
 let chooseAssetByPlatform = (release: Connection__Download__GitHub.Release.t, platform): array<
   Connection__Download__GitHub.Asset.t,
-> => {
-  release.assets->Array.filter(asset =>
-    asset.name->String.endsWith(".zip") &&
-      switch Connection__Download.DownloadArtifact.parseName(asset.name) {
-      | Some(artifact) =>
-        Connection__Download.DownloadArtifact.Platform.matchesDownloadPlatform(
-          artifact.platform,
-          platform,
-        )
-      | None => false
-      }
-  )
-}
+> => Connection__Download__Assets.nativeForPlatform(release, platform)
 
 let getAgdaVersionFromAssetName = (asset: Connection__Download__GitHub.Asset.t) =>
-  Connection__Download.DownloadArtifact.parseName(asset.name)->Option.mapOr(
-    "",
-    artifact => artifact.agdaVersion,
-  )
+  Connection__Download__Assets.getAgdaVersionFromAssetName(asset)
 
 // Given a list of releases, choose the latest compatible release for the given platform
 let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>, platform) => {

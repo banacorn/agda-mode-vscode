@@ -8,25 +8,10 @@ let makeRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
 
 let chooseAssetByPlatform = (release: Connection__Download__GitHub.Release.t, platform): array<
   Connection__Download__GitHub.Asset.t,
-> => {
-  release.assets->Array.filter(asset =>
-    asset.name->String.endsWith(".zip") &&
-      switch Connection__Download.DownloadArtifact.parseName(asset.name) {
-      | Some(artifact) =>
-        Connection__Download.DownloadArtifact.Platform.matchesDownloadPlatform(
-          artifact.platform,
-          platform,
-        )
-      | None => false
-      }
-  )
-}
+> => Connection__Download__Assets.nativeForPlatform(release, platform)
 
 let getAgdaVersionFromAssetName = (asset: Connection__Download__GitHub.Asset.t) =>
-  Connection__Download.DownloadArtifact.parseName(asset.name)->Option.mapOr(
-    "",
-    artifact => artifact.agdaVersion,
-  )
+  Connection__Download__Assets.getAgdaVersionFromAssetName(asset)
 
 let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>, platform) => {
   // target the specific "dev" release
@@ -55,41 +40,4 @@ let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>, 
     | Some(downloadDescriptor) => Ok(Connection__Download.Source.FromGitHub(DevALS, downloadDescriptor))
     }
   }
-}
-
-let allNativeAssetsForPlatform = (
-  release: Connection__Download__GitHub.Release.t,
-  platform,
-): array<Connection__Download__GitHub.Asset.t> => {
-  release.assets
-  ->Array.filter(asset =>
-    asset.name->String.endsWith(".zip") &&
-      switch Connection__Download.DownloadArtifact.parseName(asset.name) {
-      | Some(artifact) =>
-        Connection__Download.DownloadArtifact.Platform.matchesDownloadPlatform(
-          artifact.platform,
-          platform,
-        )
-      | None => false
-      }
-  )
-  ->Array.toSorted((a, b) =>
-    Util.Version.compare(getAgdaVersionFromAssetName(b), getAgdaVersionFromAssetName(a))
-  )
-}
-
-let allWasmAssets = (
-  release: Connection__Download__GitHub.Release.t,
-): array<Connection__Download__GitHub.Asset.t> => {
-  release.assets
-  ->Array.filter(asset =>
-    asset.name->String.endsWith(".wasm") &&
-      switch Connection__Download.DownloadArtifact.parseName(asset.name) {
-      | Some(artifact) => artifact.platform == Connection__Download.DownloadArtifact.Platform.Wasm
-      | None => false
-      }
-  )
-  ->Array.toSorted((a, b) =>
-    Util.Version.compare(getAgdaVersionFromAssetName(b), getAgdaVersionFromAssetName(a))
-  )
 }
