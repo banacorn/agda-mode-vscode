@@ -66,26 +66,22 @@ module Module: Module = {
 
     // listens to the "data" event on the stdout
     // The chunk may contain various fractions of the Agda output
-    // TODO: handle the `listenerHandle`
-    let listenerHandle = ref(None)
-
-    listenerHandle :=
-      Process.onOutput(self.process, x =>
-        switch x {
-        | Stdout(rawText) =>
-          // sometimes Agda would return error messages from STDOUT
-          if rawText->String.startsWith("Error:") {
-            self.chan->Chan.emit(Error(ErrorFromAgda(rawText)))
-          } else {
-            // split the raw text into pieces and feed it to the parser
-            rawText->Parser.splitToLines->Array.forEach(Parser.Incr.feed(incrParser, ...))
-          }
-        | Stderr(error) =>
-          // sometimes Agda would return error messages from STDOUT
-          self.chan->Chan.emit(Error(ErrorFromAgda(error)))
-        | Event(e) => self.chan->Chan.emit(Error(Process(e)))
+    Process.onOutput(self.process, x =>
+      switch x {
+      | Stdout(rawText) =>
+        // sometimes Agda would return error messages from STDOUT
+        if rawText->String.startsWith("Error:") {
+          self.chan->Chan.emit(Error(ErrorFromAgda(rawText)))
+        } else {
+          // split the raw text into pieces and feed it to the parser
+          rawText->Parser.splitToLines->Array.forEach(Parser.Incr.feed(incrParser, ...))
         }
-      )->Some
+      | Stderr(error) =>
+        // sometimes Agda would return error messages from STDOUT
+        self.chan->Chan.emit(Error(ErrorFromAgda(error)))
+      | Event(e) => self.chan->Chan.emit(Error(Process(e)))
+      }
+    )->ignore
   }
 
   let make = async (path, version) => {

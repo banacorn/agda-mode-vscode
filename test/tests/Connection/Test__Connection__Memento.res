@@ -1,12 +1,12 @@
 open Mocha
 open Test__Util
 
-// Memento.PickedConnection
+// Memento.PreferredCandidate
 // ├── Memento path exists in config → should prioritize over other config paths
-// ├── Memento path not in config → should ignore memento, use config as-is
-// └── Memento always updated → should set to working connection path (regardless of source)
+// ├── Memento path not in config → should still be prioritized (step 0)
+// └── Memento update behavior
 
-describe("Memento.PickedConnection", () => {
+describe("Memento.PreferredCandidate", () => {
   let userAgda = ref("")
   let systemAgda = ref("")
   let alternativeAgda = ref("")
@@ -14,16 +14,16 @@ describe("Memento.PickedConnection", () => {
 
   // setup the Agda mocks
   Async.before(async () => {
-    userAgda := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-user"))
-    systemAgda := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-system"))
-    alternativeAgda := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-alt"))
+    userAgda := (await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock-user"))
+    systemAgda := (await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock-system"))
+    alternativeAgda := (await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock-alt"))
   })
 
   // cleanup the Agda mocks
   Async.after(async () => {
-    await Endpoint.Agda.destroy(userAgda.contents)
-    await Endpoint.Agda.destroy(systemAgda.contents)
-    await Endpoint.Agda.destroy(alternativeAgda.contents)
+    await Candidate.Agda.destroy(userAgda.contents)
+    await Candidate.Agda.destroy(systemAgda.contents)
+    await Candidate.Agda.destroy(alternativeAgda.contents)
   })
 
   // Mock platform for command discovery
@@ -45,7 +45,7 @@ describe("Memento.PickedConnection", () => {
     // Mock memento to simulate previously selected path
     let memento = Memento.make(None)
     switch previouslySelectedPath {
-    | Some(path) => await memento->Memento.PickedConnection.set(Some(path))
+    | Some(path) => await memento->Memento.PreferredCandidate.set(Some(path))
     | None => ()
     }
 
@@ -85,13 +85,13 @@ describe("Memento.PickedConnection", () => {
 
   describe("Memento path not in config", () => {
     Async.it(
-      "should ignore memento and use config as-is",
+      "should prioritize memento path even when it is not in config",
       async () => {
         This.retries(2)
 
         // Config: [userAgda]
         // Memento: systemAgda (not in config)
-        // Expected: userAgda should be used (from config)
+        // Expected: systemAgda should be used (step 0 preferred candidate)
 
         let configPaths = [userAgda.contents]
         let result = await makeConnection(Some(systemAgda.contents), configPaths)
@@ -99,17 +99,16 @@ describe("Memento.PickedConnection", () => {
         switch result {
         | Ok(connection) =>
           let actualPath = connection->Connection.getPath
-          // FIXME: this test is flaky
-          Assert.deepStrictEqual(actualPath, userAgda.contents)
+          Assert.deepStrictEqual(actualPath, systemAgda.contents)
         | Error(_) => Assert.fail("Connection should succeed")
         }
       },
     )
   })
 
-  describe("Memento always updated", () => {
+  describe("Memento update behavior", () => {
     Async.it(
-      "should set memento to working connection path from config",
+      "should not set memento to working connection path from config",
       async () => {
         let memento = Memento.make(None)
         await Config.Connection.setAgdaPaths(logChannel, [userAgda.contents])
@@ -126,41 +125,13 @@ describe("Memento.PickedConnection", () => {
         switch result {
         | Ok(connection) =>
           let actualPath = connection->Connection.getPath
-          let mementoPath = Memento.PickedConnection.get(memento)
+          let mementoPath = Memento.PreferredCandidate.get(memento)
           Assert.deepStrictEqual(actualPath, userAgda.contents)
-          Assert.deepStrictEqual(mementoPath, Some(userAgda.contents))
+          Assert.deepStrictEqual(mementoPath, None)
         | Error(_) => Assert.fail("Connection should succeed")
         }
       },
     )
 
-    Async.it(
-      "should set memento to working connection path from auto discovery",
-      async () => {
-        This.retries(2)
-
-        let memento = Memento.make(None)
-        await Config.Connection.setAgdaPaths(logChannel, []) // empty config
-
-        let result = await Connection.makeWithFallback(
-          platform,
-          memento,
-          VSCode.Uri.file("/tmp/test"),
-          [],
-          ["whatever"], // will trigger auto discovery via findCommand
-          logChannel,
-        )
-
-        // FIXME: this test is flaky; sometimes it just errors
-        switch result {
-        | Ok(connection) =>
-          let actualPath = connection->Connection.getPath
-          let mementoPath = Memento.PickedConnection.get(memento)
-          Assert.deepStrictEqual(actualPath, systemAgda.contents)
-          Assert.deepStrictEqual(mementoPath, Some(systemAgda.contents))
-        | Error(_) => Assert.fail("Connection should succeed")
-        }
-      },
-    )
   })
 })

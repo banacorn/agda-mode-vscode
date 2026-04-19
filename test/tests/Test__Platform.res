@@ -17,6 +17,31 @@ describe("Platform dependent utilities", () => {
         }
       },
     )
+
+    Async.it(
+      "desktop alreadyDownloaded should find release-managed WASM artifact for DevALS channel",
+      async () => {
+        let tempDir = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "desktop-release-wasm-test-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let artifactDir = NodeJs.Path.join([tempDir, "releases", "dev", "als-dev-Agda-2.8.0-wasm"])
+        let wasmFile = NodeJs.Path.join([artifactDir, "als.wasm"])
+
+        await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(wasmFile, NodeJs.Buffer.fromString("mock wasm"))
+
+        let platformDeps = Desktop.make()
+        module PlatformOps = unpack(platformDeps)
+        let globalStorageUri = VSCode.Uri.file(tempDir)
+
+        let result = await PlatformOps.alreadyDownloaded(globalStorageUri, Connection__Download.Channel.DevALS)
+        // Should find the WASM artifact and return its URI
+        Assert.deepStrictEqual(result->Option.isSome, true)
+
+        let _ = await FS.deleteRecursive(globalStorageUri)
+      },
+    )
   })
 
   describe("Mock Platform for Testing", () => {

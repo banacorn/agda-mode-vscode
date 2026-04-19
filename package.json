@@ -57,7 +57,7 @@
 		"react-dom": "^18.0.0",
 		"rescript": "^11.1.4",
 		"rescript-nodejs": "github:banacorn/rescript-nodejs#3db4de107a442d6a5c9b1406032ef6afbe18d8f5",
-		"rescript-vscode": "github:banacorn/rescript-vscode#v0.0.38",
+		"rescript-vscode": "github:banacorn/rescript-vscode#v0.0.39",
 		"rescript-webapi": ">=0.2.0",
 		"untildify": "^4.0.0",
 		"unzipper": "^0.10.11",
@@ -1226,7 +1226,7 @@
 					"items": {
 						"type": "string"
 					},
-					"default": [],
+					"default": ["agda", "als"],
 					"scope": "machine-overridable",
 					"description": "A list of file paths or URLs pointing to Agda binaries or Agda Language Servers. Items in this list will be tried for connection from the LAST to the first (because it's easier to append new items at the end). Use the '^X ^S' command to manage these items. When empty, items are inferred by searching for 'agda' or 'als' commands."
 				},

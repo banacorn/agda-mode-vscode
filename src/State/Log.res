@@ -2,22 +2,23 @@
 module SwitchVersion = {
   type t =
     | Destroyed // when the SwitchVersion UI has been destroyed
-    | SelectedEndpoint(string, Memento.Endpoints.entry, bool)
+    | SelectedCandidate(string, Memento.ResolvedMetadata.entry, bool)
     | SelectedDownloadAction(bool, string) // downloaded, versionString
     | SelectedOpenFolder(string)
     | SelectedNoInstallations
-    | UpdatedEndpoints(array<(string, Memento.Endpoints.endpoint, option<string>, bool)>) // array of (path, endpoint, optional error, isSelected)
+    | UpdatedCandidates(array<(string, Memento.ResolvedMetadata.kind, option<string>, bool)>) // array of (path, kind, optional error, isSelected)
+    | UpdatedDownloadItems(array<(bool, string, string)>) // array of (downloaded, versionString, variant)
     | SelectionCompleted // when onSelection handler has completed all async operations
     | Others(string)
 
   let toString = event =>
     switch event {
     | Destroyed => "Destroyed"
-    | SelectedEndpoint(path, entry, isSelected) =>
-      "Endpoint: " ++
+    | SelectedCandidate(path, entry, isSelected) =>
+      "Candidate: " ++
       path ++
       ", " ++
-      Memento.Endpoints.endpointToString(entry.endpoint) ++ if isSelected {
+      Memento.ResolvedMetadata.kindToString(entry.kind) ++ if isSelected {
         ", selected"
       } else {
         ""
@@ -30,18 +31,21 @@ module SwitchVersion = {
     | SelectedOpenFolder(path) => "Selected Open Folder: " ++ path
     | SelectedNoInstallations => "Selected No Installations"
     | SelectionCompleted => "Selection Completed"
-    | UpdatedEndpoints(entries) =>
-      "UpdatedEndpoints: " ++
+    | UpdatedCandidates(entries) =>
+      "UpdatedCandidates: " ++
       entries
-      ->Array.map(((path, endpoint, error, isSelected)) =>
+      ->Array.map(((path, kind, error, isSelected)) =>
         path ++
         ": " ++
-        switch endpoint {
+        switch kind {
         | Agda(Some(version)) => "Agda(" ++ version ++ ")"
         | Agda(None) => "Agda(None)"
-        | ALS(Some(alsVersion, agdaVersion, _)) =>
-          "ALS(" ++ alsVersion ++ ", " ++ agdaVersion ++ ")"
-        | ALS(None) => "ALS(None)"
+        | ALS(Native, Some((alsVersion, agdaVersion, _))) =>
+          "ALS(Native, " ++ alsVersion ++ ", " ++ agdaVersion ++ ")"
+        | ALS(WASM, Some((alsVersion, agdaVersion, _))) =>
+          "ALS(WASM, " ++ alsVersion ++ ", " ++ agdaVersion ++ ")"
+        | ALS(Native, None) => "ALS(Native, None)"
+        | ALS(WASM, None) => "ALS(WASM, None)"
         | Unknown => "Unknown"
         } ++
         switch error {
@@ -50,6 +54,13 @@ module SwitchVersion = {
         } ++ (isSelected ? " [Selected]" : "")
       )
       ->Array.join("\n")
+    | UpdatedDownloadItems(items) =>
+      "UpdatedDownloadItems: " ++
+      items
+      ->Array.map(((downloaded, vs, variant)) =>
+        variant ++ "=" ++ vs ++ if downloaded { "(downloaded)" } else { "" }
+      )
+      ->Array.join(", ")
     | Others(str) => str
     }
 }
@@ -109,6 +120,7 @@ type t =
   | SwitchVersionUI(SwitchVersion.t) // SwitchVersion UI event
   | Connection(Connection.t) // Connection event
   | Config(Config.t) // Configuration event
+  | DownloadTrace(Connection__Download__Trace.t) // low-level download trace event
   | Others(string) // generic string
 
 let toString = log =>
@@ -122,6 +134,7 @@ let toString = log =>
   | SwitchVersionUI(event) => "[ SwitchVersion    ] " ++ SwitchVersion.toString(event)
   | Connection(event) => "[ Connection       ] " ++ Connection.toString(event)
   | Config(event) => "[ Config           ] " ++ Config.toString(event)
+  | DownloadTrace(event) => "[ DownloadTrace    ] " ++ Connection__Download__Trace.toString(event)
   | Others(str) => str
   }
 

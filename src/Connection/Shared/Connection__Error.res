@@ -123,7 +123,7 @@ module Probe = {
 module Establish = {
   type pathSource =
     | FromConfig // From user's VS Code settings
-    | FromDownload(Connection__Download.DownloadOrderAbstract.t) // From download
+    | FromDownload(Connection__Download.Channel.t) // From download
     | FromCommandLookup(string) // From command lookup (e.g., `command -v agda`)
 
   type downloadStatus =
@@ -141,9 +141,9 @@ module Establish = {
   let pathSourceToString = source =>
     switch source {
     | FromConfig => "from config"
-    | FromDownload(Connection__Download.DownloadOrderAbstract.LatestALS) =>
+    | FromDownload(Connection__Download.Channel.LatestALS) =>
       "from LatestALS download"
-    | FromDownload(Connection__Download.DownloadOrderAbstract.DevALS) => "from DevALS download"
+    | FromDownload(Connection__Download.Channel.DevALS) => "from DevALS download"
     | FromCommandLookup(command) => "from PATH lookup (" ++ command ++ ")"
     }
 
