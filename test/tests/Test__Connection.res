@@ -1,6 +1,24 @@
 open Mocha
 open Test__Util
 
+@module("node:fs/promises") external mkdtemp: string => Js.Promise.t<string> = "mkdtemp"
+
+let withTempStorage = async (prefix, f) => {
+  let tempDir = await mkdtemp(NodeJs.Path.join([NodeJs.Os.tmpdir(), prefix]))
+  let globalStorageUri = VSCode.Uri.file(tempDir)
+  let cleanup = async () => {
+    let _ = await FS.deleteRecursive(globalStorageUri)
+  }
+  try {
+    await f(tempDir, globalStorageUri)
+    await cleanup()
+  } catch {
+  | exn =>
+    await cleanup()
+    raise(exn)
+  }
+}
+
 let getAgdaTarget = async () => {
   let platformDeps = Desktop.make()
   switch await Connection.fromPathsOrCommands(
@@ -405,7 +423,7 @@ describe("Connection", () => {
 
         switch result {
         | Ok(_) => Assert.fail("Expected error for non-existent path")
-        | Error(errors) =>
+        | Error(errors: Connection.Error.Establish.t) =>
           // Should have probe error for the non-existent path
           switch errors.probes->Dict.get(nonExistentPath) {
           | Some((error, _source)) =>
@@ -822,7 +840,7 @@ describe("Connection", () => {
           module MockPlatform = {
             let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
-            let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+            let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
             let resolveDownloadChannel = (_target, _) => async (_, _, _) =>
               Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
             let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
@@ -1556,7 +1574,10 @@ describe("Connection", () => {
         let memento = Memento.make(None)
 
         // Store DevALS as the selected channel in memento
-        await Memento.SelectedChannel.set(memento, "DevALS")
+        await Memento.SelectedChannel.set(
+          memento,
+          Connection__Download.Channel.toString(Connection__Download.Channel.DevALS),
+        )
 
         // Track which channel the download uses
         let downloadedChannel = ref(None)
@@ -1564,7 +1585,7 @@ describe("Connection", () => {
           module MockPlatform = {
             let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-            let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+            let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
             let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
               switch channel {
               | Connection__Download.Channel.DevALS =>
@@ -1622,7 +1643,7 @@ describe("Connection", () => {
           module MockPlatform = {
             let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-            let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+            let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
             let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
               switch channel {
               | Connection__Download.Channel.DevALS =>
@@ -1688,28 +1709,41 @@ describe("Connection", () => {
     )
 
     Async.it(
-      "should return error when cached native binary fails to connect and no WASM source available",
+      "should return managed-download error when cached native has no same-release WASM fallback",
       async () => {
         let logChannel = Chan.make()
         await Config.Connection.setAgdaPaths(logChannel, [])
         await Config.Connection.DownloadPolicy.set(Undecided)
         let memento = Memento.make(None)
 
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-managed-no-wasm-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let globalStorageUri = VSCode.Uri.file(storagePath)
+        let cachedNativePath =
+          NodeJs.Path.join([
+            storagePath,
+            "releases",
+            "dev",
+            "als-dev-Agda-2.8.0-macos-arm64",
+            "als",
+          ])
+        let resolveCalled = ref(false)
         let downloadCalled = ref(false)
 
         let platform: Platform.t = {
           module MockPlatform = {
             let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-            let alreadyDownloaded = (_globalStorageUri, _channel) => {
+            let alreadyDownloaded = _globalStorageUri => {
               // Simulate: native binary was already downloaded and cached
-              Promise.resolve(Some("/tmp/cached-native-als"))
+              Promise.resolve(Some(cachedNativePath))
             }
-            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
-              switch channel {
-              | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-              }
-            )
+            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_channel => {
+              resolveCalled := true
+              Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            })
             let download = (_globalStorageUri, _source, ~trace as _=Connection__Download__Trace.noop) => {
               downloadCalled := true
               Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
@@ -1723,19 +1757,203 @@ describe("Connection", () => {
         let result = await Connection.makeWithFallback(
           platform,
           memento,
-          VSCode.Uri.file("/tmp/test-storage"),
+          globalStorageUri,
           [],
           [],
           logChannel,
         )
 
-        // alreadyDownloaded bypasses resolveDownloadChannel, so wasmFallbackSource is never populated.
-        // When the cached path fails make(), tryWasmFallback returns error (no source available).
+        // The cached native path carries managed artifact metadata. Fallback must use that metadata
+        // instead of resolving the selected channel.
+        Assert.deepStrictEqual(resolveCalled.contents, false)
         Assert.deepStrictEqual(downloadCalled.contents, false)
         switch result {
-        | Ok(_) => Assert.fail("Expected error when cached native binary fails and no WASM source")
-        | Error(_) => Assert.ok(true)
+        | Ok(_) =>
+          Assert.fail("Expected error when cached native has no same-release WASM fallback")
+        | Error(Connection.Error.Establish(errors)) =>
+          switch errors.probes->Dict.get(cachedNativePath) {
+          | Some((_, source)) =>
+            Assert.deepStrictEqual(source, Connection.Error.Establish.FromManagedDownload)
+          | None => Assert.fail("Expected probe error for cached managed download")
+          }
+        | Error(_) => Assert.fail("Expected establish error")
         }
+      },
+    )
+
+    Async.it(
+      "should not resolve selected channel when cached managed native has no same-release WASM fallback",
+      async () => {
+        let logChannel = Chan.make()
+        await Config.Connection.setAgdaPaths(logChannel, [])
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let memento = Memento.make(None)
+
+        await Memento.SelectedChannel.set(
+          memento,
+          Connection__Download.Channel.toString(Connection__Download.Channel.DevALS),
+        )
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-managed-no-dev-fallback-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let globalStorageUri = VSCode.Uri.file(storagePath)
+        let cachedNativePath =
+          NodeJs.Path.join([
+            storagePath,
+            "releases",
+            "v6",
+            "als-v6-Agda-2.8.0-macos-arm64",
+            "als",
+          ])
+        let resolvedDevChannel = ref(false)
+        let devWasmDownloaded = ref(false)
+
+        let platform: Platform.t = {
+          module MockPlatform = {
+            let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+            let alreadyDownloaded = _globalStorageUri =>
+              Promise.resolve(Some(cachedNativePath))
+            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
+              switch channel {
+              | Connection__Download.Channel.DevALS => {
+                resolvedDevChannel := true
+                Ok(
+                  Connection__Download.Source.FromGitHub(
+                    channel,
+                    Mock.DownloadDescriptor.mockDevALSDescriptor,
+                  ),
+                )
+              }
+              | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              }
+            )
+            let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) => {
+              switch source {
+              | Connection__Download.Source.FromGitHub(_, descriptor)
+                  if descriptor.asset.name->String.includes("wasm") =>
+                devWasmDownloaded := true
+                Promise.resolve(Ok("/tmp/cached-wasm-als.wasm"))
+              | _ =>
+                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+              }
+            }
+            let findCommand = (_command, ~timeout as _timeout=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+          module(MockPlatform)
+        }
+
+        let result = await Connection.makeWithFallback(
+          platform,
+          memento,
+          globalStorageUri,
+          [],
+          [],
+          logChannel,
+        )
+
+        Assert.deepStrictEqual(resolvedDevChannel.contents, false)
+        Assert.deepStrictEqual(devWasmDownloaded.contents, false)
+        switch result {
+        | Ok(_) => Assert.fail("Expected error when cached native managed fallback has no same-release WASM")
+        | Error(Connection.Error.Establish(errors)) =>
+          switch errors.probes->Dict.get(cachedNativePath) {
+          | Some((_, source)) =>
+            Assert.deepStrictEqual(source, Connection.Error.Establish.FromManagedDownload)
+          | None => Assert.fail("Expected probe error for cached managed native download")
+          }
+          Assert.deepStrictEqual(errors.probes->Dict.get("/tmp/cached-wasm-als.wasm"), None)
+        | Error(_) => Assert.fail("Expected establish error")
+        }
+      },
+    )
+
+    Async.it(
+      "should use same-release managed WASM fallback without resolving selected channel",
+      async () => {
+        let logChannel = Chan.make()
+        await Config.Connection.setAgdaPaths(logChannel, [])
+        await Config.Connection.DownloadPolicy.set(Undecided)
+        let memento = Memento.make(None)
+
+        await Memento.SelectedChannel.set(
+          memento,
+          Connection__Download.Channel.toString(Connection__Download.Channel.DevALS),
+        )
+
+        await withTempStorage("agda-managed-local-wasm-fallback-", async (storagePath, globalStorageUri) => {
+          let nativeDir = NodeJs.Path.join([
+            storagePath,
+            "releases",
+            "v6",
+            "als-v6-Agda-2.8.0-macos-arm64",
+          ])
+          let wasmDir = NodeJs.Path.join([
+            storagePath,
+            "releases",
+            "v6",
+            "als-v6-Agda-2.8.0-wasm",
+          ])
+          let cachedNativePath = NodeJs.Path.join([nativeDir, "als"])
+          let cachedWasmPath = NodeJs.Path.join([wasmDir, "als.wasm"])
+
+          await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
+          await NodeJs.Fs.mkdir(wasmDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(cachedNativePath, NodeJs.Buffer.fromString("mock native"))
+          NodeJs.Fs.writeFileSync(cachedWasmPath, NodeJs.Buffer.fromString("mock wasm"))
+
+          let resolveCalled = ref(false)
+          let downloadCalled = ref(false)
+
+          let platform: Platform.t = {
+            module MockPlatform = {
+              let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+              let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+              let alreadyDownloaded = _globalStorageUri =>
+                Promise.resolve(Some(cachedNativePath))
+              let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_channel => {
+                resolveCalled := true
+                Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              })
+              let download = (_globalStorageUri, _source, ~trace as _=Connection__Download__Trace.noop) => {
+                downloadCalled := true
+                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+              }
+              let findCommand = (_command, ~timeout as _timeout=1000) =>
+                Promise.resolve(Error(Connection__Command.Error.NotFound))
+            }
+            module(MockPlatform)
+          }
+
+          let result = await Connection.makeWithFallback(
+            platform,
+            memento,
+            globalStorageUri,
+            [],
+            [],
+            logChannel,
+          )
+
+          Assert.deepStrictEqual(resolveCalled.contents, false)
+          Assert.deepStrictEqual(downloadCalled.contents, false)
+          switch result {
+          | Ok(_) => Assert.fail("Expected both managed native and managed WASM probes to fail")
+          | Error(Connection.Error.Establish(errors)) =>
+            switch errors.probes->Dict.get(cachedNativePath) {
+            | Some((_, source)) =>
+              Assert.deepStrictEqual(source, Connection.Error.Establish.FromManagedDownload)
+            | None => Assert.fail("Expected probe error for cached managed native download")
+            }
+            switch errors.probes->Dict.get(cachedWasmPath) {
+            | Some((_, source)) =>
+              Assert.deepStrictEqual(source, Connection.Error.Establish.FromManagedDownload)
+            | None => Assert.fail("Expected probe error for cached managed WASM fallback")
+            }
+          | Error(_) => Assert.fail("Expected establish error")
+          }
+        })
       },
     )
 

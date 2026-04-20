@@ -123,6 +123,7 @@ module Probe = {
 module Establish = {
   type pathSource =
     | FromConfig // From user's VS Code settings
+    | FromManagedDownload // From a previously downloaded managed artifact
     | FromDownload(Connection__Download.Channel.t) // From download
     | FromCommandLookup(string) // From command lookup (e.g., `command -v agda`)
 
@@ -141,6 +142,7 @@ module Establish = {
   let pathSourceToString = source =>
     switch source {
     | FromConfig => "from config"
+    | FromManagedDownload => "from managed download"
     | FromDownload(Connection__Download.Channel.LatestALS) =>
       "from LatestALS download"
     | FromDownload(Connection__Download.Channel.DevALS) => "from DevALS download"

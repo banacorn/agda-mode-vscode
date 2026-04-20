@@ -472,57 +472,12 @@ module Module: Module = {
           | None => Connection__Download.Channel.DevALS
           }
         }
-        // WASM fallback source is populated when resolveDownloadChannel returns a FromGitHub descriptor;
-        // it picks the first WASM asset from the same release so the fallback stays release-managed.
+        // Fresh GitHub downloads can fall back to a WASM asset from the same resolved release.
+        // Cached managed downloads use their managed path metadata instead of the selected channel.
         let wasmFallbackSource: ref<option<Connection__Download.Source.t>> = ref(None)
-        let tryWasmFallback = async () =>
-          switch wasmFallbackSource.contents {
-          | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-          | Some(wasmSource) =>
-            switch await PlatformOps.download(globalStorageUri, wasmSource) {
-            | Ok(path) => Ok(path)
-            | Error(error) => Error(error)
-            }
-          }
-        let tryDownloadSource = async source =>
-          switch await PlatformOps.download(globalStorageUri, source) {
-          | Ok(path) => Ok(path)
-          | Error(error) =>
-            // For native downloads on any channel, retry once with WASM.
-            // This gives desktop a graceful fallback when native artifacts fail.
-            switch source {
-            | Connection__Download.Source.FromURL(_, url, _) =>
-              if url->String.endsWith(".wasm") {
-                Error(error)
-              } else {
-                await tryWasmFallback()
-              }
-            | Connection__Download.Source.FromGitHub(_, descriptor) =>
-              if descriptor.asset.name->String.includes("wasm") {
-                Error(error)
-              } else {
-                await tryWasmFallback()
-              }
-            }
-          }
-        // Get the downloaded path, download if not already done
-        let downloadResult = switch await PlatformOps.alreadyDownloaded(
-          globalStorageUri,
-          channel,
-        ) {
-        | Some(path) =>
-          Util.log("[ debug ] fromDownloads: alreadyDownloaded = Some", path)
-          Ok(path)
-        | None =>
-          Util.log("[ debug ] fromDownloads: alreadyDownloaded = None", "")
-          switch await PlatformOps.resolveDownloadChannel(channel, true)(
-            memento,
-            globalStorageUri,
-            platform,
-          ) {
-          | Error(resolveError) =>
-            Error(Error.Establish.fromDownloadError(resolveError))
-          | Ok(Connection__Download.Source.FromGitHub(_, descriptor) as source) =>
+        let rememberWasmFallbackFromSource = source =>
+          switch source {
+          | Connection__Download.Source.FromGitHub(sourceChannel, descriptor) =>
             let nativeAgdaVersion =
               Connection__Download.DownloadArtifact.parseName(descriptor.asset.name)
               ->Option.map(a => a.agdaVersion)
@@ -535,34 +490,93 @@ module Module: Module = {
                 }
               )
               ->Option.map(asset =>
-                Connection__Download.Source.FromGitHub(channel, {
+                Connection__Download.Source.FromGitHub(sourceChannel, {
                   Connection__Download__GitHub.DownloadDescriptor.asset: asset,
                   release: descriptor.release,
                   saveAsFileName: descriptor.saveAsFileName,
                 })
               )
+          | Connection__Download.Source.FromURL(_, _, _) => ()
+          }
+        let tryWasmFallback = async (~path, ~source) =>
+          switch source {
+          | Error.Establish.FromManagedDownload =>
+            switch await Connection__Download__ManagedStorage.findWasmForManagedPath(
+              globalStorageUri,
+              path,
+            ) {
+            | Some(wasmPath) => Ok(wasmPath)
+            | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            }
+          | _ =>
+            switch wasmFallbackSource.contents {
+            | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            | Some(wasmSource) =>
+              switch await PlatformOps.download(globalStorageUri, wasmSource) {
+              | Ok(path) => Ok(path)
+              | Error(error) => Error(error)
+              }
+            }
+          }
+        let tryDownloadSource = async downloadSource =>
+          switch await PlatformOps.download(globalStorageUri, downloadSource) {
+          | Ok(path) => Ok(path)
+          | Error(error) =>
+            // For native downloads on any channel, retry once with WASM.
+            // This gives desktop a graceful fallback when native artifacts fail.
+            switch downloadSource {
+            | Connection__Download.Source.FromURL(_, url, _) =>
+              if url->String.endsWith(".wasm") {
+                Error(error)
+              } else {
+                await tryWasmFallback(~path="", ~source=Error.Establish.FromDownload(channel))
+              }
+            | Connection__Download.Source.FromGitHub(_, descriptor) =>
+              if descriptor.asset.name->String.includes("wasm") {
+                Error(error)
+              } else {
+                await tryWasmFallback(~path="", ~source=Error.Establish.FromDownload(channel))
+              }
+            }
+          }
+        // Get the downloaded path, download if not already done
+        let downloadResult = switch await PlatformOps.alreadyDownloaded(globalStorageUri) {
+        | Some(path) =>
+          Util.log("[ debug ] fromDownloads: alreadyDownloaded = Some", path)
+          Ok((path, Error.Establish.FromManagedDownload))
+        | None =>
+          Util.log("[ debug ] fromDownloads: alreadyDownloaded = None", "")
+          switch await PlatformOps.resolveDownloadChannel(channel, true)(
+            memento,
+            globalStorageUri,
+            platform,
+          ) {
+          | Error(resolveError) =>
+            Error(Error.Establish.fromDownloadError(resolveError))
+          | Ok(Connection__Download.Source.FromGitHub(_, _) as source) =>
+            rememberWasmFallbackFromSource(source)
             switch await tryDownloadSource(source) {
             | Error(error) => Error(Error.Establish.fromDownloadError(error))
-            | Ok(path) => Ok(path)
+            | Ok(path) => Ok((path, Error.Establish.FromDownload(channel)))
             }
           | Ok(Connection__Download.Source.FromURL(_, _, _) as source) =>
             switch await tryDownloadSource(source) {
             | Error(error) => Error(Error.Establish.fromDownloadError(error))
-            | Ok(path) => Ok(path)
+            | Ok(path) => Ok((path, Error.Establish.FromDownload(channel)))
             }
           }
         }
 
         switch downloadResult {
-        | Ok(path) =>
-          switch await make(path, FromDownload(channel)) {
+        | Ok((path, source)) =>
+          switch await make(path, source) {
           | Ok(connection) => Ok(connection)
           | Error(nativeError) =>
             // Native path failed to connect — try WASM fallback on desktop
             if !(path->String.endsWith(".wasm")) {
-              switch await tryWasmFallback() {
+              switch await tryWasmFallback(~path, ~source) {
               | Ok(wasmPath) =>
-                switch await make(wasmPath, FromDownload(channel)) {
+                switch await make(wasmPath, source) {
                 | Ok(connection) => Ok(connection)
                 | Error(wasmError) =>
                   Error(Error.Establish.merge(

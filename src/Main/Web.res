@@ -10,21 +10,8 @@ module Web: Platform.PlatformOps = {
   let findCommand = (_command, ~timeout as _timeout=1000) =>
     Promise.resolve(Error(Connection__Command.Error.NotFound))
 
-  let alreadyDownloaded = async (globalStorageUri, channel) => {
-    switch channel {
-    | Connection__Download.Channel.LatestALS => {
-        // Web doesn't support LatestALS (native binaries)
-        None
-      }
-    | Connection__Download.Channel.DevALS => {
-        await Connection__Download.findReleaseManagedDownloaded(
-          globalStorageUri,
-          artifact => Connection__Download.DownloadArtifact.Platform.isWasm(artifact.platform),
-          uri => VSCode.Uri.toString(uri),
-        )
-      }
-    }
-  }
+  let alreadyDownloaded = async globalStorageUri =>
+    await Connection__Download__ManagedStorage.findAnyWasmDownloaded(globalStorageUri)
 
   let resolveDownloadChannel = (
     channel: Connection__Download.Channel.t,

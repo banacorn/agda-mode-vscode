@@ -1,5 +1,22 @@
 open Mocha
 
+let withTempStorage = async (prefix, f) => {
+  let tempDir = NodeJs.Path.join([
+    NodeJs.Os.tmpdir(),
+    prefix ++ string_of_int(int_of_float(Js.Date.now())),
+  ])
+  let globalStorageUri = VSCode.Uri.file(tempDir)
+  try {
+    await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
+    await f(tempDir, globalStorageUri)
+  } catch {
+  | exn =>
+    let _ = await FS.deleteRecursive(globalStorageUri)
+    raise(exn)
+  }
+  let _ = await FS.deleteRecursive(globalStorageUri)
+}
+
 describe("Platform dependent utilities", () => {
   describe("Platform Abstraction", () => {
     Async.it(
@@ -19,27 +36,50 @@ describe("Platform dependent utilities", () => {
     )
 
     Async.it(
-      "desktop alreadyDownloaded should find release-managed WASM artifact for DevALS channel",
+      "desktop alreadyDownloaded should find release-managed WASM artifact",
       async () => {
-        let tempDir = NodeJs.Path.join([
-          NodeJs.Os.tmpdir(),
-          "desktop-release-wasm-test-" ++ string_of_int(int_of_float(Js.Date.now())),
-        ])
-        let artifactDir = NodeJs.Path.join([tempDir, "releases", "dev", "als-dev-Agda-2.8.0-wasm"])
-        let wasmFile = NodeJs.Path.join([artifactDir, "als.wasm"])
+        await withTempStorage("desktop-release-wasm-test-", async (tempDir, globalStorageUri) => {
+          let artifactDir = NodeJs.Path.join([tempDir, "releases", "dev", "als-dev-Agda-2.8.0-wasm"])
+          let wasmFile = NodeJs.Path.join([artifactDir, "als.wasm"])
 
-        await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
-        NodeJs.Fs.writeFileSync(wasmFile, NodeJs.Buffer.fromString("mock wasm"))
+          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(wasmFile, NodeJs.Buffer.fromString("mock wasm"))
 
+          let platformDeps = Desktop.make()
+          module PlatformOps = unpack(platformDeps)
+
+          let result = await PlatformOps.alreadyDownloaded(globalStorageUri)
+          Assert.deepStrictEqual(result, Some(VSCode.Uri.file(wasmFile)->VSCode.Uri.toString))
+        })
+      },
+    )
+
+    Async.it(
+      "desktop alreadyDownloaded should find release-managed native artifact",
+      async () => {
         let platformDeps = Desktop.make()
         module PlatformOps = unpack(platformDeps)
-        let globalStorageUri = VSCode.Uri.file(tempDir)
 
-        let result = await PlatformOps.alreadyDownloaded(globalStorageUri, Connection__Download.Channel.DevALS)
-        // Should find the WASM artifact and return its URI
-        Assert.deepStrictEqual(result->Option.isSome, true)
+        switch await PlatformOps.determinePlatform() {
+        | Error(_) => Assert.ok(true)
+        | Ok(platform) =>
+          await withTempStorage("desktop-release-latest-test-", async (tempDir, globalStorageUri) => {
+            let platformTag = Connection__Download__Platform.toAssetName(platform)
+            let artifactDir = NodeJs.Path.join([
+              tempDir,
+              "releases",
+              "v6",
+              "als-v6-Agda-2.8.0-" ++ platformTag,
+            ])
+            let alsExecutable = NodeJs.Path.join([artifactDir, "als"])
 
-        let _ = await FS.deleteRecursive(globalStorageUri)
+            await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+            NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
+
+            let result = await PlatformOps.alreadyDownloaded(globalStorageUri)
+            Assert.deepStrictEqual(result, Some(VSCode.Uri.file(alsExecutable)->VSCode.Uri.fsPath))
+          })
+        }
       },
     )
   })

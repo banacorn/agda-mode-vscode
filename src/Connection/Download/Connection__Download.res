@@ -22,34 +22,14 @@ module Channel = {
     | _ => None
     }
 
-  let toLabel = (channel: t): string =>
-    switch channel {
-    | LatestALS => "Latest"
-    | DevALS => "Development"
-    }
-
-  let detail = (channel: t): string =>
-    switch channel {
-    | LatestALS => "Tracks the latest stable release"
-    | DevALS => "Tracks the latest commit of the master branch"
-    }
-
-  type pickerItem = {
-    label: string,
-    description: string,
-    detail: string,
-    value: string,
-  }
-
-  let pickerItem = (channel: t, ~selectedChannel: t): pickerItem => {
-    let description = channel == selectedChannel ? "selected" : ""
-    {label: toLabel(channel), description, detail: detail(channel), value: toString(channel)}
-  }
-
-  let pickerItems = (~selectedChannel: t): array<pickerItem> =>
-    [LatestALS, DevALS]->Array.map(ch => pickerItem(ch, ~selectedChannel))
-
+  // DevALS first — it is the default fallback channel when none is persisted
   let all: array<t> = [DevALS, LatestALS]
+}
+
+module SelectionVariant = {
+  type t =
+    | Native
+    | WASM
 }
 
 module DownloadArtifact = {
@@ -138,6 +118,19 @@ module DownloadArtifact = {
   let versionLabel = releaseTag =>
     releaseTag->String.startsWith("v") ? releaseTag : "v" ++ releaseTag
 
+  let matchesChannel = (~channel: Channel.t, artifact: t): bool =>
+    switch channel {
+    | Channel.DevALS => artifact.releaseTag == "dev"
+    | Channel.LatestALS => artifact.releaseTag != "dev"
+    }
+
+  let toVersionString = (~channel: Channel.t, artifact: t): string =>
+    switch channel {
+    | Channel.DevALS => "Agda v" ++ artifact.agdaVersion ++ " Language Server (dev build)"
+    | Channel.LatestALS =>
+      "Agda v" ++ artifact.agdaVersion ++ " Language Server " ++ versionLabel(artifact.releaseTag)
+    }
+
   let managedExecutableUri = (globalStorageUri: VSCode.Uri.t, artifact: t): VSCode.Uri.t => {
     VSCode.Uri.joinPath(globalStorageUri, Array.concat(directoryParts(artifact), [
       executableName(artifact),
@@ -162,44 +155,32 @@ module Source = {
   let toVersionString = channel =>
     switch channel {
     | FromGitHub(abstractChannel, descriptor) =>
-      let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
+      switch DownloadArtifact.parseName(descriptor.asset.name) {
+      | Some(artifact) => DownloadArtifact.toVersionString(~channel=abstractChannel, artifact)
+      | None =>
+        let agdaVersion = switch abstractChannel {
+        | Channel.LatestALS =>
+          descriptor.asset.name
+          ->String.replaceRegExp(%re("/als-Agda-/"), "")
+          ->String.replaceRegExp(%re("/-.*/"), "")
+        | Channel.DevALS =>
+          descriptor.asset.name
+          ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
+          ->String.replaceRegExp(%re("/-.*/"), "")
+        }
         switch abstractChannel {
         | Channel.LatestALS =>
-          switch DownloadArtifact.parseName(asset.name) {
-          | Some(artifact) => artifact.agdaVersion
-          | None =>
-            asset.name
-            ->String.replaceRegExp(%re("/als-Agda-/"), "")
-            ->String.replaceRegExp(%re("/-.*/"), "")
-          }
-        | Channel.DevALS =>
-          switch DownloadArtifact.parseName(asset.name) {
-          | Some(artifact) => artifact.agdaVersion
-          | None =>
-            asset.name
-            ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
-            ->String.replaceRegExp(%re("/-.*/"), "")
-          }
-        }
-
-      let agdaVersion = getAgdaVersion(descriptor.asset)
-
-      switch abstractChannel {
-      | Channel.LatestALS =>
-        let alsVersion =
-          switch DownloadArtifact.parseName(descriptor.asset.name) {
-          | Some(artifact) => artifact.releaseTag
-          | None =>
+          let alsVersion =
             descriptor.release.name
             ->String.split(".")
             ->Array.last
             ->Option.getOr(descriptor.release.name)
-          }
-        "Agda v" ++ agdaVersion ++ " Language Server " ++ DownloadArtifact.versionLabel(
-          alsVersion,
-        )
-      | Channel.DevALS =>
-        "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
+          "Agda v" ++ agdaVersion ++ " Language Server " ++ DownloadArtifact.versionLabel(
+            alsVersion,
+          )
+        | Channel.DevALS =>
+          "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
+        }
       }
     | FromURL(abstractChannel, _, _) =>
       Channel.toDisplayString(abstractChannel)
@@ -254,93 +235,6 @@ let sortDirectoryEntries = entries =>
       0.
     }
   )
-
-let findReleaseManagedDownloaded = async (
-  globalStorageUri: VSCode.Uri.t,
-  acceptArtifact,
-  toPath,
-): option<string> => {
-  let releasesUri = VSCode.Uri.joinPath(globalStorageUri, ["releases"])
-
-  let rec findInArtifacts = async (releaseName, artifacts, i) => {
-    if i >= Array.length(artifacts) {
-      None
-    } else {
-      let (artifactName, fileType) = Belt.Array.getExn(artifacts, i)
-      if fileType != VSCode.FileType.Directory {
-        await findInArtifacts(releaseName, artifacts, i + 1)
-      } else {
-        switch DownloadArtifact.parseName(artifactName) {
-        | Some(artifact) if artifact.releaseTag == releaseName && acceptArtifact(artifact) =>
-          let executableUri = VSCode.Uri.joinPath(releasesUri, [
-            releaseName,
-            artifactName,
-            DownloadArtifact.executableName(artifact),
-          ])
-          switch await FS.stat(executableUri) {
-          | Ok(_) => Some(toPath(executableUri))
-          | Error(_) => await findInArtifacts(releaseName, artifacts, i + 1)
-          }
-        | _ => await findInArtifacts(releaseName, artifacts, i + 1)
-        }
-      }
-    }
-  }
-
-  let rec findInReleases = async (releases, i) => {
-    if i >= Array.length(releases) {
-      None
-    } else {
-      let (releaseName, fileType) = Belt.Array.getExn(releases, i)
-      if fileType != VSCode.FileType.Directory {
-        await findInReleases(releases, i + 1)
-      } else {
-        let releaseUri = VSCode.Uri.joinPath(releasesUri, [releaseName])
-        switch await FS.readDirectory(releaseUri) {
-        | Error(_) => await findInReleases(releases, i + 1)
-        | Ok(artifacts) =>
-          switch await findInArtifacts(releaseName, sortDirectoryEntries(artifacts), 0) {
-          | Some(path) => Some(path)
-          | None => await findInReleases(releases, i + 1)
-          }
-        }
-      }
-    }
-  }
-
-  switch await FS.readDirectory(releasesUri) {
-  | Error(_) => None
-  | Ok(releases) => await findInReleases(sortDirectoryEntries(releases), 0)
-  }
-}
-
-let findReleaseManagedDownloadedForDesktopPlatform = async (
-  globalStorageUri: VSCode.Uri.t,
-  platform: Connection__Download__Platform.t,
-): option<string> => {
-  switch platform {
-  | Web =>
-    await findReleaseManagedDownloaded(
-      globalStorageUri,
-      artifact => DownloadArtifact.Platform.isWasm(artifact.platform),
-      uri => VSCode.Uri.toString(uri),
-    )
-  | _ =>
-    switch await findReleaseManagedDownloaded(
-      globalStorageUri,
-      artifact => DownloadArtifact.Platform.matchesDownloadPlatform(artifact.platform, platform),
-      uri => VSCode.Uri.fsPath(uri),
-    ) {
-    | Some(path) => Some(path)
-    | None =>
-      await findReleaseManagedDownloaded(
-        globalStorageUri,
-        artifact => DownloadArtifact.Platform.isWasm(artifact.platform),
-        uri => VSCode.Uri.toString(uri),
-      )
-    }
-  }
-}
 
 let managedDeleteRoots = (globalStorageUri: VSCode.Uri.t): array<VSCode.Uri.t> =>
   [VSCode.Uri.joinPath(globalStorageUri, ["releases"])]
@@ -556,17 +450,3 @@ let download = async (
     )
   }
 
-let alreadyDownloaded = async (globalStorageUri, channel) => {
-  switch channel {
-  | Channel.LatestALS => {
-      let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
-      switch await FS.stat(uri) {
-      | Ok(_) => Some(uri->VSCode.Uri.fsPath)
-      | Error(_) => None
-      }
-    }
-  | Channel.DevALS => {
-      await findReleaseManagedDownloaded(globalStorageUri, _ => true, uriToPath)
-    }
-  }
-}

@@ -397,7 +397,7 @@ describe("Download", () => {
         module MockDevALSPlatform = {
           let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
-          let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+          let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
             switch channel {
             | Connection__Download.Channel.DevALS =>
@@ -556,7 +556,7 @@ describe("Download", () => {
       module MockFlowPlatform = {
         let determinePlatform = async () => Ok(downloadPlatform)
         let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
-        let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+        let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
         let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_channel => Ok(resolvedSource))
         let download = (_globalStorageUri, _, ~trace as _trace=Connection__Download__Trace.noop) =>
           Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
@@ -596,7 +596,7 @@ describe("Download", () => {
           VSCode.Uri.file("/tmp/agda-flow-dev-native"),
           platform,
           ~channel=Connection__Download.Channel.DevALS,
-          ~variant=Connection__Download__Flow.Native,
+          ~variant=Connection__Download.SelectionVariant.Native,
           ~versionString="Agda v2.8.0 Language Server (dev build)",
         )
 
@@ -628,7 +628,7 @@ describe("Download", () => {
           VSCode.Uri.file("/tmp/agda-flow-dev-wasm"),
           platform,
           ~channel=Connection__Download.Channel.DevALS,
-          ~variant=Connection__Download__Flow.WASM,
+          ~variant=Connection__Download.SelectionVariant.WASM,
           ~versionString="Agda v2.8.0 Language Server (dev build)",
         )
 
@@ -653,7 +653,7 @@ describe("Download", () => {
         VSCode.Uri.file("/tmp/agda-flow-no-match"),
         platform,
         ~channel=Connection__Download.Channel.DevALS,
-        ~variant=Connection__Download__Flow.Native,
+        ~variant=Connection__Download.SelectionVariant.Native,
         ~versionString="Agda v9.9.9 Language Server (dev build)",
       )
 
@@ -673,7 +673,7 @@ describe("Download", () => {
         VSCode.Uri.file("/tmp/agda-flow-url"),
         platform,
         ~channel=Connection__Download.Channel.DevALS,
-        ~variant=Connection__Download__Flow.WASM,
+        ~variant=Connection__Download.SelectionVariant.WASM,
         ~versionString="irrelevant for URL sources",
       )
 
@@ -697,7 +697,7 @@ describe("Download", () => {
         VSCode.Uri.file("/tmp/agda-flow-latest"),
         platform,
         ~channel=Connection__Download.Channel.LatestALS,
-        ~variant=Connection__Download__Flow.Native,
+        ~variant=Connection__Download.SelectionVariant.Native,
         ~versionString="Agda v2.8.0 Language Server v6",
       )
 
@@ -709,33 +709,11 @@ describe("Download", () => {
     })
   })
 
-  describe("alreadyDownloaded", () => {
+  describe("ManagedStorage.findAnyWasmDownloaded", () => {
     Async.it(
-      "should return Some(path) when DevALS native artifact exists in release-managed storage",
+      "should return Some(uri) when WASM artifact exists in release-managed storage",
       async () => {
-        await withTempStorage("devals-release-native-", async (tempDir, globalStorageUri) => {
-          let artifactDir = NodeJs.Path.join([
-            tempDir,
-            "releases",
-            "dev",
-            "als-dev-Agda-2.8.0-macos-arm64",
-          ])
-          let alsExecutable = NodeJs.Path.join([artifactDir, "als"])
-
-          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
-          NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
-
-          let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
-
-          Assert.deepStrictEqual(result, Some(VSCode.Uri.file(alsExecutable)->VSCode.Uri.fsPath))
-        })
-      },
-    )
-
-    Async.it(
-      "should return Some(path) when DevALS WASM artifact exists in release-managed storage",
-      async () => {
-        await withTempStorage("devals-release-wasm-", async (tempDir, globalStorageUri) => {
+        await withTempStorage("wasm-found-", async (tempDir, globalStorageUri) => {
           let artifactDir = NodeJs.Path.join([
             tempDir,
             "releases",
@@ -747,167 +725,25 @@ describe("Download", () => {
           await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
           NodeJs.Fs.writeFileSync(wasmFile, NodeJs.Buffer.fromString("mock wasm"))
 
-          let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
+          let result = await Connection__Download__ManagedStorage.findAnyWasmDownloaded(globalStorageUri)
 
-          Assert.deepStrictEqual(result, Some(VSCode.Uri.file(wasmFile)->VSCode.Uri.fsPath))
+          Assert.deepStrictEqual(result, Some(VSCode.Uri.file(wasmFile)->VSCode.Uri.toString))
         })
       },
     )
 
     Async.it(
-      "should ignore malformed DevALS artifacts in release-managed storage",
+      "should return None when no WASM artifact exists",
       async () => {
-        await withTempStorage("devals-release-malformed-", async (tempDir, globalStorageUri) => {
-          let malformedDir = NodeJs.Path.join([
-            tempDir,
-            "releases",
-            "dev",
-            "als-dev-Agda-2.8.0-freebsd",
-          ])
-          let malformedExecutable = NodeJs.Path.join([malformedDir, "als"])
-
-          await NodeJs.Fs.mkdir(malformedDir, {recursive: true, mode: 0o777})
-          NodeJs.Fs.writeFileSync(malformedExecutable, NodeJs.Buffer.fromString("mock executable"))
-
-          let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
-
+        await withTempStorage("wasm-missing-", async (_tempDir, globalStorageUri) => {
+          let result = await Connection__Download__ManagedStorage.findAnyWasmDownloaded(globalStorageUri)
           Assert.deepStrictEqual(result, None)
         })
-      },
-    )
-
-    Async.it(
-      "should discover release-managed artifacts globally without limiting to the selected channel",
-      async () => {
-        await withTempStorage("devals-release-global-", async (tempDir, globalStorageUri) => {
-          let artifactDir = NodeJs.Path.join([
-            tempDir,
-            "releases",
-            "v6",
-            "als-v6-Agda-2.8.0-macos-arm64",
-          ])
-          let alsExecutable = NodeJs.Path.join([artifactDir, "als"])
-
-          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
-          NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
-
-          let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
-
-          Assert.deepStrictEqual(result, Some(VSCode.Uri.file(alsExecutable)->VSCode.Uri.fsPath))
-        })
-      },
-    )
-
-    Async.it(
-      "should ignore artifacts whose release directory does not match the artifact release tag",
-      async () => {
-        await withTempStorage("devals-release-mismatch-", async (tempDir, globalStorageUri) => {
-          let mismatchedDir = NodeJs.Path.join([
-            tempDir,
-            "releases",
-            "dev",
-            "als-v6-Agda-2.8.0-macos-arm64",
-          ])
-          let mismatchedExecutable = NodeJs.Path.join([mismatchedDir, "als"])
-
-          await NodeJs.Fs.mkdir(mismatchedDir, {recursive: true, mode: 0o777})
-          NodeJs.Fs.writeFileSync(mismatchedExecutable, NodeJs.Buffer.fromString("mock executable"))
-
-          let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
-
-          Assert.deepStrictEqual(result, None)
-        })
-      },
-    )
-
-    Async.it(
-      "should return None when dev ALS not downloaded",
-      async () => {
-        let nonExistentDir = NodeJs.Path.join([
-          NodeJs.Os.tmpdir(),
-          "devals-test-nonexistent-" ++ string_of_int(int_of_float(Js.Date.now())),
-        ])
-
-        let globalStorageUri = VSCode.Uri.file(nonExistentDir)
-        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
-
-        Assert.deepStrictEqual(result, None)
-      },
-    )
-
-    Async.it(
-      "should ignore legacy dev-als executable for DevALS",
-      async () => {
-        let tempDir = NodeJs.Path.join([
-          NodeJs.Os.tmpdir(),
-          "devals-test-legacy-" ++ string_of_int(int_of_float(Js.Date.now())),
-        ])
-        let devAlsDir = NodeJs.Path.join([tempDir, "dev-als"])
-        let alsExecutable = NodeJs.Path.join([devAlsDir, "als"])
-
-        // Create directory structure and als executable
-        await NodeJs.Fs.mkdir(devAlsDir, {recursive: true, mode: 0o777})
-        NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
-
-        let globalStorageUri = VSCode.Uri.file(tempDir)
-        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
-
-        Assert.deepStrictEqual(result, None)
-
-        // Cleanup
-        NodeJs.Fs.unlinkSync(alsExecutable)
-        NodeJs.Fs.rmdirSync(devAlsDir)
-        NodeJs.Fs.rmdirSync(tempDir)
-      },
-    )
-
-    Async.it(
-      "should return None when dev-als directory exists but als executable missing",
-      async () => {
-        let tempDir = NodeJs.Path.join([
-          NodeJs.Os.tmpdir(),
-          "devals-test-noals-" ++ string_of_int(int_of_float(Js.Date.now())),
-        ])
-        let devAlsDir = NodeJs.Path.join([tempDir, "dev-als"])
-
-        // Create dev-als directory but not the als executable
-        await NodeJs.Fs.mkdir(devAlsDir, {recursive: true, mode: 0o777})
-
-        let globalStorageUri = VSCode.Uri.file(tempDir)
-        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
-
-        Assert.deepStrictEqual(result, None)
-
-        // Cleanup
-        NodeJs.Fs.rmdirSync(devAlsDir)
-        NodeJs.Fs.rmdirSync(tempDir)
-      },
-    )
-
-    Async.it(
-      "should return None when global storage exists but no dev-als directory",
-      async () => {
-        let tempDir = NodeJs.Path.join([
-          NodeJs.Os.tmpdir(),
-          "devals-test-nostorage-" ++ string_of_int(int_of_float(Js.Date.now())),
-        ])
-
-        // Create global storage directory but no dev-als subdirectory
-        await NodeJs.Fs.mkdir(tempDir, {recursive: true, mode: 0o777})
-
-        let globalStorageUri = VSCode.Uri.file(tempDir)
-        let result = await Connection__Download.alreadyDownloaded(globalStorageUri, DevALS)
-
-        Assert.deepStrictEqual(result, None)
-
-        // Cleanup
-        NodeJs.Fs.rmdirSync(tempDir)
       },
     )
   })
 
-
-  describe("findReleaseManagedDownloadedForDesktopPlatform", () => {
+  describe("ManagedStorage.findAnyDownloadedForPlatform", () => {
     Async.it(
       "should prefer native artifact over WASM for MacOS_Arm platform",
       async () => {
@@ -932,7 +768,7 @@ describe("Download", () => {
           NodeJs.Fs.writeFileSync(nativeExecutable, NodeJs.Buffer.fromString("mock executable"))
           NodeJs.Fs.writeFileSync(wasmFile, NodeJs.Buffer.fromString("mock wasm"))
 
-          let result = await Connection__Download.findReleaseManagedDownloadedForDesktopPlatform(
+          let result = await Connection__Download__ManagedStorage.findAnyDownloadedForPlatform(
             globalStorageUri,
             Connection__Download__Platform.MacOS_Arm,
           )
@@ -960,7 +796,7 @@ describe("Download", () => {
           await NodeJs.Fs.mkdir(wasmDir, {recursive: true, mode: 0o777})
           NodeJs.Fs.writeFileSync(wasmFile, NodeJs.Buffer.fromString("mock wasm"))
 
-          let result = await Connection__Download.findReleaseManagedDownloadedForDesktopPlatform(
+          let result = await Connection__Download__ManagedStorage.findAnyDownloadedForPlatform(
             globalStorageUri,
             Connection__Download__Platform.MacOS_Arm,
           )
@@ -972,6 +808,245 @@ describe("Download", () => {
             "als.wasm",
           ])
           Assert.deepStrictEqual(result, Some(VSCode.Uri.toString(wasmUri)))
+        })
+      },
+    )
+
+    Async.it(
+      "should return Some(path) when only native artifact exists for the platform",
+      async () => {
+        await withTempStorage("platform-native-only-", async (tempDir, globalStorageUri) => {
+          let artifactDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "dev",
+            "als-dev-Agda-2.8.0-macos-arm64",
+          ])
+          let alsExecutable = NodeJs.Path.join([artifactDir, "als"])
+
+          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
+
+          let result = await Connection__Download__ManagedStorage.findAnyDownloadedForPlatform(
+            globalStorageUri,
+            Connection__Download__Platform.MacOS_Arm,
+          )
+
+          Assert.deepStrictEqual(result, Some(VSCode.Uri.file(alsExecutable)->VSCode.Uri.fsPath))
+        })
+      },
+    )
+
+    Async.it(
+      "should discover artifacts across all releases regardless of channel",
+      async () => {
+        await withTempStorage("platform-cross-channel-", async (tempDir, globalStorageUri) => {
+          let artifactDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "v6",
+            "als-v6-Agda-2.8.0-macos-arm64",
+          ])
+          let alsExecutable = NodeJs.Path.join([artifactDir, "als"])
+
+          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
+
+          let result = await Connection__Download__ManagedStorage.findAnyDownloadedForPlatform(
+            globalStorageUri,
+            Connection__Download__Platform.MacOS_Arm,
+          )
+
+          Assert.deepStrictEqual(result, Some(VSCode.Uri.file(alsExecutable)->VSCode.Uri.fsPath))
+        })
+      },
+    )
+
+    Async.it(
+      "should ignore artifacts whose release directory does not match the artifact release tag",
+      async () => {
+        await withTempStorage("platform-mismatch-", async (tempDir, globalStorageUri) => {
+          let mismatchedDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "dev",
+            "als-v6-Agda-2.8.0-macos-arm64",
+          ])
+          let mismatchedExecutable = NodeJs.Path.join([mismatchedDir, "als"])
+
+          await NodeJs.Fs.mkdir(mismatchedDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(mismatchedExecutable, NodeJs.Buffer.fromString("mock executable"))
+
+          let result = await Connection__Download__ManagedStorage.findAnyDownloadedForPlatform(
+            globalStorageUri,
+            Connection__Download__Platform.MacOS_Arm,
+          )
+
+          Assert.deepStrictEqual(result, None)
+        })
+      },
+    )
+
+    Async.it(
+      "should return None when releases directory does not exist",
+      async () => {
+        await withTempStorage("platform-no-releases-", async (_tempDir, globalStorageUri) => {
+          let result = await Connection__Download__ManagedStorage.findAnyDownloadedForPlatform(
+            globalStorageUri,
+            Connection__Download__Platform.MacOS_Arm,
+          )
+          Assert.deepStrictEqual(result, None)
+        })
+      },
+    )
+  })
+
+  describe("ManagedStorage.findWasmForManagedPath", () => {
+    Async.it(
+      "should return same-release WASM path for canonical native path",
+      async () => {
+        await withTempStorage("managed-wasm-for-native-", async (tempDir, globalStorageUri) => {
+          let nativeDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "v6",
+            "als-v6-Agda-2.8.0-macos-arm64",
+          ])
+          let wasmDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "v6",
+            "als-v6-Agda-2.8.0-wasm",
+          ])
+          let nativeExecutable = NodeJs.Path.join([nativeDir, "als"])
+          let wasmExecutable = NodeJs.Path.join([wasmDir, "als.wasm"])
+
+          await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
+          await NodeJs.Fs.mkdir(wasmDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(nativeExecutable, NodeJs.Buffer.fromString("mock native"))
+          NodeJs.Fs.writeFileSync(wasmExecutable, NodeJs.Buffer.fromString("mock wasm"))
+
+          let result = await Connection__Download__ManagedStorage.findWasmForManagedPath(
+            globalStorageUri,
+            nativeExecutable,
+          )
+
+          Assert.deepStrictEqual(
+            result,
+            Some(VSCode.Uri.file(wasmExecutable)->VSCode.Uri.toString),
+          )
+        })
+      },
+    )
+
+    Async.it(
+      "should return None for WASM input path",
+      async () => {
+        await withTempStorage("managed-wasm-input-", async (tempDir, globalStorageUri) => {
+          let wasmDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "v6",
+            "als-v6-Agda-2.8.0-wasm",
+          ])
+          let wasmExecutable = NodeJs.Path.join([wasmDir, "als.wasm"])
+
+          await NodeJs.Fs.mkdir(wasmDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(wasmExecutable, NodeJs.Buffer.fromString("mock wasm"))
+
+          let result = await Connection__Download__ManagedStorage.findWasmForManagedPath(
+            globalStorageUri,
+            wasmExecutable,
+          )
+
+          Assert.deepStrictEqual(result, None)
+        })
+      },
+    )
+
+    Async.it(
+      "should return None when release directory and artifact tag mismatch",
+      async () => {
+        await withTempStorage("managed-wasm-mismatch-", async (tempDir, globalStorageUri) => {
+          let nativeDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "v7",
+            "als-v6-Agda-2.8.0-macos-arm64",
+          ])
+          let nativeExecutable = NodeJs.Path.join([nativeDir, "als"])
+
+          await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(nativeExecutable, NodeJs.Buffer.fromString("mock native"))
+
+          let result = await Connection__Download__ManagedStorage.findWasmForManagedPath(
+            globalStorageUri,
+            nativeExecutable,
+          )
+
+          Assert.deepStrictEqual(result, None)
+        })
+      },
+    )
+
+    Async.it(
+      "should return None when same-release WASM executable is missing",
+      async () => {
+        await withTempStorage("managed-wasm-missing-", async (tempDir, globalStorageUri) => {
+          let nativeDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "v6",
+            "als-v6-Agda-2.8.0-macos-arm64",
+          ])
+          let nativeExecutable = NodeJs.Path.join([nativeDir, "als"])
+
+          await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(nativeExecutable, NodeJs.Buffer.fromString("mock native"))
+
+          let result = await Connection__Download__ManagedStorage.findWasmForManagedPath(
+            globalStorageUri,
+            nativeExecutable,
+          )
+
+          Assert.deepStrictEqual(result, None)
+        })
+      },
+    )
+
+    Async.it(
+      "should return None for malformed, non-managed, or extra-segment paths",
+      async () => {
+        await withTempStorage("managed-wasm-malformed-", async (tempDir, globalStorageUri) => {
+          let nativeDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "dev",
+            "als-dev-Agda-2.8.0-macos-arm64",
+          ])
+          let nativeExecutable = NodeJs.Path.join([nativeDir, "als"])
+          let extraSegment = NodeJs.Path.join([nativeExecutable, "extra"])
+          let nonManaged = NodeJs.Path.join([tempDir, "als"])
+
+          await NodeJs.Fs.mkdir(nativeDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(nativeExecutable, NodeJs.Buffer.fromString("mock native"))
+
+          let malformedResult = await Connection__Download__ManagedStorage.findWasmForManagedPath(
+            globalStorageUri,
+            NodeJs.Path.join([tempDir, "releases", "dev", "not-an-artifact", "als"]),
+          )
+          let extraResult = await Connection__Download__ManagedStorage.findWasmForManagedPath(
+            globalStorageUri,
+            extraSegment,
+          )
+          let nonManagedResult = await Connection__Download__ManagedStorage.findWasmForManagedPath(
+            globalStorageUri,
+            nonManaged,
+          )
+
+          Assert.deepStrictEqual(malformedResult, None)
+          Assert.deepStrictEqual(extraResult, None)
+          Assert.deepStrictEqual(nonManagedResult, None)
         })
       },
     )
@@ -1799,7 +1874,7 @@ describe("Download", () => {
             module MockPlatform = {
               let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
               let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-              let alreadyDownloaded = (_globalStorageUri, _) => Promise.resolve(None)
+              let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
               let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_ =>
                 Ok(Connection__Download.Source.FromURL(
                   Connection__Download.Channel.DevALS,
@@ -1817,10 +1892,12 @@ describe("Download", () => {
             module(MockPlatform)
           }
 
-          await State__SwitchVersion.Handler.handleDownload(
-            state, platform,
-            State__SwitchVersion.Download.Native,
-            false, "ALS vTest",
+          await Connection__UI__Handlers.handleDownload(
+            state,
+            platform,
+            Connection__Download.SelectionVariant.Native,
+            false,
+            "ALS vTest",
             ~channel=Connection__Download.Channel.DevALS,
           )
 
@@ -2088,56 +2165,205 @@ describe("Download", () => {
       Assert.deepStrictEqual(Connection__Download.Channel.fromString("dev"), Some(DevALS))
     })
 
-    it("display label for LatestALS is \"Latest\"", () => {
-      Assert.deepStrictEqual(Connection__Download.Channel.toLabel(LatestALS), "Latest")
-    })
-
-    it("display label for DevALS is \"Development\"", () => {
-      Assert.deepStrictEqual(Connection__Download.Channel.toLabel(DevALS), "Development")
-    })
-
-    it("detail for LatestALS is \"Tracks the latest stable release\"", () => {
-      Assert.deepStrictEqual(
-        Connection__Download.Channel.detail(LatestALS),
-        "Tracks the latest stable release",
-      )
-    })
-
-    it("detail for DevALS is \"Tracks the latest commit of the master branch\"", () => {
-      Assert.deepStrictEqual(
-        Connection__Download.Channel.detail(DevALS),
-        "Tracks the latest commit of the master branch",
-      )
-    })
-
-    it("pickerItems labels are exactly [Latest, Development]", () => {
-      Assert.deepStrictEqual(
-        Connection__Download.Channel.pickerItems(~selectedChannel=DevALS)->Array.map(i => i.label),
-        ["Latest", "Development"],
-      )
-    })
-
-    it("pickerItems values are exactly [latest, dev]", () => {
-      Assert.deepStrictEqual(
-        Connection__Download.Channel.pickerItems(~selectedChannel=DevALS)->Array.map(i => i.value),
-        ["latest", "dev"],
-      )
-    })
-
-    it("pickerItems description marks only the selected channel", () => {
-      let devSelected = Connection__Download.Channel.pickerItems(~selectedChannel=DevALS)
-      Assert.deepStrictEqual(
-        devSelected->Array.map(i => i.description),
-        ["", "selected"],
-      )
-      let latestSelected = Connection__Download.Channel.pickerItems(~selectedChannel=LatestALS)
-      Assert.deepStrictEqual(
-        latestSelected->Array.map(i => i.description),
-        ["selected", ""],
-      )
+    it("all is [DevALS, LatestALS]", () => {
+      Assert.deepStrictEqual(Connection__Download.Channel.all, [DevALS, LatestALS])
     })
   })
 
+
+  describe("ManagedStorage.findCandidateForSelection", () => {
+    Async.it(
+      "DevALS native: returns Some(path) when artifact exists and version matches",
+      async () => {
+        await withTempStorage("managed-find-devals-native-", async (tempDir, globalStorageUri) => {
+          let artifactDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "dev",
+            "als-dev-Agda-2.8.0-macos-arm64",
+          ])
+          let alsExecutable = NodeJs.Path.join([artifactDir, "als"])
+
+          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
+
+          let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
+            globalStorageUri,
+            ~channel=Connection__Download.Channel.DevALS,
+            ~variant=Connection__Download.SelectionVariant.Native,
+            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~versionString="Agda v2.8.0 Language Server (dev build)",
+          )
+
+          Assert.deepStrictEqual(result, Some(VSCode.Uri.file(alsExecutable)->VSCode.Uri.fsPath))
+        })
+      },
+    )
+
+    Async.it(
+      "DevALS WASM on desktop: returns Some(path) when WASM artifact exists and version matches",
+      async () => {
+        await withTempStorage("managed-find-devals-wasm-", async (tempDir, globalStorageUri) => {
+          let artifactDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "dev",
+            "als-dev-Agda-2.8.0-wasm",
+          ])
+          let wasmFile = NodeJs.Path.join([artifactDir, "als.wasm"])
+
+          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(wasmFile, NodeJs.Buffer.fromString("mock wasm"))
+
+          let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
+            globalStorageUri,
+            ~channel=Connection__Download.Channel.DevALS,
+            ~variant=Connection__Download.SelectionVariant.WASM,
+            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~versionString="Agda v2.8.0 Language Server (dev build)",
+          )
+
+          Assert.deepStrictEqual(
+            result,
+            Some(Connection__Download.uriToPath(VSCode.Uri.file(wasmFile))),
+          )
+        })
+      },
+    )
+
+    Async.it(
+      "LatestALS native: returns Some(path) when v6 artifact exists and version matches",
+      async () => {
+        await withTempStorage("managed-find-latest-native-", async (tempDir, globalStorageUri) => {
+          let artifactDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "v6",
+            "als-v6-Agda-2.8.0-macos-arm64",
+          ])
+          let alsExecutable = NodeJs.Path.join([artifactDir, "als"])
+
+          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
+
+          let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
+            globalStorageUri,
+            ~channel=Connection__Download.Channel.LatestALS,
+            ~variant=Connection__Download.SelectionVariant.Native,
+            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~versionString="Agda v2.8.0 Language Server v6",
+          )
+
+          Assert.deepStrictEqual(result, Some(VSCode.Uri.file(alsExecutable)->VSCode.Uri.fsPath))
+        })
+      },
+    )
+
+    Async.it(
+      "Malformed artifact directory: returns None",
+      async () => {
+        await withTempStorage("managed-find-malformed-", async (tempDir, globalStorageUri) => {
+          let malformedDir = NodeJs.Path.join([tempDir, "releases", "dev", "not-a-valid-artifact"])
+          let executable = NodeJs.Path.join([malformedDir, "als"])
+
+          await NodeJs.Fs.mkdir(malformedDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(executable, NodeJs.Buffer.fromString("mock executable"))
+
+          let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
+            globalStorageUri,
+            ~channel=Connection__Download.Channel.DevALS,
+            ~variant=Connection__Download.SelectionVariant.Native,
+            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~versionString="Agda v2.8.0 Language Server (dev build)",
+          )
+
+          Assert.deepStrictEqual(result, None)
+        })
+      },
+    )
+
+    Async.it(
+      "Missing executable: returns None when directory exists but executable does not",
+      async () => {
+        await withTempStorage("managed-find-missing-exe-", async (tempDir, globalStorageUri) => {
+          let artifactDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "dev",
+            "als-dev-Agda-2.8.0-macos-arm64",
+          ])
+
+          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+
+          let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
+            globalStorageUri,
+            ~channel=Connection__Download.Channel.DevALS,
+            ~variant=Connection__Download.SelectionVariant.Native,
+            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~versionString="Agda v2.8.0 Language Server (dev build)",
+          )
+
+          Assert.deepStrictEqual(result, None)
+        })
+      },
+    )
+
+    Async.it(
+      "Non-matching version: returns None when versionString does not match artifact",
+      async () => {
+        await withTempStorage("managed-find-ver-mismatch-", async (tempDir, globalStorageUri) => {
+          let artifactDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "dev",
+            "als-dev-Agda-2.8.0-macos-arm64",
+          ])
+          let alsExecutable = NodeJs.Path.join([artifactDir, "als"])
+
+          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
+
+          let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
+            globalStorageUri,
+            ~channel=Connection__Download.Channel.DevALS,
+            ~variant=Connection__Download.SelectionVariant.Native,
+            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~versionString="Agda v9.9.9 Language Server (dev build)",
+          )
+
+          Assert.deepStrictEqual(result, None)
+        })
+      },
+    )
+
+    Async.it(
+      "Channel mismatch: returns None when artifact channel does not match requested channel",
+      async () => {
+        await withTempStorage("managed-find-chan-mismatch-", async (tempDir, globalStorageUri) => {
+          let artifactDir = NodeJs.Path.join([
+            tempDir,
+            "releases",
+            "dev",
+            "als-dev-Agda-2.8.0-macos-arm64",
+          ])
+          let alsExecutable = NodeJs.Path.join([artifactDir, "als"])
+
+          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
+
+          let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
+            globalStorageUri,
+            ~channel=Connection__Download.Channel.LatestALS,
+            ~variant=Connection__Download.SelectionVariant.Native,
+            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~versionString="Agda v2.8.0 Language Server (dev build)",
+          )
+
+          Assert.deepStrictEqual(result, None)
+        })
+      },
+    )
+  })
 
   describe("managedDeleteRoots", () => {
     it("should return only <globalStorage>/releases", () => {

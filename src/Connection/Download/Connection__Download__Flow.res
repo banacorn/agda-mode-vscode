@@ -1,8 +1,4 @@
-type variant =
-  | Native
-  | WASM
-
-let assetsForVariant = (release, platform, variant) =>
+let assetsForVariant = (release, platform, variant: Connection__Download.SelectionVariant.t) =>
   switch variant {
   | Native => Connection__Download__Assets.nativeForPlatform(release, platform)
   | WASM => Connection__Download__Assets.wasm(release)
@@ -13,7 +9,7 @@ let sourceForSelection = async (
   globalStorageUri: VSCode.Uri.t,
   platformDeps: Platform.t,
   ~channel: Connection__Download.Channel.t,
-  ~variant: variant,
+  ~variant: Connection__Download.SelectionVariant.t,
   ~versionString: string,
 ): result<Connection__Download.Source.t, Connection__Download.Error.t> => {
   module PlatformOps = unpack(platformDeps)

@@ -245,7 +245,7 @@ describe("Connection Downloads", () => {
         module MockWebPlatform = {
           let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+          let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = (channel, _useCache) => {
             resolvedChannel := Some(channel)
             async (_memento, _globalStorageUri, _platform) =>
@@ -287,7 +287,7 @@ describe("Connection Downloads", () => {
         module MockWebPlatform = {
           let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+          let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = (channel, _useCache) => {
             resolvedChannel := Some(channel)
             async (_memento, _globalStorageUri, _platform) =>
@@ -326,7 +326,7 @@ describe("Connection Downloads", () => {
         module MockDesktopPlatform = {
           let determinePlatform = async () => Ok(Connection__Download__Platform.Ubuntu)
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+          let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = (channel, _useCache) => {
             resolvedChannel := Some(channel)
             async (_memento, _globalStorageUri, _platform) =>
@@ -408,7 +408,7 @@ describe("Connection Downloads", () => {
         module MockDesktopResolveFailurePlatform = {
           let determinePlatform = async () => Ok(Connection__Download__Platform.Ubuntu)
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-          let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+          let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = (_channel, _useCache) =>
             async (_memento, _globalStorageUri, _platform) => {
               checkedResolve := true
@@ -481,7 +481,7 @@ describe("Connection Downloads", () => {
           module MockDesktopOrderPlatform = {
             let determinePlatform = async () => Ok(Connection__Download__Platform.Ubuntu)
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-            let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+            let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
             let resolveDownloadChannel = (_channel, _useCache) =>
               async (_memento, _globalStorageUri, _platform) =>
                 Ok(
@@ -539,7 +539,7 @@ describe("Connection Downloads", () => {
           module MockWebOrderPlatform = {
             let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-            let alreadyDownloaded = (_globalStorageUri, _channel) => Promise.resolve(None)
+            let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
             let resolveDownloadChannel = (channel, _useCache) =>
               async (_memento, _globalStorageUri, _platform) => {
                 resolvedChannels :=

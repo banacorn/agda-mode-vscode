@@ -433,8 +433,7 @@ describe("Config.Connection paths", () => {
 
       // Common execution pattern shared by all UI test builders
       let executeUITest = async (mockState, platform, mockSelectedItem) => {
-        let view = State__SwitchVersion.View.make(logChannel)
-        let manager = State__SwitchVersion.SwitchVersionManager.make(mockState)
+        let view = Connection__UI__Picker.make(logChannel)
 
         // Promise that resolves when onSelection handler has completed all operations
         let onOperationComplete = Log.on(
@@ -447,20 +446,31 @@ describe("Config.Connection paths", () => {
         )
 
         // Execute the selection
-        State__SwitchVersion.Handler.onSelection(
+        Connection__UI__Handlers.onSelection(
           mockState,
           platform,
-          manager,
           ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [mockSelectedItem],
+          ~hasSelectionChanged=selectedPath =>
+            switch Memento.PreferredCandidate.get(mockState.memento) {
+            | Some(path) =>
+              !Connection__Candidate.equal(
+                Connection__Candidate.make(selectedPath),
+                Connection__Candidate.make(path),
+              )
+            | None => true
+            },
+          ~switchCandidate=selectedPath => State__SwitchVersion.switchAgdaVersion(mockState, selectedPath),
+          ~getDownloadItems=channel =>
+            State__SwitchVersion.Download.getAllAvailableDownloads(mockState, platform, ~channel),
         )
 
         await onOperationComplete
 
         // Clean up
-        view->State__SwitchVersion.View.destroy
+        view->Connection__UI__Picker.destroy
       }
 
       // Simplified path selection simulation
@@ -470,8 +480,8 @@ describe("Config.Connection paths", () => {
       ) => {
         let (listener, mockState) = await setupUITest(initialConfig)
 
-        let mockSelectedItem = State__SwitchVersion.Item.fromItemData(
-          State__SwitchVersion.ItemData.Candidate(
+        let mockSelectedItem = Connection__UI__Item.fromItemData(
+          Connection__UI__ItemData.Candidate(
             selectedPath,
             selectedPath,
             {
@@ -517,8 +527,8 @@ describe("Config.Connection paths", () => {
           downloadedALS.contents
         }
 
-        let mockSelectedItem = State__SwitchVersion.Item.fromItemData(
-          State__SwitchVersion.ItemData.DownloadAction(
+        let mockSelectedItem = Connection__UI__Item.fromItemData(
+          Connection__UI__ItemData.DownloadAction(
             isAlreadyDownloaded,
             "Agda v2.8.0 Language Server (dev build)",
             "native",
@@ -543,8 +553,7 @@ describe("Config.Connection paths", () => {
       let simulateEmptySelection = async (initialConfig: array<string>) => {
         let (listener, mockState) = await setupUITest(initialConfig)
 
-        let view = State__SwitchVersion.View.make(logChannel)
-        let manager = State__SwitchVersion.SwitchVersionManager.make(mockState)
+        let view = Connection__UI__Picker.make(logChannel)
 
         let onOperationComplete = Log.on(
           logChannel,
@@ -556,18 +565,33 @@ describe("Config.Connection paths", () => {
         )
 
         // Simulate empty selection (no items selected)
-        State__SwitchVersion.Handler.onSelection(
+        Connection__UI__Handlers.onSelection(
           mockState,
           platformWithDiscovery,
-          manager,
           ref(Connection__Download.Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [], // Empty selection
+          ~hasSelectionChanged=selectedPath =>
+            switch Memento.PreferredCandidate.get(mockState.memento) {
+            | Some(path) =>
+              !Connection__Candidate.equal(
+                Connection__Candidate.make(selectedPath),
+                Connection__Candidate.make(path),
+              )
+            | None => true
+            },
+          ~switchCandidate=selectedPath => State__SwitchVersion.switchAgdaVersion(mockState, selectedPath),
+          ~getDownloadItems=channel =>
+            State__SwitchVersion.Download.getAllAvailableDownloads(
+              mockState,
+              platformWithDiscovery,
+              ~channel,
+            ),
         )
 
         await onOperationComplete
-        view->State__SwitchVersion.View.destroy
+        view->Connection__UI__Picker.destroy
 
         let logs = listener(~filter=Log.isConfig)
         let finalConfig = Config.Connection.getAgdaPaths()

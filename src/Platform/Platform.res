@@ -12,10 +12,7 @@ module type PlatformOps = {
   let findCommand: (string, ~timeout: int=?) => promise<result<string, Connection__Command.Error.t>>
 
   // Download operations
-  let alreadyDownloaded: (
-    VSCode.Uri.t,
-    Connection__Download.Channel.t,
-  ) => promise<option<string>>
+  let alreadyDownloaded: VSCode.Uri.t => promise<option<string>>
   let resolveDownloadChannel: (
     Connection__Download.Channel.t,
     bool,
