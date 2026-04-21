@@ -20,6 +20,16 @@ let makeMockConnection = (_path, _version): Connection.t => {
 describe("Connection UI", () => {
   This.timeout(10000)
 
+  let availableDownload = (
+    ~downloaded=false,
+    ~versionString,
+    ~variant: Connection__Download.SelectionVariant.t,
+  ): Connection__Download__Availability.availableDownload => {
+    downloaded,
+    versionString,
+    variant,
+  }
+
   describe("Picker and handlers", () => {
     let makeMockPlatform = (): Platform.t => Mock.Platform.makeWithAgda()
 
@@ -1068,7 +1078,7 @@ describe("Connection UI", () => {
           Connection__UI__ItemData.entriesToItemData(
             [],
             None,
-            [(false, "ALS v1.0.0", "native")],
+            [availableDownload(~versionString="ALS v1.0.0", ~variant=Native)],
           )
 
         let hasSelectOtherChannels =
@@ -1101,7 +1111,9 @@ describe("Connection UI", () => {
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
 
-        let throwingUpdateUI = async (_items: array<(bool, string, string)>) =>
+        let throwingUpdateUI = async (
+          _items: array<Connection__Download__Availability.availableDownload>,
+        ) =>
           raise(Failure("updateUI failure"))
 
         await Connection__UI__Handlers.backgroundUpdateFailureFallback(
@@ -1132,7 +1144,8 @@ describe("Connection UI", () => {
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
 
-        let capturedItems: ref<array<(bool, string, string)>> = ref([])
+        let capturedItems: ref<array<Connection__Download__Availability.availableDownload>> =
+          ref([])
         let mockUpdateUI = async items => capturedItems := items
 
         await Connection__UI__Handlers.backgroundUpdateFailureFallback(
@@ -1140,10 +1153,19 @@ describe("Connection UI", () => {
           mockUpdateUI,
         )
 
-        Assert.deepStrictEqual(capturedItems.contents, [
-          (false, Connection__UI__ItemData.Constants.downloadUnavailable, "native"),
-          (false, Connection__UI__ItemData.Constants.downloadUnavailable, "wasm"),
-        ])
+        Assert.deepStrictEqual(
+          capturedItems.contents,
+          [
+            availableDownload(
+              ~versionString=Connection__UI__ItemData.Constants.downloadUnavailable,
+              ~variant=Native,
+            ),
+            availableDownload(
+              ~versionString=Connection__UI__ItemData.Constants.downloadUnavailable,
+              ~variant=WASM,
+            ),
+          ],
+        )
       },
     )
 
@@ -1163,9 +1185,10 @@ describe("Connection UI", () => {
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
 
-        let failingPromise: promise<array<(bool, string, string)>> =
+        let failingPromise: promise<array<Connection__Download__Availability.availableDownload>> =
           Promise.reject(Failure("simulated getAllAvailableDownloads failure"))
-        let capturedItems: ref<array<(bool, string, string)>> = ref([])
+        let capturedItems: ref<array<Connection__Download__Availability.availableDownload>> =
+          ref([])
         let mockUpdateUI = async items => capturedItems := items
 
         await Connection__UI__Handlers.runBackgroundUpdate(
@@ -1175,10 +1198,19 @@ describe("Connection UI", () => {
           mockUpdateUI,
         )
 
-        Assert.deepStrictEqual(capturedItems.contents, [
-          (false, Connection__UI__ItemData.Constants.downloadUnavailable, "native"),
-          (false, Connection__UI__ItemData.Constants.downloadUnavailable, "wasm"),
-        ])
+        Assert.deepStrictEqual(
+          capturedItems.contents,
+          [
+            availableDownload(
+              ~versionString=Connection__UI__ItemData.Constants.downloadUnavailable,
+              ~variant=Native,
+            ),
+            availableDownload(
+              ~versionString=Connection__UI__ItemData.Constants.downloadUnavailable,
+              ~variant=WASM,
+            ),
+          ],
+        )
       },
     )
 
@@ -1198,9 +1230,10 @@ describe("Connection UI", () => {
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
 
-        let failingPromise: promise<array<(bool, string, string)>> =
+        let failingPromise: promise<array<Connection__Download__Availability.availableDownload>> =
           Promise.reject(Failure("simulated getAllAvailableDownloads failure"))
-        let capturedItems: ref<array<(bool, string, string)>> = ref([])
+        let capturedItems: ref<array<Connection__Download__Availability.availableDownload>> =
+          ref([])
         let mockUpdateUI = async items => capturedItems := items
 
         await Connection__UI__Handlers.runBackgroundUpdate(
@@ -1210,9 +1243,15 @@ describe("Connection UI", () => {
           mockUpdateUI,
         )
 
-        Assert.deepStrictEqual(capturedItems.contents, [
-          (false, Connection__UI__ItemData.Constants.downloadUnavailable, "wasm"),
-        ])
+        Assert.deepStrictEqual(
+          capturedItems.contents,
+          [
+            availableDownload(
+              ~versionString=Connection__UI__ItemData.Constants.downloadUnavailable,
+              ~variant=WASM,
+            ),
+          ],
+        )
       },
     )
   })

@@ -2,13 +2,22 @@ open Connection__Download
 
 module Picker = Connection__UI__Picker
 
-type downloadItems = array<(bool, string, string)>
+type downloadItems = array<Connection__Download__Availability.availableDownload>
 
 let selectionVariantFromTag = (tag: string): SelectionVariant.t =>
   switch tag {
   | "wasm" => SelectionVariant.WASM
   | _ => SelectionVariant.Native
   }
+
+let logDownloadItems = (downloadItems: downloadItems): array<(bool, string, string)> =>
+  downloadItems->Array.map(download => {
+    let variantTag = switch download.variant {
+    | Native => "native"
+    | WASM => "wasm"
+    }
+    (download.downloaded, download.versionString, variantTag)
+  })
 
 let handleDownload = async (
   state: State.t,
@@ -233,11 +242,23 @@ let backgroundUpdateFailureFallback = async (
   updateUI: downloadItems => promise<unit>,
 ) => {
   module PlatformOps = unpack(platformDeps)
-  let fallback = switch await PlatformOps.determinePlatform() {
-  | Ok(Connection__Download__Platform.Web) => [(false, Connection__UI__ItemData.Constants.downloadUnavailable, "wasm")]
+  let fallback: downloadItems = switch await PlatformOps.determinePlatform() {
+  | Ok(Connection__Download__Platform.Web) => [{
+      downloaded: false,
+      versionString: Connection__UI__ItemData.Constants.downloadUnavailable,
+      variant: WASM,
+    }]
   | _ => [
-      (false, Connection__UI__ItemData.Constants.downloadUnavailable, "native"),
-      (false, Connection__UI__ItemData.Constants.downloadUnavailable, "wasm"),
+      {
+        downloaded: false,
+        versionString: Connection__UI__ItemData.Constants.downloadUnavailable,
+        variant: Native,
+      },
+      {
+        downloaded: false,
+        versionString: Connection__UI__ItemData.Constants.downloadUnavailable,
+        variant: WASM,
+      },
     ]
   }
   try {
@@ -306,7 +327,7 @@ let onActivate = async (
     )
     state.channels.log->Chan.emit(Log.SwitchVersionUI(Log.SwitchVersion.Others(downloadHeader)))
     state.channels.log->Chan.emit(
-      Log.SwitchVersionUI(Log.SwitchVersion.UpdatedDownloadItems(downloadItems)),
+      Log.SwitchVersionUI(Log.SwitchVersion.UpdatedDownloadItems(logDownloadItems(downloadItems))),
     )
 
     let items = Connection__UI__Item.fromItemDataArray(itemData, state.extensionUri)

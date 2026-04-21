@@ -440,12 +440,36 @@ describe("Download", () => {
           let downloadItems = await getDevALSAvailability(storageUri, platform)
 
           Assert.deepStrictEqual(downloadItems, [
-            (false, "Agda v2.8.0 Language Server (dev build)", "native"),
-            (false, "Agda v2.7.0.1 Language Server (dev build)", "native"),
-            (false, "Agda v2.6.4.3 Language Server (dev build)", "native"),
-            (false, "Agda v2.8.0 Language Server (dev build)", "wasm"),
-            (false, "Agda v2.7.0.1 Language Server (dev build)", "wasm"),
-            (false, "Agda v2.6.4.3 Language Server (dev build)", "wasm"),
+            {
+              downloaded: false,
+              versionString: "Agda v2.8.0 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.Native,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.7.0.1 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.Native,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.6.4.3 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.Native,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.8.0 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.WASM,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.7.0.1 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.WASM,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.6.4.3 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.WASM,
+            },
           ])
         })
       },
@@ -470,12 +494,36 @@ describe("Download", () => {
           let downloadItems = await getDevALSAvailability(storageUri, platform)
 
           Assert.deepStrictEqual(downloadItems, [
-            (true, "Agda v2.8.0 Language Server (dev build)", "native"),
-            (false, "Agda v2.7.0.1 Language Server (dev build)", "native"),
-            (false, "Agda v2.6.4.3 Language Server (dev build)", "native"),
-            (false, "Agda v2.8.0 Language Server (dev build)", "wasm"),
-            (false, "Agda v2.7.0.1 Language Server (dev build)", "wasm"),
-            (false, "Agda v2.6.4.3 Language Server (dev build)", "wasm"),
+            {
+              downloaded: true,
+              versionString: "Agda v2.8.0 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.Native,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.7.0.1 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.Native,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.6.4.3 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.Native,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.8.0 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.WASM,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.7.0.1 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.WASM,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.6.4.3 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.WASM,
+            },
           ])
         })
       },
@@ -499,11 +547,31 @@ describe("Download", () => {
           )
 
           Assert.deepStrictEqual(downloadItems, [
-            (false, "Agda v2.7.0.1 Language Server (dev build)", "native"),
-            (false, "Agda v2.6.4.3 Language Server (dev build)", "native"),
-            (false, "Agda v2.8.0 Language Server (dev build)", "wasm"),
-            (false, "Agda v2.7.0.1 Language Server (dev build)", "wasm"),
-            (false, "Agda v2.6.4.3 Language Server (dev build)", "wasm"),
+            {
+              downloaded: false,
+              versionString: "Agda v2.7.0.1 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.Native,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.6.4.3 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.Native,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.8.0 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.WASM,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.7.0.1 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.WASM,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.6.4.3 Language Server (dev build)",
+              variant: Connection__Download.SelectionVariant.WASM,
+            },
           ])
         })
       },

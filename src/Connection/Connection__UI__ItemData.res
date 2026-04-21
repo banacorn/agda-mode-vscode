@@ -54,6 +54,12 @@ let shouldCandidateHaveIcon = (kind: ResolvedMetadata.kind): bool => {
   }
 }
 
+let variantToTag = (variant: Connection__Download.SelectionVariant.t): string =>
+  switch variant {
+  | Native => "native"
+  | WASM => "wasm"
+  }
+
 let getCandidateDisplayInfo = (raw: string, entry: ResolvedMetadata.entry): (
   string,
   option<string>,
@@ -94,7 +100,7 @@ let getCandidateDisplayInfo = (raw: string, entry: ResolvedMetadata.entry): (
 let entriesToItemData = (
   entries: array<(string, string, ResolvedMetadata.entry)>,
   pickedPath: option<string>,
-  downloadItems: array<(bool, string, string)>,
+  downloadItems: array<Connection__Download__Availability.availableDownload>,
   ~downloadHeader: string="Download (Development)",
 ): array<t> => {
   let hasCandidates = Array.length(entries) > 0
@@ -121,12 +127,13 @@ let entriesToItemData = (
     []
   }
 
-  let downloadSectionItems =
-    downloadItems->Array.map(((downloaded, versionString, variant)) => DownloadAction(
-      downloaded,
-      versionString,
-      variant,
-    ))
+  let downloadSectionItems = downloadItems->Array.map(download =>
+    DownloadAction(
+      download.downloaded,
+      download.versionString,
+      variantToTag(download.variant),
+    )
+  )
 
   let channelItems = [SelectOtherChannels]
 

@@ -69,7 +69,7 @@ module SwitchVersionManager = {
 
   let getItemData = async (
     self: t,
-    downloadItems: array<(bool, string, string)>,
+    downloadItems: array<Connection__Download__Availability.availableDownload>,
     ~downloadHeader: string="Download (Development)",
     ~platformDeps: option<Platform.t>=None,
   ): array<Connection__UI__ItemData.t> => {
@@ -270,54 +270,27 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
 
 // Download module - handles download-related business logic
 module Download = {
-  type variant =
-    | Native
-    | WASM
-
-  let variantToTag = variant =>
-    switch variant {
-    | Native => "native"
-    | WASM => "wasm"
-    }
-
-  let variantFromTag = tag =>
-    switch tag {
-    | "native" => Some(Native)
-    | "wasm" => Some(WASM)
-    | _ => None
-    }
-
-  let variantDisplayName = variant =>
-    switch variant {
-    | Native => "Agda Language Server (native)"
-    | WASM => "Agda Language Server (WASM)"
-    }
-
-  let variantFileName = variant =>
-    switch variant {
-    | Native => "als"
-    | WASM => "als.wasm"
-    }
-
-  let unavailableItem = (variant: variant): (bool, string, string) => (
-    false,
-    Connection__UI__ItemData.Constants.downloadUnavailable,
-    variantToTag(variant),
-  )
-
-  let getPlaceholderDownloadItems = async (platformDeps: Platform.t): array<(
-    bool,
-    string,
-    string,
-  )> => {
+  let getPlaceholderDownloadItems = async (
+    platformDeps: Platform.t,
+  ): array<Connection__Download__Availability.availableDownload> => {
     module PlatformOps = unpack(platformDeps)
     switch await PlatformOps.determinePlatform() {
-    | Ok(Connection__Download__Platform.Web) => [
-        (false, Connection__UI__ItemData.Constants.checkingAvailability, variantToTag(WASM)),
-      ]
+    | Ok(Connection__Download__Platform.Web) => [{
+        downloaded: false,
+        versionString: Connection__UI__ItemData.Constants.checkingAvailability,
+        variant: Connection__Download.SelectionVariant.WASM,
+      }]
     | _ => [
-        (false, Connection__UI__ItemData.Constants.checkingAvailability, variantToTag(Native)),
-        (false, Connection__UI__ItemData.Constants.checkingAvailability, variantToTag(WASM)),
+        {
+          downloaded: false,
+          versionString: Connection__UI__ItemData.Constants.checkingAvailability,
+          variant: Connection__Download.SelectionVariant.Native,
+        },
+        {
+          downloaded: false,
+          versionString: Connection__UI__ItemData.Constants.checkingAvailability,
+          variant: Connection__Download.SelectionVariant.WASM,
+        },
       ]
     }
   }
@@ -326,7 +299,7 @@ module Download = {
     state: State.t,
     platformDeps: Platform.t,
     ~channel: Connection__Download.Channel.t=DevALS,
-  ): array<(bool, string, string)> =>
+  ): array<Connection__Download__Availability.availableDownload> =>
     await Connection__Download__Availability.getAll(
       state.memento,
       state.globalStorageUri,
@@ -346,7 +319,9 @@ let getAvailableDownloads = (
 let activate = async (
   state: State.t,
   platformDeps: Platform.t,
-  ~downloadItemsPromiseOverride: option<promise<array<(bool, string, string)>>>=None,
+  ~downloadItemsPromiseOverride: option<
+    promise<array<Connection__Download__Availability.availableDownload>>,
+  >=None,
 ) => {
   let manager = SwitchVersionManager.make(state)
   await Connection__UI__Handlers.onActivate(
