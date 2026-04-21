@@ -1,5 +1,7 @@
 open Mocha
 
+@module("node:fs/promises") external mkdtemp: string => Js.Promise.t<string> = "mkdtemp"
+
 describe("Connection__Switch", () => {
   describe("SwitchVersionManager", () => {
     describe("inferCandidateKind", () => {
@@ -940,6 +942,370 @@ describe("Connection__Switch", () => {
 
           await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
           let _ = await FS.deleteRecursive(VSCode.Uri.file(storagePath))
+        },
+      )
+    })
+
+    describe("activate and switching", () => {
+      module IntegrationTestData = {
+        let makeMockConnection = (_path, _version): Connection.t => {
+          %raw(`{
+            TAG: "Agda",
+            _0: {
+              chan: { removeAllListeners: () => {} },
+              process: { status: "Destroyed" },
+              encountedFirstPrompt: false,
+              version: _version,
+              path: _path
+            },
+            _1: _path,
+            _2: _version
+          }`)
+        }
+      }
+
+      let mockAgda = ref("")
+
+      Async.before(async () => {
+        mockAgda :=
+          await Test__Util.Candidate.Agda.mock(
+            ~version="2.7.0.1",
+            ~name="agda-switch-integration-raw-key",
+          )
+      })
+
+      Async.after(async () => {
+        await Test__Util.Candidate.Agda.destroy(mockAgda.contents)
+      })
+
+      beforeEach(() => {
+        Registry__Connection.status := Empty
+      })
+
+      let makeMockPlatform = (): Platform.t => Mock.Platform.makeWithAgda()
+
+      let makeMockPlatformWithBareCommands = (): Platform.t => {
+        module MockPlatform = {
+          include Desktop.Desktop
+          let findCommand = (command, ~timeout as _timeout=1000) =>
+            switch command {
+            | "agda" => Promise.resolve(Ok(mockAgda.contents))
+            | "als" => Promise.resolve(Ok(mockAgda.contents))
+            | _ => Promise.resolve(Error(Connection__Command.Error.NotFound))
+            }
+        }
+        module(MockPlatform)
+      }
+
+      let createTestStateWithPlatformAndStorage = (
+        platform: Platform.t,
+        storageUri: VSCode.Uri.t,
+      ) => {
+        let channels = {
+          State.inputMethod: Chan.make(),
+          responseHandled: Chan.make(),
+          commandHandled: Chan.make(),
+          log: Chan.make(),
+        }
+        let mockEditor = %raw(`{
+          document: { fileName: "test.agda" }
+        }`)
+        let mockExtensionUri = VSCode.Uri.file(NodeJs.Process.cwd(NodeJs.Process.process))
+        State.make(
+          "test-id",
+          platform,
+          channels,
+          storageUri,
+          mockExtensionUri,
+          Memento.make(None),
+          mockEditor,
+          None,
+        )
+      }
+
+      let createTestStateWithPlatform = (platform: Platform.t) =>
+        createTestStateWithPlatformAndStorage(platform, VSCode.Uri.file(NodeJs.Os.tmpdir()))
+
+      let createTestState = () => createTestStateWithPlatform(makeMockPlatform())
+
+      Async.it(
+        "should keep existing shared connection when switch target cannot be established",
+        async () => {
+          let state = createTestState()
+          let existingPath = "/usr/bin/agda"
+          let existingConnection = IntegrationTestData.makeMockConnection(existingPath, "2.6.4")
+
+          Registry__Connection.status :=
+            Active({
+              connection: existingConnection,
+              users: Belt.Set.String.fromArray(["owner-before-switch"]),
+              currentOwnerId: None,
+              queue: Promise.resolve(),
+            })
+
+          let missingPath = "/__agda_mode_vscode_nonexistent__/binary_should_not_exist_280"
+          let completion =
+            Connection__Switch.switchAgdaVersion(state, missingPath)->Promise.thenResolve(_ => "done")
+          let timeout = Util.Promise_.setTimeout(1000)->Promise.thenResolve(_ => "timeout")
+          let winner = await Promise.race([completion, timeout])
+
+          switch winner {
+          | "done" =>
+            switch Registry__Connection.status.contents {
+            | Active(resource) =>
+              Assert.deepStrictEqual(Connection.getPath(resource.connection), existingPath)
+            | _ =>
+              Assert.fail(
+                "Expected existing shared connection to remain active when switch target fails to establish",
+              )
+            }
+          | "timeout" =>
+            Registry__Connection.status := Empty
+            Assert.fail("switchAgdaVersion hung while switching to an invalid target")
+          | _ => Assert.fail("Unexpected race result")
+          }
+
+          Registry__Connection.status := Empty
+        },
+      )
+
+      Async.it(
+        "should write switch metadata under resolved identity for bare command selection",
+        async () => {
+          let platform = makeMockPlatformWithBareCommands()
+          let state = createTestStateWithPlatform(platform)
+
+          await Connection__Switch.switchAgdaVersion(state, "agda")
+
+          module PlatformOps = unpack(platform)
+          let resolved = switch await Connection__Candidate.resolve(
+            PlatformOps.findCommand,
+            Connection__Candidate.make("agda"),
+          ) {
+          | Ok(resolved) => resolved
+          | Error(_) => raise(Failure("Expected bare command selection to resolve"))
+          }
+
+          Assert.deepStrictEqual(Memento.PreferredCandidate.get(state.memento), Some("agda"))
+          Assert.deepStrictEqual(
+            Memento.ResolvedMetadata.get(state.memento, resolved)->Option.map(entry => entry.kind),
+            Some(Memento.ResolvedMetadata.Agda(Some("2.7.0.1"))),
+          )
+        },
+      )
+
+      Async.it(
+        "should mark the active connection candidate selected when no preferred candidate is stored",
+        async () => {
+          let state = createTestState()
+          let loggedEvents = []
+          let previousPaths = Config.Connection.getAgdaPaths()
+
+          let _ = state.channels.log->Chan.on(logEvent =>
+            switch logEvent {
+            | Log.SwitchVersionUI(UpdatedCandidates(candidates)) =>
+              loggedEvents->Array.push(candidates)
+            | _ => ()
+            }
+          )
+
+          await Memento.PreferredCandidate.set(state.memento, None)
+          await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/bin/agda"])
+
+          let mockConnection = IntegrationTestData.makeMockConnection("/usr/bin/agda", "2.6.4")
+          Registry__Connection.status :=
+            Active({
+              connection: mockConnection,
+              users: Belt.Set.String.empty,
+              currentOwnerId: None,
+              queue: Promise.resolve(),
+            })
+
+          await Connection__Switch.activate(state, makeMockPlatform())
+
+          let allEndpointsFromLogs = loggedEvents->Array.flat
+          let anyEndpointSelected =
+            allEndpointsFromLogs->Array.some(((_, _, _, isSelected)) => isSelected)
+
+          await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+          Assert.ok(anyEndpointSelected)
+        },
+      )
+
+      Async.it(
+        "should prefer memento selection over active connection inference",
+        async () => {
+          let state = createTestState()
+          let loggedEvents = []
+          let previousPaths = Config.Connection.getAgdaPaths()
+
+          let _ = state.channels.log->Chan.on(logEvent =>
+            switch logEvent {
+            | Log.SwitchVersionUI(UpdatedCandidates(candidates)) =>
+              loggedEvents->Array.push(candidates)
+            | _ => ()
+            }
+          )
+
+          await Config.Connection.setAgdaPaths(
+            state.channels.log,
+            ["/usr/bin/agda", "/opt/homebrew/bin/agda"],
+          )
+          await Memento.PreferredCandidate.set(state.memento, Some("/usr/bin/agda"))
+
+          let mockConnection = IntegrationTestData.makeMockConnection("/opt/homebrew/bin/agda", "2.6.3")
+          Registry__Connection.status :=
+            Active({
+              connection: mockConnection,
+              users: Belt.Set.String.empty,
+              currentOwnerId: None,
+              queue: Promise.resolve(),
+            })
+
+          await Connection__Switch.activate(state, makeMockPlatform())
+
+          let allEndpointsFromLogs = loggedEvents->Array.flat
+          let selectedEndpoint =
+            allEndpointsFromLogs->Array.find(((_, _, _, isSelected)) => isSelected)
+          let selectedCount =
+            allEndpointsFromLogs->Array.filter(((_, _, _, isSelected)) => isSelected)->Array.length
+
+          await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+
+          switch selectedEndpoint {
+          | Some((path, _, _, _)) => Assert.deepStrictEqual(path, "/usr/bin/agda")
+          | None => Assert.fail("Expected one candidate to be marked as selected")
+          }
+
+          Assert.deepStrictEqual(selectedCount, 1)
+        },
+      )
+
+      Async.it(
+        "should restore LatestALS channel from memento on activation",
+        async () => {
+          let state = createTestState()
+          await Memento.SelectedChannel.set(state.memento, "latest")
+
+          let loggedHeaders = []
+          let _ = state.channels.log->Chan.on(logEvent =>
+            switch logEvent {
+            | Log.SwitchVersionUI(Others(msg)) if String.startsWith(msg, "Download (") =>
+              loggedHeaders->Array.push(msg)
+            | _ => ()
+            }
+          )
+          let onShown = Log.on(
+            state.channels.log,
+            log =>
+              switch log {
+              | Log.SwitchVersionUI(Others("QuickPick shown")) => true
+              | _ => false
+              },
+          )
+
+          await Connection__Switch.activate(state, makeMockPlatform())
+          await onShown
+
+          Assert.ok(Array.length(loggedHeaders) > 0)
+          Assert.deepStrictEqual(loggedHeaders[0], Some("Download (Latest)"))
+        },
+      )
+
+      Async.it(
+        "should replace placeholder download items with unavailable items when background refresh fails",
+        async () => {
+          let storagePath = await mkdtemp(NodeJs.Path.join([NodeJs.Os.tmpdir(), "agda-switch-bg-"]))
+          let storageUri = VSCode.Uri.file(storagePath)
+          let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
+          let previousPaths = Config.Connection.getAgdaPaths()
+          await Config.Connection.setAgdaPaths(state.channels.log, [])
+
+          module MockPlatform = {
+            let determinePlatform = () =>
+              Promise.resolve(Ok(Connection__Download__Platform.Ubuntu))
+            let findCommand = (_, ~timeout as _=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+            let alreadyDownloaded = _ => Promise.resolve(None)
+            let resolveDownloadChannel = (_, _) =>
+              async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
+              Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            let askUserAboutDownloadPolicy = () =>
+              Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+          }
+
+          let withTimeout = (ms, p) => {
+            let timerId: ref<option<Js.Global.timeoutId>> = ref(None)
+            let clearTimer = () => timerId.contents->Option.forEach(id => Js.Global.clearTimeout(id))
+            let wrappedP = p->Promise.then(v => { clearTimer(); Promise.resolve(v) })
+            wrappedP->Promise.catch(_ => { clearTimer(); Promise.resolve() })->ignore
+            Promise.race([
+              wrappedP,
+              Promise.make((_, reject) => {
+                timerId :=
+                  Some(
+                    Js.Global.setTimeout(
+                      () => {
+                        let err: Js.Exn.t = %raw(`new Error("timed out after " + ms + "ms")`)
+                        reject(err->Obj.magic)
+                      },
+                      ms,
+                    ),
+                  )
+              }),
+            ])
+          }
+
+          let (downloadItemsDeferred, _, rejectDownloadItems) = Util.Promise_.pending()
+          let downloadItemLogs: ref<array<array<(bool, string, string)>>> = ref([])
+          let bgDoneResolve: ref<unit => unit> = ref(_ => ())
+          let bgDone = Promise.make((resolve, _) => bgDoneResolve := resolve)
+
+          let _ = state.channels.log->Chan.on(logEvent =>
+            switch logEvent {
+            | Log.SwitchVersionUI(UpdatedDownloadItems(items)) =>
+              downloadItemLogs := Array.concat(downloadItemLogs.contents, [items])
+              if Array.length(downloadItemLogs.contents) >= 2 { bgDoneResolve.contents() }
+            | _ => ()
+            }
+          )
+
+          let result = try {
+            await Connection__Switch.activate(
+              state,
+              module(MockPlatform),
+              ~downloadItemsPromiseOverride=Some(downloadItemsDeferred),
+            )
+            let timeoutP = withTimeout(2000, bgDone)
+            rejectDownloadItems(Failure("simulated background download-items failure"))
+            await timeoutP
+            Ok()
+          } catch {
+          | exn => Error(exn)
+          }
+
+          await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+          let _ = await FS.deleteRecursive(storageUri)
+
+          switch result {
+          | Error(exn) => raise(exn)
+          | Ok() =>
+            Assert.deepStrictEqual(
+              downloadItemLogs.contents[0],
+              Some([
+                (false, Connection__UI__ItemData.Constants.checkingAvailability, "native"),
+                (false, Connection__UI__ItemData.Constants.checkingAvailability, "wasm"),
+              ]),
+            )
+            Assert.deepStrictEqual(
+              downloadItemLogs.contents[1],
+              Some([
+                (false, Connection__UI__ItemData.Constants.downloadUnavailable, "native"),
+                (false, Connection__UI__ItemData.Constants.downloadUnavailable, "wasm"),
+              ]),
+            )
+          }
         },
       )
     })

@@ -359,7 +359,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         await sendAgdaRequest(WhyInScope(expr, goal))
       }
     }
-  | SwitchAgdaVersion => await State__SwitchVersion.activate(state, state.platformDeps)
+  | SwitchAgdaVersion => await Connection__Switch.activate(state, state.platformDeps)
   | EventFromView(event) =>
     switch event {
     | Initialized => ()
