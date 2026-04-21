@@ -1,8 +1,10 @@
+module Core = Connection__Core
+
 type ownerId = string
 
 module Resource = {
   type t = {
-    connection: Connection.t,
+    connection: Core.t,
     mutable users: Belt.Set.String.t,
     mutable currentOwnerId: option<ownerId>,
     mutable queue: promise<unit>,
@@ -11,7 +13,7 @@ module Resource = {
 
 module Connecting = {
   type t = {
-    connectionEstablished: promise<result<Connection.t, Connection.Error.t>>,
+    connectionEstablished: promise<result<Core.t, Core.Error.t>>,
     mutable releasedUsers: Belt.Set.String.t,
   }
 }
@@ -109,7 +111,7 @@ let terminate = async (resource: Resource.t) => {
     status := Closing(connectionDestroyed)
     let destroyError = ref(None)
     // Util.log("Registry__Connection: Terminating connection", ())
-    let _ = switch await Connection.destroy(Some(resource.connection), Chan.make()) {
+    let _ = switch await Core.destroy(Some(resource.connection), Chan.make()) {
     | _ => ()
     | exception exn =>
       destroyError := Some(exn)
@@ -130,8 +132,8 @@ let terminate = async (resource: Resource.t) => {
 // Acquire: Join the global connection or initiate it if Empty.
 let rec acquire: (
   ownerId,
-  unit => promise<result<Connection.t, Connection.Error.t>>,
-) => promise<result<Connection.t, Connection.Error.t>> = async (id, make) => {
+  unit => promise<result<Core.t, Core.Error.t>>,
+) => promise<result<Core.t, Core.Error.t>> = async (id, make) => {
   let connect = async () => {
     let (connectionEstablished, resolve, _) = Util.Promise_.pending()
     let connecting: Connecting.t = {connectionEstablished, releasedUsers: Belt.Set.String.empty}
@@ -141,7 +143,7 @@ let rec acquire: (
     let result = switch await make() {
     | result => result
     | exception _ =>
-      Error(Connection.Error.Establish(Connection.Error.Establish.mergeMany([])))
+      Error(Core.Error.Establish(Core.Error.Establish.mergeMany([])))
     }
 
     switch result {
@@ -236,8 +238,8 @@ let rec shutdown: unit => promise<unit> = async () => {
 // This is the core "gate" that prevents interleaved responses.
 let execute: (
   ownerId,
-  Connection.t => promise<result<'a, Connection.Error.t>>,
-) => promise<result<'a, Connection.Error.t>> = async (id, task) => {
+  Core.t => promise<result<'a, Core.Error.t>>,
+) => promise<result<'a, Core.Error.t>> = async (id, task) => {
   let runSerialized = async (resource: Resource.t) => {
     let previousTaskDone = resource.queue
     let (currentTaskDone, resolve, _) = Util.Promise_.pending()
@@ -249,7 +251,7 @@ let execute: (
     }
 
     let staleConnectionError = () => {
-      let err = Connection.Error.Establish(Connection.Error.Establish.mergeMany([]))
+      let err = Core.Error.Establish(Core.Error.Establish.mergeMany([]))
       Error(err)
     }
 
@@ -290,7 +292,7 @@ let execute: (
       await runSerialized(resource)
     }
   | _ =>
-    let err = Connection.Error.Establish(Connection.Error.Establish.mergeMany([]))
+    let err = Core.Error.Establish(Core.Error.Establish.mergeMany([]))
     Error(err)
   }
 }

@@ -1,5 +1,6 @@
 module Candidate = Connection__Candidate
 module ResolvedMetadata = Memento.ResolvedMetadata
+module Core = Connection__Core
 
 module SwitchVersionManager = {
   type t = {
@@ -78,7 +79,7 @@ module SwitchVersionManager = {
     | Some(path) => Some(path)
     | None =>
       switch Registry__Connection.status.contents {
-      | Active(resource) => Some(Connection.getPath(resource.connection))
+      | Active(resource) => Some(Core.getPath(resource.connection))
       | _ => None
       }
     }
@@ -150,7 +151,7 @@ module SwitchVersionManager = {
       module PlatformOps = unpack(platformDeps)
       let probePromises = pathsToProbe->Array.map(async path => {
         let candidate = Candidate.make(path)
-        switch await Connection.probeCandidate(platformDeps, candidate) {
+        switch await Core.probeCandidate(platformDeps, candidate) {
         | Ok((resolved, IsAgda(agdaVersion))) =>
           await Memento.ResolvedMetadata.setKind(
             self.memento,
@@ -213,12 +214,12 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
     [],
   )
 
-  switch await Connection.fromPathsOrCommands(
+  switch await Core.fromPathsOrCommands(
     state.platformDeps,
-    [(selectedPath, Connection.Error.Establish.FromConfig)],
+    [(selectedPath, Core.Error.Establish.FromConfig)],
   ) {
   | Ok(conn) =>
-    Util.log("[ debug ] switchAgdaVersion: connection succeeded", Connection.toString(conn))
+    Util.log("[ debug ] switchAgdaVersion: connection succeeded", Core.toString(conn))
     await Registry__Connection.shutdown()
 
     await Memento.PreferredCandidate.set(state.memento, Some(selectedPath))
@@ -226,7 +227,7 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
     await State__View.Panel.displayConnectionStatus(state, Some(conn))
     await State__View.Panel.display(
       state,
-      AgdaModeVscode.View.Header.Success("Switched to " ++ Connection.toString(conn)),
+      AgdaModeVscode.View.Header.Success("Switched to " ++ Core.toString(conn)),
       [],
     )
     switch conn {
@@ -254,9 +255,9 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
       )
     | ALSWASM(_, _, _, {alsVersion: None}) => ()
     }
-    let _ = await Connection.destroy(Some(conn), state.channels.log)
+    let _ = await Core.destroy(Some(conn), state.channels.log)
   | Error(error) => {
-      let (errorHeader, errorBody) = Connection.Error.toString(Establish(error))
+      let (errorHeader, errorBody) = Core.Error.toString(Establish(error))
       Util.log("[ debug ] switchAgdaVersion: connection failed", errorHeader ++ " | " ++ errorBody)
       let header = AgdaModeVscode.View.Header.Error(
         "Failed to switch to a different installation: " ++ errorHeader,
@@ -335,6 +336,12 @@ module Download = {
       ~downloadUnavailable=Connection__UI__ItemData.Constants.downloadUnavailable,
     )
 }
+
+let getAvailableDownloads = (
+  state: State.t,
+  platformDeps: Platform.t,
+  ~channel: Connection__Download.Channel.t=DevALS,
+) => Download.getAllAvailableDownloads(state, platformDeps, ~channel)
 
 let activate = async (
   state: State.t,

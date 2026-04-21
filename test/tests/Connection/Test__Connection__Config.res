@@ -462,9 +462,9 @@ describe("Config.Connection paths", () => {
               )
             | None => true
             },
-          ~switchCandidate=selectedPath => Connection__Switch.switchAgdaVersion(mockState, selectedPath),
+          ~switchCandidate=selectedPath => Connection.switchCandidate(mockState, selectedPath),
           ~getDownloadItems=channel =>
-            Connection__Switch.Download.getAllAvailableDownloads(mockState, platform, ~channel),
+            Connection.getAvailableSwitchDownloads(mockState, platform, ~channel),
         )
 
         await onOperationComplete
@@ -581,9 +581,9 @@ describe("Config.Connection paths", () => {
               )
             | None => true
             },
-          ~switchCandidate=selectedPath => Connection__Switch.switchAgdaVersion(mockState, selectedPath),
+          ~switchCandidate=selectedPath => Connection.switchCandidate(mockState, selectedPath),
           ~getDownloadItems=channel =>
-            Connection__Switch.Download.getAllAvailableDownloads(
+            Connection.getAvailableSwitchDownloads(
               mockState,
               platformWithDiscovery,
               ~channel,

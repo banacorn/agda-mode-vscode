@@ -478,7 +478,7 @@ describe("Connection__Switch", () => {
           NodeJs.Fs.writeFileSync(nativePath, NodeJs.Buffer.fromString(""))
           await Config.Connection.setAgdaPaths(state.channels.log, [nativePath])
 
-          let downloadItems = await Connection__Switch.Download.getAllAvailableDownloads(state, platform)
+          let downloadItems = await Connection.getAvailableSwitchDownloads(state, platform)
           let itemData = await Connection__Switch.SwitchVersionManager.getItemData(manager, downloadItems)
 
           let hasNativeDownloadAction =
@@ -516,7 +516,7 @@ describe("Connection__Switch", () => {
           let nativeUri = VSCode.Uri.file(nativePath)->VSCode.Uri.toString
           await Config.Connection.setAgdaPaths(state.channels.log, [nativeUri])
 
-          let downloadItems = await Connection__Switch.Download.getAllAvailableDownloads(state, platform)
+          let downloadItems = await Connection.getAvailableSwitchDownloads(state, platform)
           let itemData = await Connection__Switch.SwitchVersionManager.getItemData(manager, downloadItems)
 
           let hasNativeDownloadAction =
@@ -551,7 +551,7 @@ describe("Connection__Switch", () => {
           await Config.Connection.setAgdaPaths(state.channels.log, [nativePath])
           Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativePath), false)
 
-          let downloadItems = await Connection__Switch.Download.getAllAvailableDownloads(state, platform)
+          let downloadItems = await Connection.getAvailableSwitchDownloads(state, platform)
           let itemData = await Connection__Switch.SwitchVersionManager.getItemData(manager, downloadItems)
 
           let hasNativeDownloadAction =
@@ -587,7 +587,7 @@ describe("Connection__Switch", () => {
           await Config.Connection.setAgdaPaths(state.channels.log, [nativeUri])
           Assert.deepStrictEqual(NodeJs.Fs.existsSync(nativePath), false)
 
-          let downloadItems = await Connection__Switch.Download.getAllAvailableDownloads(state, platform)
+          let downloadItems = await Connection.getAvailableSwitchDownloads(state, platform)
           let itemData = await Connection__Switch.SwitchVersionManager.getItemData(manager, downloadItems)
 
           let hasNativeDownloadAction =
@@ -622,7 +622,7 @@ describe("Connection__Switch", () => {
           await Config.Connection.setAgdaPaths(state.channels.log, [wasmPath])
           Assert.deepStrictEqual(NodeJs.Fs.existsSync(VSCode.Uri.fsPath(VSCode.Uri.joinPath(storageUri, ["releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm"]))), false)
 
-          let downloadItems = await Connection__Switch.Download.getAllAvailableDownloads(state, platform)
+          let downloadItems = await Connection.getAvailableSwitchDownloads(state, platform)
           let itemData = await Connection__Switch.SwitchVersionManager.getItemData(manager, downloadItems)
 
           let hasWasmDownloadAction =
@@ -715,7 +715,7 @@ describe("Connection__Switch", () => {
           let state = createTestStateWithPlatform(platform)
           let manager = Connection__Switch.SwitchVersionManager.make(state)
 
-          let downloadItems = await Connection__Switch.Download.getAllAvailableDownloads(
+          let downloadItems = await Connection.getAvailableSwitchDownloads(
             state,
             platform,
             ~channel=Connection__Download.Channel.LatestALS,
@@ -1045,7 +1045,7 @@ describe("Connection__Switch", () => {
 
           let missingPath = "/__agda_mode_vscode_nonexistent__/binary_should_not_exist_280"
           let completion =
-            Connection__Switch.switchAgdaVersion(state, missingPath)->Promise.thenResolve(_ => "done")
+            Connection.switchCandidate(state, missingPath)->Promise.thenResolve(_ => "done")
           let timeout = Util.Promise_.setTimeout(1000)->Promise.thenResolve(_ => "timeout")
           let winner = await Promise.race([completion, timeout])
 
@@ -1075,7 +1075,7 @@ describe("Connection__Switch", () => {
           let platform = makeMockPlatformWithBareCommands()
           let state = createTestStateWithPlatform(platform)
 
-          await Connection__Switch.switchAgdaVersion(state, "agda")
+          await Connection.switchCandidate(state, "agda")
 
           module PlatformOps = unpack(platform)
           let resolved = switch await Connection__Candidate.resolve(
@@ -1121,7 +1121,7 @@ describe("Connection__Switch", () => {
               queue: Promise.resolve(),
             })
 
-          await Connection__Switch.activate(state, makeMockPlatform())
+          await Connection.activateSwitchVersion(state, makeMockPlatform())
 
           let allEndpointsFromLogs = loggedEvents->Array.flat
           let anyEndpointSelected =
@@ -1162,7 +1162,7 @@ describe("Connection__Switch", () => {
               queue: Promise.resolve(),
             })
 
-          await Connection__Switch.activate(state, makeMockPlatform())
+          await Connection.activateSwitchVersion(state, makeMockPlatform())
 
           let allEndpointsFromLogs = loggedEvents->Array.flat
           let selectedEndpoint =
@@ -1204,7 +1204,7 @@ describe("Connection__Switch", () => {
               },
           )
 
-          await Connection__Switch.activate(state, makeMockPlatform())
+          await Connection.activateSwitchVersion(state, makeMockPlatform())
           await onShown
 
           Assert.ok(Array.length(loggedHeaders) > 0)
@@ -1272,7 +1272,7 @@ describe("Connection__Switch", () => {
           )
 
           let result = try {
-            await Connection__Switch.activate(
+            await Connection.activateSwitchVersion(
               state,
               module(MockPlatform),
               ~downloadItemsPromiseOverride=Some(downloadItemsDeferred),
