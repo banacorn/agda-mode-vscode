@@ -239,8 +239,8 @@ describe("Connection UI", () => {
       "download selection should not modify PreferredCandidate",
       async () => {
         let cases = [
-          Connection__UI__ItemData.Constants.downloadNativeALS,
-          Connection__UI__ItemData.Constants.downloadWasmALS,
+          Connection__UI__Labels.downloadNativeALS,
+          Connection__UI__Labels.downloadWasmALS,
         ]
 
         let runCase = async (label: string) => {
@@ -250,7 +250,7 @@ describe("Connection UI", () => {
           await Config.Connection.setAgdaPaths(state.channels.log, [])
 
           let selectedVariant =
-            label == Connection__UI__ItemData.Constants.downloadWasmALS
+            label == Connection__UI__Labels.downloadWasmALS
               ? Connection__Download.SelectionVariant.WASM
               : Connection__Download.SelectionVariant.Native
 
@@ -584,7 +584,7 @@ describe("Connection UI", () => {
           state,
           DownloadAction(
             false,
-            Connection__UI__ItemData.Constants.checkingAvailability,
+            Connection__UI__Labels.checkingAvailability,
             "native",
           ),
         )
@@ -1163,11 +1163,11 @@ describe("Connection UI", () => {
           capturedItems.contents,
           [
             availableDownload(
-              ~versionString=Connection__UI__ItemData.Constants.downloadUnavailable,
+              ~versionString=Connection__UI__Labels.downloadUnavailable,
               ~variant=Native,
             ),
             availableDownload(
-              ~versionString=Connection__UI__ItemData.Constants.downloadUnavailable,
+              ~versionString=Connection__UI__Labels.downloadUnavailable,
               ~variant=WASM,
             ),
           ],
@@ -1208,11 +1208,11 @@ describe("Connection UI", () => {
           capturedItems.contents,
           [
             availableDownload(
-              ~versionString=Connection__UI__ItemData.Constants.downloadUnavailable,
+              ~versionString=Connection__UI__Labels.downloadUnavailable,
               ~variant=Native,
             ),
             availableDownload(
-              ~versionString=Connection__UI__ItemData.Constants.downloadUnavailable,
+              ~versionString=Connection__UI__Labels.downloadUnavailable,
               ~variant=WASM,
             ),
           ],
@@ -1253,7 +1253,7 @@ describe("Connection UI", () => {
           capturedItems.contents,
           [
             availableDownload(
-              ~versionString=Connection__UI__ItemData.Constants.downloadUnavailable,
+              ~versionString=Connection__UI__Labels.downloadUnavailable,
               ~variant=WASM,
             ),
           ],
@@ -1262,32 +1262,143 @@ describe("Connection UI", () => {
     )
   })
 
-  describe("Selection Logic", () => {
-    describe(
-      "Selection Parsing (inline logic)",
-      () => {
-        it(
-          "should identify download ALS action by label",
-          () => {
-            Assert.strictEqual(
-              Connection__UI__ItemData.Constants.downloadNativeALS,
-              "$(cloud-download)  Download Agda Language Server (native)",
-            )
-          },
-        )
+  describe("Labels", () => {
+    open Connection__UI__Labels
 
-        it(
-          "should verify other UI constants",
-          () => {
-            Assert.strictEqual(Connection__UI__ItemData.Constants.agdaVersionPrefix, "Agda ")
-            Assert.strictEqual(Connection__UI__ItemData.Constants.alsWithSquirrel, "$(squirrel)  Agda ")
-            Assert.strictEqual(
-              Connection__UI__ItemData.Constants.downloadedAndInstalled,
-              "Downloaded and installed",
-            )
-          },
+    let makeEntry = (kind: Memento.ResolvedMetadata.kind, ~error=None): Memento.ResolvedMetadata.entry => {
+      kind,
+      timestamp: Date.make(),
+      error,
+    }
+
+    describe("download string constants", () => {
+      it("downloadNativeALS", () =>
+        Assert.deepStrictEqual(
+          downloadNativeALS,
+          "$(cloud-download)  Download Agda Language Server (native)",
         )
-      },
-    )
+      )
+      it("downloadWasmALS", () =>
+        Assert.deepStrictEqual(
+          downloadWasmALS,
+          "$(cloud-download)  Download Agda Language Server (WASM)",
+        )
+      )
+      it("downloadUnavailable", () =>
+        Assert.deepStrictEqual(downloadUnavailable, "Not available for this platform")
+      )
+      it("checkingAvailability", () =>
+        Assert.deepStrictEqual(checkingAvailability, "Checking availability...")
+      )
+      it("downloadedAndInstalled", () =>
+        Assert.deepStrictEqual(downloadedAndInstalled, "Downloaded and installed")
+      )
+      it("deleteDownloads", () =>
+        Assert.deepStrictEqual(deleteDownloads, "$(trash)  Delete downloads")
+      )
+      it("selectOtherChannels", () =>
+        Assert.deepStrictEqual(selectOtherChannels, "$(tag)  Select other channels")
+      )
+    })
+
+    describe("candidateDisplayInfo", () => {
+      it("Agda with known version", () =>
+        Assert.deepStrictEqual(
+          candidateDisplayInfo("agda", makeEntry(Agda(Some("2.8.0")))),
+          ("Agda 2.8.0", None),
+        )
+      )
+      it("Agda with unknown version", () =>
+        Assert.deepStrictEqual(
+          candidateDisplayInfo("agda", makeEntry(Agda(None))),
+          ("Agda (version unknown)", None),
+        )
+      )
+      it("ALS native dev build", () =>
+        Assert.deepStrictEqual(
+          candidateDisplayInfo("als", makeEntry(ALS(Native, Some(("dev", "2.8.0", None))))),
+          ("$(squirrel)  Agda 2.8.0 Language Server (dev build)", None),
+        )
+      )
+      it("ALS native versioned", () =>
+        Assert.deepStrictEqual(
+          candidateDisplayInfo("als", makeEntry(ALS(Native, Some(("v6", "2.8.0", None))))),
+          ("$(squirrel)  Agda 2.8.0 Language Server v6", None),
+        )
+      )
+      it("ALS WASM dev build", () =>
+        Assert.deepStrictEqual(
+          candidateDisplayInfo("als", makeEntry(ALS(WASM, Some(("dev", "2.8.0", None))))),
+          ("$(squirrel)  Agda 2.8.0 Language Server (dev build) WASM", None),
+        )
+      )
+      it("ALS WASM versioned", () =>
+        Assert.deepStrictEqual(
+          candidateDisplayInfo("als", makeEntry(ALS(WASM, Some(("v6", "2.8.0", None))))),
+          ("$(squirrel)  Agda 2.8.0 Language Server v6 WASM", None),
+        )
+      )
+      it("ALS native version unknown", () =>
+        Assert.deepStrictEqual(
+          candidateDisplayInfo("als", makeEntry(ALS(Native, None))),
+          ("$(squirrel)  Agda Language Server (version unknown)", None),
+        )
+      )
+      it("ALS WASM version unknown", () =>
+        Assert.deepStrictEqual(
+          candidateDisplayInfo("als", makeEntry(ALS(WASM, None))),
+          ("$(squirrel)  Agda Language Server (version unknown) WASM", None),
+        )
+      )
+      it("Unknown with error", () =>
+        Assert.deepStrictEqual(
+          candidateDisplayInfo("als", makeEntry(Unknown, ~error=Some("bad binary"))),
+          ("$(error) als", Some("Error: bad binary")),
+        )
+      )
+      it("Unknown without error", () =>
+        Assert.deepStrictEqual(
+          candidateDisplayInfo("als", makeEntry(Unknown)),
+          ("$(question) als", Some("Unknown executable")),
+        )
+      )
+    })
+
+    describe("channel labels and details", () => {
+      it("channelLabel LatestALS", () =>
+        Assert.deepStrictEqual(channelLabel(Connection__Download.Channel.LatestALS), "Latest")
+      )
+      it("channelLabel DevALS", () =>
+        Assert.deepStrictEqual(channelLabel(Connection__Download.Channel.DevALS), "Development")
+      )
+      it("channelDetail LatestALS", () =>
+        Assert.deepStrictEqual(
+          channelDetail(Connection__Download.Channel.LatestALS),
+          "Tracks the latest stable release",
+        )
+      )
+      it("channelDetail DevALS", () =>
+        Assert.deepStrictEqual(
+          channelDetail(Connection__Download.Channel.DevALS),
+          "Tracks the latest commit of the master branch",
+        )
+      )
+    })
+
+    describe("download header", () => {
+      it("DevALS", () =>
+        Assert.deepStrictEqual(
+          downloadHeader(Connection__Download.Channel.DevALS),
+          "Download (Development)",
+        )
+      )
+      it("LatestALS", () =>
+        Assert.deepStrictEqual(
+          downloadHeader(Connection__Download.Channel.LatestALS),
+          "Download (Latest)",
+        )
+      )
+    })
   })
+
 })

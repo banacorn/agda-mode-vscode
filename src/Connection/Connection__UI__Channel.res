@@ -1,16 +1,9 @@
 open Connection__Download
+module Labels = Connection__UI__Labels
 
-let toLabel = (channel: Channel.t): string =>
-  switch channel {
-  | Channel.LatestALS => "Latest"
-  | Channel.DevALS => "Development"
-  }
+let toLabel = Labels.channelLabel
 
-let detail = (channel: Channel.t): string =>
-  switch channel {
-  | Channel.LatestALS => "Tracks the latest stable release"
-  | Channel.DevALS => "Tracks the latest commit of the master branch"
-  }
+let detail = Labels.channelDetail
 
 type pickerItem = {
   label: string,

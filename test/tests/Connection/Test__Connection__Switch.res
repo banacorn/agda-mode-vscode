@@ -1294,15 +1294,15 @@ describe("Connection__Switch", () => {
             Assert.deepStrictEqual(
               downloadItemLogs.contents[0],
               Some([
-                (false, Connection__UI__ItemData.Constants.checkingAvailability, "native"),
-                (false, Connection__UI__ItemData.Constants.checkingAvailability, "wasm"),
+                (false, Connection__UI__Labels.checkingAvailability, "native"),
+                (false, Connection__UI__Labels.checkingAvailability, "wasm"),
               ]),
             )
             Assert.deepStrictEqual(
               downloadItemLogs.contents[1],
               Some([
-                (false, Connection__UI__ItemData.Constants.downloadUnavailable, "native"),
-                (false, Connection__UI__ItemData.Constants.downloadUnavailable, "wasm"),
+                (false, Connection__UI__Labels.downloadUnavailable, "native"),
+                (false, Connection__UI__Labels.downloadUnavailable, "wasm"),
               ]),
             )
           }

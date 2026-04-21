@@ -145,7 +145,7 @@ let onSelection = (
         Util.log("[ debug ] user selected item: " ++ selectedItem.label, "")
         switch selectedItem.data {
         | DownloadAction(_, versionString, _)
-            when versionString == Connection__UI__ItemData.Constants.checkingAvailability =>
+            when versionString == Connection__UI__Labels.checkingAvailability =>
           ()
         | SelectOtherChannels =>
           let pickerItems = Connection__UI__Channel.pickerItems(~selectedChannel=selectedChannel.contents)
@@ -246,18 +246,18 @@ let backgroundUpdateFailureFallback = async (
   let fallback: downloadItems = switch await PlatformOps.determinePlatform() {
   | Ok(Connection__Download__Platform.Web) => [{
       downloaded: false,
-      versionString: Connection__UI__ItemData.Constants.downloadUnavailable,
+      versionString: Connection__UI__Labels.downloadUnavailable,
       variant: WASM,
     }]
   | _ => [
       {
         downloaded: false,
-        versionString: Connection__UI__ItemData.Constants.downloadUnavailable,
+        versionString: Connection__UI__Labels.downloadUnavailable,
         variant: Native,
       },
       {
         downloaded: false,
-        versionString: Connection__UI__ItemData.Constants.downloadUnavailable,
+        versionString: Connection__UI__Labels.downloadUnavailable,
         variant: WASM,
       },
     ]

@@ -334,18 +334,18 @@ module Download = {
     switch await PlatformOps.determinePlatform() {
     | Ok(Connection__Download__Platform.Web) => [{
         downloaded: false,
-        versionString: Connection__UI__ItemData.Constants.checkingAvailability,
+        versionString: Connection__UI__Labels.checkingAvailability,
         variant: Connection__Download.SelectionVariant.WASM,
       }]
     | _ => [
         {
           downloaded: false,
-          versionString: Connection__UI__ItemData.Constants.checkingAvailability,
+          versionString: Connection__UI__Labels.checkingAvailability,
           variant: Connection__Download.SelectionVariant.Native,
         },
         {
           downloaded: false,
-          versionString: Connection__UI__ItemData.Constants.checkingAvailability,
+          versionString: Connection__UI__Labels.checkingAvailability,
           variant: Connection__Download.SelectionVariant.WASM,
         },
       ]
@@ -363,7 +363,7 @@ module Download = {
       platformDeps,
       Config.Connection.getAgdaPaths(),
       ~channel,
-      ~downloadUnavailable=Connection__UI__ItemData.Constants.downloadUnavailable,
+      ~downloadUnavailable=Connection__UI__Labels.downloadUnavailable,
     )
 }
 

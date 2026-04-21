@@ -1,4 +1,5 @@
 module ItemData = Connection__UI__ItemData
+module Labels = Connection__UI__Labels
 
 type t = {
   label: string,
@@ -27,9 +28,9 @@ let fromItemData = (itemData: ItemData.t, extensionUri: VSCode.Uri.t): t => {
   let (label, description, detail): (string, option<string>, option<string>) = {
     switch itemData {
     | Candidate(path, detail, entry, isSelected) => {
-        let (label, errorDescription) = ItemData.getCandidateDisplayInfo(path, entry)
+        let (label, errorDescription) = Labels.candidateDisplayInfo(path, entry)
         let description = switch (isSelected, errorDescription) {
-        | (true, None) => "selected"
+        | (true, None) => Labels.candidateSelected
         | (false, None) => ""
         | (_, Some(error)) => error
         }
@@ -37,23 +38,23 @@ let fromItemData = (itemData: ItemData.t, extensionUri: VSCode.Uri.t): t => {
       }
     | DownloadAction(downloaded, versionString, variant) => {
         let label = switch variant {
-        | "native" => ItemData.Constants.downloadNativeALS
-        | "wasm" => ItemData.Constants.downloadWasmALS
-        | _ => "$(cloud-download)  Download Agda Language Server"
+        | "native" => Labels.downloadNativeALS
+        | "wasm" => Labels.downloadWasmALS
+        | _ => Labels.downloadFallbackLabel
         }
-        let description = downloaded ? ItemData.Constants.downloadedAndInstalled : ""
+        let description = downloaded ? Labels.downloadedAndInstalled : ""
         (label, Some(description), Some(versionString))
       }
-    | SelectOtherChannels => (ItemData.Constants.selectOtherChannels, None, None)
+    | SelectOtherChannels => (Labels.selectOtherChannels, None, None)
     | DeleteDownloads => {
-        let label = ItemData.Constants.deleteDownloads
-        let description = "Delete all downloaded files and clear cached release metadata"
+        let label = Labels.deleteDownloads
+        let description = Labels.deleteDownloadsDescription
         (label, Some(description), None)
       }
     | NoInstallations => {
-        let label = "$(info) No installations found"
-        let description = "Try installing Agda or ALS first"
-        let detail = "No executable paths detected"
+        let label = Labels.noInstallationsLabel
+        let description = Labels.noInstallationsDescription
+        let detail = Labels.noInstallationsDetail
         (label, Some(description), Some(detail))
       }
     | Separator(label) => (label, None, None)
