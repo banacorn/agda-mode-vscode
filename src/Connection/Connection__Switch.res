@@ -198,6 +198,63 @@ module SwitchVersionManager = {
   }
 }
 
+let deleteDownloads = async (state: State.t) => {
+  let result = await Connection__Download__Delete.run(state.globalStorageUri)
+  let metadataDirectoriesToClear = result.cleanedDirectories
+  let releaseCachesToClear = [
+    ("agda", "agda-language-server"),
+    ("banacorn", "agda-language-server"),
+  ]
+  let currentPaths = Config.Connection.getAgdaPaths()
+  Util.log("[ debug ] delete downloads: current connection.paths", currentPaths->Array.join(" | "))
+  let pathsToRemove =
+    currentPaths->Array.filter(candidate => {
+      let matchedDirectory = result.cleanedDirectories->Array.reduce(None, (found, dirUri) =>
+        switch found {
+        | Some(_) => found
+        | None =>
+          if Connection__Candidate.isUnderDirectory(Connection__Candidate.make(candidate), dirUri) {
+            Some(dirUri)
+          } else {
+            None
+          }
+        }
+      )
+      switch matchedDirectory {
+      | Some(dirUri) =>
+        Util.log(
+          "[ debug ] delete downloads: removing connection.path candidate",
+          candidate ++ " under " ++ VSCode.Uri.toString(dirUri),
+        )
+        true
+      | None =>
+        Util.log("[ debug ] delete downloads: preserving connection.path candidate", candidate)
+        false
+      }
+    })
+  Util.log(
+    "[ debug ] delete downloads: paths to remove",
+    pathsToRemove->Array.join(" | "),
+  )
+  let filteredPaths =
+    Config.Connection.getAgdaPaths()->Array.filter(
+      candidate => !(pathsToRemove->Array.some(pathToRemove => pathToRemove == candidate)),
+    )
+
+  await Config.Connection.setAgdaPaths(state.channels.log, filteredPaths)
+  await Memento.ResolvedMetadata.clearUnderDirectories(
+    state.memento,
+    metadataDirectoriesToClear,
+  )
+  let _ =
+    await Promise.all(
+      releaseCachesToClear->Array.map(((owner, repo)) =>
+        Memento.ALSReleaseCache.clear(state.memento, owner, repo)
+      ),
+    )
+  result
+}
+
 // Connection switching logic
 let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
   let resolvedFromConnectionPath = (path: string): Connection__Candidate.Resolved.t => ({
@@ -343,6 +400,7 @@ let activate = async (
       | None => true
       },
     ~switchCandidate=selectedPath => switchAgdaVersion(state, selectedPath),
+    ~deleteDownloads=() => deleteDownloads(state),
     ~downloadItemsPromiseOverride,
   )
 }

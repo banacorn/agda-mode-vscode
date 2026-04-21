@@ -131,11 +131,12 @@ let onSelection = (
     result->Option.map(item => item.value)
   },
   ~deleteDownloads: unit => promise<Connection__Download__Delete.t>=() =>
-    Connection__Download__Delete.run(
-      state.memento,
-      state.globalStorageUri,
-      state.channels.log,
-    ),
+    Promise.resolve({
+      Connection__Download__Delete.cleanedDirectories: [],
+      failedUris: [],
+      deletedInFlightFiles: [],
+      failedInFlightFiles: [],
+    }),
 ) => {
   let _ = (
     async () => {
@@ -303,6 +304,7 @@ let onActivate = async (
   ~probeVersions: unit => promise<bool>,
   ~hasSelectionChanged: string => bool,
   ~switchCandidate: string => promise<unit>,
+  ~deleteDownloads: unit => promise<Connection__Download__Delete.t>,
   ~downloadItemsPromiseOverride: option<promise<downloadItems>>=None,
 ) => {
   let view = Picker.make(state.channels.log)
@@ -360,6 +362,7 @@ let onActivate = async (
       ~hasSelectionChanged,
       ~switchCandidate,
       ~getDownloadItems,
+      ~deleteDownloads,
     )
   )
   view->Picker.onHide(() => onHide(view))

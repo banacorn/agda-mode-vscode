@@ -54,13 +54,12 @@ describe("Connection Downloads", () => {
   }
 
   let invokeDeleteDownloads = async (state: State.t) => {
-    let _ = await Connection__Download__Delete.run(
-      state.memento,
-      state.globalStorageUri,
-      state.channels.log,
-    )
+    let _ = await Connection__Switch.deleteDownloads(state)
     ()
   }
+
+  let runDeletePlan = async (state: State.t) =>
+    await Connection__Download__Delete.run(state.globalStorageUri)
 
   let withDeleteFailureFor: string => unit => unit = %raw(`function(failedFsPath) {
     const fsModule = require("../../src/FS.bs.js");
@@ -978,6 +977,105 @@ describe("Connection Downloads", () => {
   })
 
   describe("delete downloads", () => {
+    Async.it(
+      "should return delete storage report with cleaned managed roots and deleted in-flight files",
+      async () => {
+        let previousPaths = Config.Connection.getAgdaPaths()
+        let storageUri = await createStorageUri("agda-delete-plan")
+        let storagePath = storageUri->VSCode.Uri.fsPath
+        let state = createTestStateWithStorage(storageUri)
+        let releasesUri = VSCode.Uri.joinPath(storageUri, ["releases"])
+        let inFlightUri = VSCode.Uri.joinPath(storageUri, ["in-flight.download"])
+        let inFlightZipUri = VSCode.Uri.joinPath(storageUri, ["in-flight.download.zip"])
+        let devNativePath = VSCode.Uri.joinPath(storageUri, [
+          "releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als",
+        ])->VSCode.Uri.fsPath
+        let devWasmUri = VSCode.Uri.joinPath(storageUri, [
+          "releases", "dev", "als-dev-Agda-2.8.0-wasm", "als.wasm",
+        ])->VSCode.Uri.toString
+
+        let _ = await createDirectoryWithFile(
+          storagePath,
+          ["releases", "dev", "als-dev-Agda-2.8.0-macos-arm64"],
+          "als",
+        )
+        let _ = await createDirectoryWithFile(
+          storagePath,
+          ["releases", "dev", "als-dev-Agda-2.8.0-wasm"],
+          "als.wasm",
+        )
+        NodeJs.Fs.writeFileSync(inFlightUri->VSCode.Uri.fsPath, NodeJs.Buffer.fromString("partial"))
+        NodeJs.Fs.writeFileSync(inFlightZipUri->VSCode.Uri.fsPath, NodeJs.Buffer.fromString("partial"))
+        await Config.Connection.setAgdaPaths(
+          state.channels.log,
+          ["/usr/local/bin/agda", devNativePath, devWasmUri],
+        )
+
+        let result = await runDeletePlan(state)
+
+        Assert.deepStrictEqual(
+          result.cleanedDirectories->Array.map(uri => uri->VSCode.Uri.toString),
+          [releasesUri->VSCode.Uri.toString],
+        )
+        Assert.deepStrictEqual(result.failedUris->Array.map(uri => uri->VSCode.Uri.toString), [])
+        Assert.deepStrictEqual(
+          result.deletedInFlightFiles->Array.map(uri => uri->VSCode.Uri.toString),
+          [inFlightUri->VSCode.Uri.toString, inFlightZipUri->VSCode.Uri.toString],
+        )
+        Assert.deepStrictEqual(
+          result.failedInFlightFiles->Array.map(uri => uri->VSCode.Uri.toString),
+          [],
+        )
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [
+          "/usr/local/bin/agda",
+          devNativePath,
+          devWasmUri,
+        ])
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+      },
+    )
+
+    Async.it(
+      "should report failed managed roots separately from in-flight file cleanup",
+      async () => {
+        let previousPaths = Config.Connection.getAgdaPaths()
+        let storageUri = await createStorageUri("agda-delete-plan-failed")
+        let storagePath = storageUri->VSCode.Uri.fsPath
+        let state = createTestStateWithStorage(storageUri)
+        let releasesUri = VSCode.Uri.joinPath(storageUri, ["releases"])
+        let nativePath = VSCode.Uri.joinPath(storageUri, [
+          "releases", "dev", "als-dev-Agda-2.8.0-macos-arm64", "als",
+        ])->VSCode.Uri.fsPath
+        let restoreDelete = withDeleteFailureFor(releasesUri->VSCode.Uri.fsPath)
+
+        let _ = await createDirectoryWithFile(
+          storagePath,
+          ["releases", "dev", "als-dev-Agda-2.8.0-macos-arm64"],
+          "als",
+        )
+        await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/local/bin/agda", nativePath])
+
+        let result = await runDeletePlan(state)
+        restoreDelete()
+
+        Assert.deepStrictEqual(result.cleanedDirectories->Array.map(uri => uri->VSCode.Uri.toString), [])
+        Assert.deepStrictEqual(
+          result.failedUris->Array.map(uri => uri->VSCode.Uri.toString),
+          [releasesUri->VSCode.Uri.toString],
+        )
+        Assert.deepStrictEqual(result.deletedInFlightFiles->Array.map(uri => uri->VSCode.Uri.toString), [])
+        Assert.deepStrictEqual(
+          result.failedInFlightFiles->Array.map(uri => uri->VSCode.Uri.toString),
+          [],
+        )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+      },
+    )
+
     describe("file system", () => {
       let managedDirectorySpecs = [
         (["releases", "dev", "als-dev-Agda-2.8.0-wasm"], "als.wasm"),

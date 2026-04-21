@@ -476,7 +476,12 @@ describe("Connection UI", () => {
           ~getDownloadItems=_channel => Promise.resolve([]),
           ~deleteDownloads=() => {
             deleteCalled := true
-            Promise.resolve({Connection__Download__Delete.cleanedDirectories: [], failedUris: []})
+            Promise.resolve({
+              Connection__Download__Delete.cleanedDirectories: [],
+              failedUris: [],
+              deletedInFlightFiles: [],
+              failedInFlightFiles: [],
+            })
           },
         )
 
@@ -524,6 +529,7 @@ describe("Connection UI", () => {
             ~hasSelectionChanged=_ => false,
             ~switchCandidate=_ => Promise.resolve(),
             ~getDownloadItems=_channel => Promise.resolve([]),
+            ~deleteDownloads=() => Connection__Switch.deleteDownloads(state),
           )
 
           await onSelectionCompleted

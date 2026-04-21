@@ -1,15 +1,16 @@
 type t = {
   cleanedDirectories: array<VSCode.Uri.t>,
   failedUris: array<VSCode.Uri.t>,
+  deletedInFlightFiles: array<VSCode.Uri.t>,
+  failedInFlightFiles: array<VSCode.Uri.t>,
 }
 
-let run = async (
-  memento: Memento.t,
-  globalStorageUri: VSCode.Uri.t,
-  logChannel: Chan.t<Log.t>,
-): t => {
+let run = async (globalStorageUri: VSCode.Uri.t): t => {
   let cleanedDirectories = ref([])
   let failedUris = ref([])
+  let deletedInFlightFiles = ref([])
+  let failedInFlightFiles = ref([])
+
   let deleteRoot = async (uri: VSCode.Uri.t) => {
     Util.log(
       "[ debug ] delete downloads: deleting managed directory",
@@ -44,6 +45,22 @@ let run = async (
     }
   }
 
+  let deleteFileIfPresent = async (uri: VSCode.Uri.t) => {
+    switch await FS.delete(uri) {
+    | Ok() =>
+      deletedInFlightFiles := Array.concat(deletedInFlightFiles.contents, [uri])
+    | Error(error) =>
+      Util.log(
+        "[ debug ] delete downloads: delete failed",
+        VSCode.Uri.toString(uri) ++ ": " ++ error,
+      )
+      switch await FS.stat(uri) {
+      | Ok(_) => failedInFlightFiles := Array.concat(failedInFlightFiles.contents, [uri])
+      | Error(_) => ()
+      }
+    }
+  }
+
   let managedRoots = Connection__Download.managedDeleteRoots(globalStorageUri)
   Util.log("[ debug ] delete downloads: globalStorageUri", VSCode.Uri.toString(globalStorageUri))
   Util.log(
@@ -60,11 +77,9 @@ let run = async (
 
   let inFlightUri = VSCode.Uri.joinPath(globalStorageUri, ["in-flight.download"])
   let inFlightZipUri = VSCode.Uri.joinPath(globalStorageUri, ["in-flight.download.zip"])
-  let _ = await FS.delete(inFlightUri)
-  let _ = await FS.delete(inFlightZipUri)
+  await deleteFileIfPresent(inFlightUri)
+  await deleteFileIfPresent(inFlightZipUri)
 
-  await Memento.ALSReleaseCache.clear(memento, "agda", "agda-language-server")
-  await Memento.ALSReleaseCache.clear(memento, "banacorn", "agda-language-server")
   Util.log(
     "[ debug ] delete downloads: cleaned directories",
     cleanedDirectories.contents->Array.map(dir => VSCode.Uri.toString(dir))->Array.join(" | "),
@@ -73,39 +88,11 @@ let run = async (
     "[ debug ] delete downloads: failed uris",
     failedUris.contents->Array.map(uri => VSCode.Uri.toString(uri))->Array.join(", "),
   )
-  await Memento.ResolvedMetadata.clearUnderDirectories(memento, cleanedDirectories.contents)
 
-  let currentPaths = Config.Connection.getAgdaPaths()
-  Util.log("[ debug ] delete downloads: current connection.paths", currentPaths->Array.join(" | "))
-  let filteredPaths = currentPaths->Array.filter(candidate => {
-    let matchedDirectory = cleanedDirectories.contents->Array.reduce(None, (found, dirUri) =>
-      switch found {
-      | Some(_) => found
-      | None =>
-        if Connection__Candidate.isUnderDirectory(Connection__Candidate.make(candidate), dirUri) {
-          Some(dirUri)
-        } else {
-          None
-        }
-      }
-    )
-    switch matchedDirectory {
-    | Some(dirUri) =>
-      Util.log(
-        "[ debug ] delete downloads: removing connection.path candidate",
-        candidate ++ " under " ++ VSCode.Uri.toString(dirUri),
-      )
-      false
-    | None =>
-      Util.log("[ debug ] delete downloads: preserving connection.path candidate", candidate)
-      true
-    }
-  })
-  Util.log(
-    "[ debug ] delete downloads: filtered connection.paths",
-    filteredPaths->Array.join(" | "),
-  )
-  await Config.Connection.setAgdaPaths(logChannel, filteredPaths)
-
-  {cleanedDirectories: cleanedDirectories.contents, failedUris: failedUris.contents}
+  {
+    cleanedDirectories: cleanedDirectories.contents,
+    failedUris: failedUris.contents,
+    deletedInFlightFiles: deletedInFlightFiles.contents,
+    failedInFlightFiles: failedInFlightFiles.contents,
+  }
 }
