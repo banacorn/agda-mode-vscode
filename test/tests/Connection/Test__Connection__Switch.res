@@ -1310,4 +1310,198 @@ describe("Connection__Switch", () => {
       )
     })
   })
+
+  describe("deleteDownloads", () => {
+    let createTestState = (storageUri: VSCode.Uri.t) => {
+      let channels = {
+        State.inputMethod: Chan.make(),
+        responseHandled: Chan.make(),
+        commandHandled: Chan.make(),
+        log: Chan.make(),
+      }
+      let mockEditor = %raw(`{ document: { fileName: "test.agda" } }`)
+      let mockExtensionUri = VSCode.Uri.file(NodeJs.Process.cwd(NodeJs.Process.process))
+      State.make(
+        "test-id",
+        Mock.Platform.makeWithAgda(),
+        channels,
+        storageUri,
+        mockExtensionUri,
+        Memento.make(None),
+        mockEditor,
+        None,
+      )
+    }
+
+    let managedPath = (storageUri: VSCode.Uri.t, releaseDir: string, fileName: string): string =>
+      NodeJs.Path.join([VSCode.Uri.fsPath(storageUri), "releases", "dev", releaseDir, fileName])
+
+    Async.it(
+      "removes managed candidates from connection.paths",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-delete-remove-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let state = createTestState(storageUri)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        let managed = managedPath(storageUri, "als-dev-Agda-2.8.0-macos-arm64", "als")
+        await NodeJs.Fs.mkdir(NodeJs.Path.dirname(managed), {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(managed, NodeJs.Buffer.fromString(""))
+        let nonManaged = "/usr/bin/agda"
+        await Config.Connection.setAgdaPaths(state.channels.log, [managed, nonManaged])
+
+        let _ = await Connection__Switch.deleteDownloads(state)
+        let newPaths = Config.Connection.getAgdaPaths()
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+        Assert.deepStrictEqual(newPaths, [nonManaged])
+      },
+    )
+
+    Async.it(
+      "clears metadata only under cleaned directories",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-delete-meta-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let state = createTestState(storageUri)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        let managed = managedPath(storageUri, "als-dev-Agda-2.8.0-macos-arm64", "als")
+        let managedUri = VSCode.Uri.file(managed)
+        await NodeJs.Fs.mkdir(NodeJs.Path.dirname(managed), {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(managed, NodeJs.Buffer.fromString(""))
+        let resolved: Connection__Candidate.Resolved.t = {
+          original: Connection__Candidate.make(managed),
+          resource: managedUri,
+        }
+        await Memento.ResolvedMetadata.setKind(
+          state.memento,
+          resolved,
+          Memento.ResolvedMetadata.ALS(Native, None),
+        )
+        await Config.Connection.setAgdaPaths(state.channels.log, [managed])
+
+        let _ = await Connection__Switch.deleteDownloads(state)
+        let metaAfter = Memento.ResolvedMetadata.get(state.memento, resolved)
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+        Assert.deepStrictEqual(metaAfter, None)
+      },
+    )
+
+    Async.it(
+      "clears ALS release caches",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-delete-cache-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let state = createTestState(storageUri)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        await Memento.ALSReleaseCache.setTimestamp(
+          state.memento,
+          "agda",
+          "agda-language-server",
+          Date.make(),
+        )
+        await Memento.ALSReleaseCache.setReleases(
+          state.memento,
+          "agda",
+          "agda-language-server",
+          "[]",
+        )
+        await Config.Connection.setAgdaPaths(state.channels.log, [])
+
+        let _ = await Connection__Switch.deleteDownloads(state)
+        let timestampAfter = Memento.ALSReleaseCache.getTimestamp(
+          state.memento,
+          "agda",
+          "agda-language-server",
+        )
+        let releasesAfter = Memento.ALSReleaseCache.getReleases(
+          state.memento,
+          "agda",
+          "agda-language-server",
+        )
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+        Assert.deepStrictEqual(timestampAfter, None)
+        Assert.deepStrictEqual(releasesAfter, None)
+      },
+    )
+
+    Async.it(
+      "preserves config when managed-root deletion fails",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-delete-fail-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let state = createTestState(storageUri)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        let managed = managedPath(storageUri, "als-dev-Agda-2.8.0-macos-arm64", "als")
+        await NodeJs.Fs.mkdir(NodeJs.Path.dirname(managed), {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(managed, NodeJs.Buffer.fromString(""))
+        await Config.Connection.setAgdaPaths(state.channels.log, [managed])
+
+        // Make storage root read-only so deletion of releases/ fails
+        await NodeJs.Fs.chmod(storagePath, ~mode=0o555)
+
+        let _ = await Connection__Switch.deleteDownloads(state)
+        let pathsAfter = Config.Connection.getAgdaPaths()
+
+        await NodeJs.Fs.chmod(storagePath, ~mode=0o755)
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+        Assert.deepStrictEqual(pathsAfter, [managed])
+      },
+    )
+
+    Async.it(
+      "does not remove in-flight file paths from config even when deleted",
+      async () => {
+        let storagePath = NodeJs.Path.join([
+          NodeJs.Os.tmpdir(),
+          "agda-delete-inflight-" ++ string_of_int(int_of_float(Js.Date.now())),
+        ])
+        let storageUri = VSCode.Uri.file(storagePath)
+        let _ = await FS.createDirectory(storageUri)
+        let state = createTestState(storageUri)
+        let previousPaths = Config.Connection.getAgdaPaths()
+
+        let inFlightPath = NodeJs.Path.join([storagePath, "in-flight.download"])
+        NodeJs.Fs.writeFileSync(inFlightPath, NodeJs.Buffer.fromString(""))
+
+        let managed = managedPath(storageUri, "als-dev-Agda-2.8.0-macos-arm64", "als")
+        await NodeJs.Fs.mkdir(NodeJs.Path.dirname(managed), {recursive: true, mode: 0o777})
+        NodeJs.Fs.writeFileSync(managed, NodeJs.Buffer.fromString(""))
+
+        await Config.Connection.setAgdaPaths(state.channels.log, [managed, inFlightPath])
+
+        let _ = await Connection__Switch.deleteDownloads(state)
+        let pathsAfter = Config.Connection.getAgdaPaths()
+
+        await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
+        let _ = await FS.deleteRecursive(storageUri)
+        Assert.deepStrictEqual(pathsAfter, [inFlightPath])
+      },
+    )
+  })
 })

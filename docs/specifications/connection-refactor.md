@@ -123,36 +123,34 @@ The already-downloaded click path should move to `Connection__Download__ManagedS
 
 ### Delete Downloads
 
-`Connection__Download__Delete` should eventually return a delete plan/result instead of applying all mutations directly.
+`Connection__Download__Delete` returns a pure storage report — it describes what happened on disk and does not touch config or memento.
 
-Target shape:
+Current shape:
 
 ```rescript
-type result = {
+type t = {
   cleanedDirectories: array<VSCode.Uri.t>,
   failedUris: array<VSCode.Uri.t>,
-  pathsToRemove: array<string>,
-  metadataDirectoriesToClear: array<VSCode.Uri.t>,
-  releaseCachesToClear: array<(string, string)>,
-  inFlightFilesToDelete: array<VSCode.Uri.t>,
+  deletedInFlightFiles: array<VSCode.Uri.t>,
+  failedInFlightFiles: array<VSCode.Uri.t>,
 }
 ```
 
-Applying mutations to config and memento should live in `Connection.res` or connection orchestration.
-
-Direct mutation inside `Connection__Download__Delete.run` is acceptable only as an intermediate state.
+`Connection__Switch.deleteDownloads` owns the policy layer: it reads the storage report and derives which config paths to remove, which metadata entries to clear, and which release caches to invalidate. Orchestration tests for this live in `Test__Connection__Switch.res` under `describe("deleteDownloads", ...)`.
 
 ### Availability
 
-`Connection__Download__Availability` should eventually return typed domain records, not UI-shaped tuples.
+`Connection__Download__Availability` now returns typed domain records.
 
-Current intermediate shape:
+Current shape:
 
 ```rescript
-array<(bool, string, string)>
+type availableDownload = {
+  downloaded: bool,
+  versionString: string,
+  variant: Connection__Download.SelectionVariant.t,
+}
 ```
-
-Target shape should be a typed record carrying domain data. Exact fields may evolve, but it should not be a UI tuple.
 
 Rendering availability into picker rows belongs in `Connection__UI*`.
 
@@ -300,56 +298,13 @@ End state:
 no Test__State__SwitchVersion*
 ```
 
-## Immediate Next Step
+## Status
 
-Move the already-downloaded selection path out of `State__SwitchVersion.Handler.handleDownload`.
+The primary ownership migration is complete:
 
-Current smell:
-
-- when `downloaded == true`, State scans `<globalStorage>/releases/*`
-- State parses `DownloadArtifact`
-- State filters by channel, variant, and version string
-- State stats the executable and derives the Candidate path
-
-That is managed-storage download-domain behavior.
-
-### Red
-
-Add connection tests for a helper such as:
-
-```rescript
-Connection__Download__ManagedStorage.findCandidateForSelection(
-  globalStorageUri,
-  ~channel,
-  ~platform,
-  ~versionString,
-)
-```
-
-Test cases:
-
-- DevALS native downloaded selection returns `<globalStorage>/releases/dev/als-dev-Agda-2.8.0-macos-arm64/als`.
-- DevALS WASM downloaded selection returns the managed WASM Candidate path.
-- LatestALS native downloaded selection returns `<globalStorage>/releases/v6/als-v6-Agda-2.8.0-macos-arm64/als`.
-- malformed artifact directories are ignored.
-- matching artifact directories with missing executables are ignored.
-- non-matching `versionString` returns `None`.
-
-### Green
-
-Move the filesystem scan from `State__SwitchVersion.Handler.handleDownload` into the managed-storage helper.
-
-`State__SwitchVersion` should only:
-
-- call the helper
-- add the returned Candidate to `connection.paths` when present
-- show the existing UI toast
-- emit existing UI events
-
-### Refactor
-
-Keep local managed-storage discovery in:
-
-```text
-Connection__Download__ManagedStorage
-```
+- `Connection__Switch` owns switch-version composition, config/memento policy, and download cleanup orchestration.
+- `State__SwitchVersion` has been deleted.
+- `Test__State__SwitchVersion.res` has been removed entirely.
+- All manager-level and orchestration tests live in `Test__Connection__Switch.res`.
+- `Connection__Download__Availability` returns typed domain records.
+- `Connection__Download__Delete` returns a pure storage report; policy lives in `Connection__Switch.deleteDownloads`.
