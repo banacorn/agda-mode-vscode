@@ -23,11 +23,11 @@ describe("Connection UI", () => {
   let availableDownload = (
     ~downloaded=false,
     ~versionString,
-    ~variant: Connection__Download.SelectionVariant.t,
+    ~platform: Connection__Download.DownloadArtifact.Platform.t,
   ): Connection__Download__Availability.availableDownload => {
     downloaded,
     versionString,
-    variant,
+    platform,
   }
 
   describe("Picker and handlers", () => {
@@ -68,12 +68,6 @@ describe("Connection UI", () => {
 
     let makePickerItem = (state: State.t, itemData: Connection__UI__ItemData.t) =>
       Connection__UI__Item.fromItemData(itemData, state.extensionUri)
-
-    let selectionVariantTag = (variant: Connection__Download.SelectionVariant.t) =>
-      switch variant {
-      | Native => "native"
-      | WASM => "wasm"
-      }
 
     let hasSelectionChanged = (memento, selectedPath) =>
       switch Memento.PreferredCandidate.get(memento) {
@@ -208,7 +202,7 @@ describe("Connection UI", () => {
 
         let selectedItem = makePickerItem(
           state,
-          DownloadAction(false, "Agda v2.8.0 Language Server (dev build)", "wasm"),
+          DownloadAction(false, "Agda v2.8.0 Language Server (dev build)", Connection__Download.DownloadArtifact.Platform.Wasm),
         )
 
         Connection__UI__Handlers.onSelection(
@@ -249,27 +243,27 @@ describe("Connection UI", () => {
 
           await Config.Connection.setAgdaPaths(state.channels.log, [])
 
-          let selectedVariant =
+          let selectedPlatform: Connection__Download.DownloadArtifact.Platform.t =
             label == Connection__UI__Labels.downloadWasmALS
-              ? Connection__Download.SelectionVariant.WASM
-              : Connection__Download.SelectionVariant.Native
+              ? Connection__Download.DownloadArtifact.Platform.Wasm
+              : Connection__Download.DownloadArtifact.Platform.MacOSArm64
 
-          let expectedDownloadPath = switch selectedVariant {
-          | Connection__Download.SelectionVariant.Native =>
-            NodeJs.Path.join([
-              VSCode.Uri.fsPath(state.globalStorageUri),
-              "releases",
-              "dev",
-              "als-dev-Agda-2.8.0-macos-arm64",
-              "als",
-            ])
-          | Connection__Download.SelectionVariant.WASM =>
+          let expectedDownloadPath = switch selectedPlatform {
+          | Connection__Download.DownloadArtifact.Platform.Wasm =>
             NodeJs.Path.join([
               VSCode.Uri.fsPath(state.globalStorageUri),
               "releases",
               "dev",
               "als-dev-Agda-2.8.0-wasm",
               "als.wasm",
+            ])
+          | _ =>
+            NodeJs.Path.join([
+              VSCode.Uri.fsPath(state.globalStorageUri),
+              "releases",
+              "dev",
+              "als-dev-Agda-2.8.0-macos-arm64",
+              "als",
             ])
           }
 
@@ -314,7 +308,7 @@ describe("Connection UI", () => {
                 DownloadAction(
                   false,
                   "ALS v1.0.0",
-                  selectionVariantTag(selectedVariant),
+                  selectedPlatform,
                 ),
               ),
             ],
@@ -585,7 +579,7 @@ describe("Connection UI", () => {
           DownloadAction(
             false,
             Connection__UI__Labels.checkingAvailability,
-            "native",
+            Connection__Download.DownloadArtifact.Platform.MacOSArm64,
           ),
         )
 
@@ -847,15 +841,15 @@ describe("Connection UI", () => {
       "handleDownload should not modify PreferredCandidate",
       async () => {
         let testCases = [
-          (Some("/usr/bin/agda"), Connection__Download.SelectionVariant.Native, false),
-          (Some("/usr/bin/agda"), Connection__Download.SelectionVariant.WASM, false),
-          (None, Connection__Download.SelectionVariant.Native, false),
-          (None, Connection__Download.SelectionVariant.WASM, false),
+          (Some("/usr/bin/agda"), Connection__Download.DownloadArtifact.Platform.MacOSArm64, false),
+          (Some("/usr/bin/agda"), Connection__Download.DownloadArtifact.Platform.Wasm, false),
+          (None, Connection__Download.DownloadArtifact.Platform.MacOSArm64, false),
+          (None, Connection__Download.DownloadArtifact.Platform.Wasm, false),
         ]
 
         let runCase = async (
           initialPicked: option<string>,
-          variant: Connection__Download.SelectionVariant.t,
+          platform: Connection__Download.DownloadArtifact.Platform.t,
           downloaded: bool,
         ) => {
           let state = createTestState()
@@ -871,16 +865,8 @@ describe("Connection UI", () => {
               queue: Promise.resolve(),
             })
 
-          let expectedDownloadPath = switch variant {
-          | Connection__Download.SelectionVariant.Native =>
-            NodeJs.Path.join([
-              VSCode.Uri.fsPath(state.globalStorageUri),
-              "releases",
-              "dev",
-              "als-dev-Agda-2.8.0-macos-arm64",
-              "als",
-            ])
-          | Connection__Download.SelectionVariant.WASM =>
+          let expectedDownloadPath = switch platform {
+          | Connection__Download.DownloadArtifact.Platform.Wasm =>
             VSCode.Uri.toString(
               VSCode.Uri.joinPath(state.globalStorageUri, [
                 "releases",
@@ -889,14 +875,22 @@ describe("Connection UI", () => {
                 "als.wasm",
               ]),
             )
+          | _ =>
+            NodeJs.Path.join([
+              VSCode.Uri.fsPath(state.globalStorageUri),
+              "releases",
+              "dev",
+              "als-dev-Agda-2.8.0-macos-arm64",
+              "als",
+            ])
           }
-          let platform = Mock.Platform.makeWithSuccessfulDownload(expectedDownloadPath)
+          let mockPlatform = Mock.Platform.makeWithSuccessfulDownload(expectedDownloadPath)
           let versionString = "Agda v2.8.0 Language Server (dev build)"
 
           await Connection__UI__Handlers.handleDownload(
             state,
+            mockPlatform,
             platform,
-            variant,
             downloaded,
             versionString,
             ~refreshUI=None,
@@ -911,8 +905,8 @@ describe("Connection UI", () => {
         }
 
         for i in 0 to Array.length(testCases) - 1 {
-          let (initialPicked, variant, downloaded) = testCases[i]->Option.getExn
-          await runCase(initialPicked, variant, downloaded)
+          let (initialPicked, platform, downloaded) = testCases[i]->Option.getExn
+          await runCase(initialPicked, platform, downloaded)
         }
       },
     )
@@ -935,7 +929,7 @@ describe("Connection UI", () => {
           await Connection__UI__Handlers.handleDownload(
             state,
             platform,
-            Connection__Download.SelectionVariant.WASM,
+            Connection__Download.DownloadArtifact.Platform.Wasm,
             true,
             "Agda v2.8.0 Language Server (dev build)",
             ~channel=Connection__Download.Channel.DevALS,
@@ -1049,7 +1043,7 @@ describe("Connection UI", () => {
         await Connection__UI__Handlers.handleDownload(
           state,
           platform,
-          Connection__Download.SelectionVariant.WASM,
+          Connection__Download.DownloadArtifact.Platform.Wasm,
           false,
           "ALS vTest",
           ~channel=Connection__Download.Channel.DevALS,
@@ -1084,7 +1078,7 @@ describe("Connection UI", () => {
           Connection__UI__ItemData.entriesToItemData(
             [],
             None,
-            [availableDownload(~versionString="ALS v1.0.0", ~variant=Native)],
+            [availableDownload(~versionString="ALS v1.0.0", ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64)],
           )
 
         let hasSelectOtherChannels =
@@ -1164,11 +1158,7 @@ describe("Connection UI", () => {
           [
             availableDownload(
               ~versionString=Connection__UI__Labels.downloadUnavailable,
-              ~variant=Native,
-            ),
-            availableDownload(
-              ~versionString=Connection__UI__Labels.downloadUnavailable,
-              ~variant=WASM,
+              ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
             ),
           ],
         )
@@ -1209,11 +1199,11 @@ describe("Connection UI", () => {
           [
             availableDownload(
               ~versionString=Connection__UI__Labels.downloadUnavailable,
-              ~variant=Native,
+              ~platform=Connection__Download.DownloadArtifact.Platform.Ubuntu,
             ),
             availableDownload(
               ~versionString=Connection__UI__Labels.downloadUnavailable,
-              ~variant=WASM,
+              ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
             ),
           ],
         )
@@ -1254,7 +1244,7 @@ describe("Connection UI", () => {
           [
             availableDownload(
               ~versionString=Connection__UI__Labels.downloadUnavailable,
-              ~variant=WASM,
+              ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
             ),
           ],
         )

@@ -483,7 +483,7 @@ describe("Connection__Switch", () => {
 
           let hasNativeDownloadAction =
             itemData->Array.some(item =>
-              switch item { | DownloadAction(_, _, "native") => true | _ => false }
+              switch item { | DownloadAction(_, _, platform) => !Connection__Download.DownloadArtifact.Platform.isWasm(platform) | _ => false }
             )
 
           await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
@@ -521,7 +521,7 @@ describe("Connection__Switch", () => {
 
           let hasNativeDownloadAction =
             itemData->Array.some(item =>
-              switch item { | DownloadAction(_, _, "native") => true | _ => false }
+              switch item { | DownloadAction(_, _, platform) => !Connection__Download.DownloadArtifact.Platform.isWasm(platform) | _ => false }
             )
 
           await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
@@ -556,7 +556,7 @@ describe("Connection__Switch", () => {
 
           let hasNativeDownloadAction =
             itemData->Array.some(item =>
-              switch item { | DownloadAction(_, _, "native") => true | _ => false }
+              switch item { | DownloadAction(_, _, platform) => !Connection__Download.DownloadArtifact.Platform.isWasm(platform) | _ => false }
             )
 
           await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
@@ -592,7 +592,7 @@ describe("Connection__Switch", () => {
 
           let hasNativeDownloadAction =
             itemData->Array.some(item =>
-              switch item { | DownloadAction(_, _, "native") => true | _ => false }
+              switch item { | DownloadAction(_, _, platform) => !Connection__Download.DownloadArtifact.Platform.isWasm(platform) | _ => false }
             )
 
           await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
@@ -627,7 +627,7 @@ describe("Connection__Switch", () => {
 
           let hasWasmDownloadAction =
             itemData->Array.some(item =>
-              switch item { | DownloadAction(_, _, "wasm") => true | _ => false }
+              switch item { | DownloadAction(_, _, platform) => Connection__Download.DownloadArtifact.Platform.isWasm(platform) | _ => false }
             )
 
           await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
@@ -728,7 +728,7 @@ describe("Connection__Switch", () => {
           let hasNativeDownloadAction =
             itemData->Array.some(item =>
               switch item {
-              | DownloadAction(_, _, "native") => true
+              | DownloadAction(_, _, platform) => !Connection__Download.DownloadArtifact.Platform.isWasm(platform)
               | _ => false
               }
             )

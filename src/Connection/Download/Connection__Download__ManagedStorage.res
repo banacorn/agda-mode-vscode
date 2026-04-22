@@ -11,8 +11,7 @@ module type Api = {
   let findCandidateForSelection: (
     VSCode.Uri.t,
     ~channel: Connection__Download.Channel.t,
-    ~variant: Connection__Download.SelectionVariant.t,
-    ~platform: Connection__Download__Platform.t,
+    ~platform: Connection__Download.DownloadArtifact.Platform.t,
     ~versionString: string,
   ) => promise<option<string>>
 
@@ -167,19 +166,14 @@ let findAnyDownloadedForPlatform: (
 let findCandidateForSelection: (
   VSCode.Uri.t,
   ~channel: Connection__Download.Channel.t,
-  ~variant: Connection__Download.SelectionVariant.t,
-  ~platform: Connection__Download__Platform.t,
+  ~platform: Connection__Download.DownloadArtifact.Platform.t,
   ~versionString: string,
-) => promise<option<string>> = async (globalStorageUri, ~channel, ~variant, ~platform, ~versionString) => {
+) => promise<option<string>> = async (globalStorageUri, ~channel, ~platform, ~versionString) => {
   await findReleaseManagedDownloaded(
     globalStorageUri,
     artifact =>
       DownloadArtifact.matchesChannel(~channel, artifact) &&
-      (switch variant {
-      | SelectionVariant.WASM => DownloadArtifact.Platform.isWasm(artifact.platform)
-      | SelectionVariant.Native =>
-        DownloadArtifact.Platform.matchesDownloadPlatform(artifact.platform, platform)
-      }) &&
+      artifact.platform == platform &&
       DownloadArtifact.toVersionString(~channel, artifact) == versionString,
     uriToPath,
   )

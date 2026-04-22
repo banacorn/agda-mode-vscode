@@ -531,7 +531,7 @@ describe("Config.Connection paths", () => {
           Connection__UI__ItemData.DownloadAction(
             isAlreadyDownloaded,
             "Agda v2.8.0 Language Server (dev build)",
-            "native",
+            Connection__Download.DownloadArtifact.Platform.MacOSArm64,
           ),
           mockState.extensionUri,
         )

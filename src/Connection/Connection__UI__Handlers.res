@@ -4,25 +4,16 @@ module Picker = Connection__UI__Picker
 
 type downloadItems = array<Connection__Download__Availability.availableDownload>
 
-let selectionVariantFromTag = (tag: string): SelectionVariant.t =>
-  switch tag {
-  | "wasm" => SelectionVariant.WASM
-  | _ => SelectionVariant.Native
-  }
-
 let logDownloadItems = (downloadItems: downloadItems): array<(bool, string, string)> =>
   downloadItems->Array.map(download => {
-    let variantTag = switch download.variant {
-    | Native => "native"
-    | WASM => "wasm"
-    }
-    (download.downloaded, download.versionString, variantTag)
+    let platformTag = DownloadArtifact.Platform.isWasm(download.platform) ? "wasm" : "native"
+    (download.downloaded, download.versionString, platformTag)
   })
 
 let handleDownload = async (
   state: State.t,
   platformDeps: Platform.t,
-  variant: SelectionVariant.t,
+  platform: DownloadArtifact.Platform.t,
   downloaded: bool,
   versionString: string,
   ~channel: Channel.t=DevALS,
@@ -33,29 +24,19 @@ let handleDownload = async (
   )
 
   if downloaded {
-    let platformResult = {
-      module PlatformOps = unpack(platformDeps)
-      await PlatformOps.determinePlatform()
-    }
-
-    switch platformResult {
-    | Error(_) => ()
-    | Ok(platform) =>
-      switch await Connection__Download__ManagedStorage.findCandidateForSelection(
-        state.globalStorageUri,
-        ~channel,
-        ~variant,
-        ~platform,
-        ~versionString,
-      ) {
-      | None => ()
-      | Some(downloadedPath) =>
-        await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
-        VSCode.Window.showInformationMessage(
-          versionString ++ " is already downloaded",
-          [],
-        )->Promise.done
-      }
+    switch await Connection__Download__ManagedStorage.findCandidateForSelection(
+      state.globalStorageUri,
+      ~channel,
+      ~platform,
+      ~versionString,
+    ) {
+    | None => ()
+    | Some(downloadedPath) =>
+      await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+      VSCode.Window.showInformationMessage(
+        versionString ++ " is already downloaded",
+        [],
+      )->Promise.done
     }
   } else {
     module PlatformOps = unpack(platformDeps)
@@ -65,7 +46,7 @@ let handleDownload = async (
       state.globalStorageUri,
       platformDeps,
       ~channel,
-      ~variant,
+      ~platform,
       ~versionString,
     ) {
     | Error(error) => Error(error)
@@ -195,13 +176,13 @@ let onSelection = (
               [],
             )->Promise.done
           }
-        | DownloadAction(downloaded, versionString, variantTag) =>
+        | DownloadAction(downloaded, versionString, platform) =>
           Util.log("[ debug ] user clicked: download button = " ++ selectedItem.label, "")
           view->Picker.destroy
           await handleDownload(
             state,
             platformDeps,
-            selectionVariantFromTag(variantTag),
+            platform,
             downloaded,
             versionString,
             ~channel=selectedChannel.contents,
@@ -244,21 +225,26 @@ let backgroundUpdateFailureFallback = async (
 ) => {
   module PlatformOps = unpack(platformDeps)
   let fallback: downloadItems = switch await PlatformOps.determinePlatform() {
+  | Error(_) => [{
+      downloaded: false,
+      versionString: Connection__UI__Labels.downloadUnavailable,
+      platform: DownloadArtifact.Platform.Wasm,
+    }]
   | Ok(Connection__Download__Platform.Web) => [{
       downloaded: false,
       versionString: Connection__UI__Labels.downloadUnavailable,
-      variant: WASM,
+      platform: DownloadArtifact.Platform.Wasm,
     }]
-  | _ => [
+  | Ok(downloadPlatform) => [
       {
         downloaded: false,
         versionString: Connection__UI__Labels.downloadUnavailable,
-        variant: Native,
+        platform: DownloadArtifact.Platform.fromDownloadPlatform(downloadPlatform),
       },
       {
         downloaded: false,
         versionString: Connection__UI__Labels.downloadUnavailable,
-        variant: WASM,
+        platform: DownloadArtifact.Platform.Wasm,
       },
     ]
   }

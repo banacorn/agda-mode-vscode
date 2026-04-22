@@ -1,29 +1,38 @@
-let assetsForVariant = (release, platform, variant: Connection__Download.SelectionVariant.t) =>
-  switch variant {
-  | Native => Connection__Download__Assets.nativeForPlatform(release, platform)
-  | WASM => Connection__Download__Assets.wasm(release)
-  }
-
 let sourceForSelection = async (
   memento: Memento.t,
   globalStorageUri: VSCode.Uri.t,
   platformDeps: Platform.t,
   ~channel: Connection__Download.Channel.t,
-  ~variant: Connection__Download.SelectionVariant.t,
+  ~platform: Connection__Download.DownloadArtifact.Platform.t,
   ~versionString: string,
 ): result<Connection__Download.Source.t, Connection__Download.Error.t> => {
   module PlatformOps = unpack(platformDeps)
 
   switch await PlatformOps.determinePlatform() {
   | Error(_) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
-  | Ok(platform) =>
+  | Ok(downloadPlatform) =>
+    let platformOk = switch platform {
+    | Connection__Download.DownloadArtifact.Platform.Wasm => true
+    | nativePlatform =>
+      Connection__Download.DownloadArtifact.Platform.matchesDownloadPlatform(
+        nativePlatform,
+        downloadPlatform,
+      )
+    }
+    if !platformOk {
+      Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+    } else {
     let resolver = PlatformOps.resolveDownloadChannel(channel, true)
-    switch await resolver(memento, globalStorageUri, platform) {
+    switch await resolver(memento, globalStorageUri, downloadPlatform) {
     | Error(error) => Error(error)
     | Ok(Connection__Download.Source.FromURL(_, _, _) as source) => Ok(source)
     | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
       let release = descriptor.release
-      let assets = assetsForVariant(release, platform, variant)
+      let assets = switch platform {
+      | Connection__Download.DownloadArtifact.Platform.Wasm =>
+        Connection__Download__Assets.wasm(release)
+      | _ => Connection__Download__Assets.nativeForPlatform(release, downloadPlatform)
+      }
       let matchingSource = assets->Array.reduce(None, (found, asset) =>
         switch found {
         | Some(_) => found
@@ -45,6 +54,7 @@ let sourceForSelection = async (
       | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
       | Some(source) => Ok(source)
       }
+    }
     }
   }
 }

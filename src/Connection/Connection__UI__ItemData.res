@@ -3,7 +3,7 @@ module ResolvedMetadata = Memento.ResolvedMetadata
 
 type t =
   | Candidate(string, string, ResolvedMetadata.entry, bool)
-  | DownloadAction(bool, string, string)
+  | DownloadAction(bool, string, Connection__Download.DownloadArtifact.Platform.t)
   | SelectOtherChannels
   | DeleteDownloads
   | NoInstallations
@@ -22,13 +22,13 @@ let toString = item =>
     } else {
       ""
     }
-  | DownloadAction(downloaded, versionString, downloadType) =>
+  | DownloadAction(downloaded, versionString, platform) =>
     "DownloadAction: downloaded=" ++
     string_of_bool(downloaded) ++
     ", versionString=" ++
     versionString ++
     ", type=" ++
-    downloadType
+    (Connection__Download.DownloadArtifact.Platform.isWasm(platform) ? "wasm" : "native")
   | SelectOtherChannels => "SelectOtherChannels"
   | DeleteDownloads => "DeleteDownloads"
   | NoInstallations => "NoInstallations"
@@ -41,12 +41,6 @@ let shouldCandidateHaveIcon = (kind: ResolvedMetadata.kind): bool => {
   | _ => false
   }
 }
-
-let variantToTag = (variant: Connection__Download.SelectionVariant.t): string =>
-  switch variant {
-  | Native => "native"
-  | WASM => "wasm"
-  }
 
 let entriesToItemData = (
   entries: array<(string, string, ResolvedMetadata.entry)>,
@@ -82,7 +76,7 @@ let entriesToItemData = (
     DownloadAction(
       download.downloaded,
       download.versionString,
-      variantToTag(download.variant),
+      download.platform,
     )
   )
 

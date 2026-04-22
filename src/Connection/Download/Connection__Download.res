@@ -26,12 +26,6 @@ module Channel = {
   let all: array<t> = [DevALS, LatestALS]
 }
 
-module SelectionVariant = {
-  type t =
-    | Native
-    | WASM
-}
-
 module DownloadArtifact = {
   module Platform = {
     type t =
@@ -74,6 +68,15 @@ module DownloadArtifact = {
       | (MacOSX64, Connection__Download__Platform.MacOS_Intel) => true
       | (Wasm, Connection__Download__Platform.Web) => true
       | _ => false
+      }
+
+    let fromDownloadPlatform = (downloadPlatform: Connection__Download__Platform.t): t =>
+      switch downloadPlatform {
+      | Connection__Download__Platform.Windows => Windows
+      | Connection__Download__Platform.Ubuntu => Ubuntu
+      | Connection__Download__Platform.MacOS_Arm => MacOSArm64
+      | Connection__Download__Platform.MacOS_Intel => MacOSX64
+      | Connection__Download__Platform.Web => Wasm
       }
   }
 

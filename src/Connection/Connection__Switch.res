@@ -332,21 +332,26 @@ module Download = {
   ): array<Connection__Download__Availability.availableDownload> => {
     module PlatformOps = unpack(platformDeps)
     switch await PlatformOps.determinePlatform() {
+    | Error(_) => [{
+        downloaded: false,
+        versionString: Connection__UI__Labels.checkingAvailability,
+        platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+      }]
     | Ok(Connection__Download__Platform.Web) => [{
         downloaded: false,
         versionString: Connection__UI__Labels.checkingAvailability,
-        variant: Connection__Download.SelectionVariant.WASM,
+        platform: Connection__Download.DownloadArtifact.Platform.Wasm,
       }]
-    | _ => [
+    | Ok(downloadPlatform) => [
         {
           downloaded: false,
           versionString: Connection__UI__Labels.checkingAvailability,
-          variant: Connection__Download.SelectionVariant.Native,
+          platform: Connection__Download.DownloadArtifact.Platform.fromDownloadPlatform(downloadPlatform),
         },
         {
           downloaded: false,
           versionString: Connection__UI__Labels.checkingAvailability,
-          variant: Connection__Download.SelectionVariant.WASM,
+          platform: Connection__Download.DownloadArtifact.Platform.Wasm,
         },
       ]
     }

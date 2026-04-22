@@ -443,32 +443,32 @@ describe("Download", () => {
             {
               downloaded: false,
               versionString: "Agda v2.8.0 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.Native,
+              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.Native,
+              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.Native,
+              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.8.0 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.WASM,
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.WASM,
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.WASM,
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
             },
           ])
         })
@@ -497,32 +497,32 @@ describe("Download", () => {
             {
               downloaded: true,
               versionString: "Agda v2.8.0 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.Native,
+              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.Native,
+              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.Native,
+              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.8.0 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.WASM,
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.WASM,
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.WASM,
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
             },
           ])
         })
@@ -550,27 +550,27 @@ describe("Download", () => {
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.Native,
+              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.Native,
+              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.8.0 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.WASM,
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.WASM,
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
-              variant: Connection__Download.SelectionVariant.WASM,
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
             },
           ])
         })
@@ -664,7 +664,7 @@ describe("Download", () => {
           VSCode.Uri.file("/tmp/agda-flow-dev-native"),
           platform,
           ~channel=Connection__Download.Channel.DevALS,
-          ~variant=Connection__Download.SelectionVariant.Native,
+          ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
           ~versionString="Agda v2.8.0 Language Server (dev build)",
         )
 
@@ -696,7 +696,7 @@ describe("Download", () => {
           VSCode.Uri.file("/tmp/agda-flow-dev-wasm"),
           platform,
           ~channel=Connection__Download.Channel.DevALS,
-          ~variant=Connection__Download.SelectionVariant.WASM,
+          ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
           ~versionString="Agda v2.8.0 Language Server (dev build)",
         )
 
@@ -721,7 +721,7 @@ describe("Download", () => {
         VSCode.Uri.file("/tmp/agda-flow-no-match"),
         platform,
         ~channel=Connection__Download.Channel.DevALS,
-        ~variant=Connection__Download.SelectionVariant.Native,
+        ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
         ~versionString="Agda v9.9.9 Language Server (dev build)",
       )
 
@@ -741,7 +741,7 @@ describe("Download", () => {
         VSCode.Uri.file("/tmp/agda-flow-url"),
         platform,
         ~channel=Connection__Download.Channel.DevALS,
-        ~variant=Connection__Download.SelectionVariant.WASM,
+        ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
         ~versionString="irrelevant for URL sources",
       )
 
@@ -765,7 +765,7 @@ describe("Download", () => {
         VSCode.Uri.file("/tmp/agda-flow-latest"),
         platform,
         ~channel=Connection__Download.Channel.LatestALS,
-        ~variant=Connection__Download.SelectionVariant.Native,
+        ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
         ~versionString="Agda v2.8.0 Language Server v6",
       )
 
@@ -1963,7 +1963,7 @@ describe("Download", () => {
           await Connection__UI__Handlers.handleDownload(
             state,
             platform,
-            Connection__Download.SelectionVariant.Native,
+            Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             false,
             "ALS vTest",
             ~channel=Connection__Download.Channel.DevALS,
@@ -2258,8 +2258,7 @@ describe("Download", () => {
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
             ~channel=Connection__Download.Channel.DevALS,
-            ~variant=Connection__Download.SelectionVariant.Native,
-            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             ~versionString="Agda v2.8.0 Language Server (dev build)",
           )
 
@@ -2286,8 +2285,7 @@ describe("Download", () => {
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
             ~channel=Connection__Download.Channel.DevALS,
-            ~variant=Connection__Download.SelectionVariant.WASM,
-            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
             ~versionString="Agda v2.8.0 Language Server (dev build)",
           )
 
@@ -2317,8 +2315,7 @@ describe("Download", () => {
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
             ~channel=Connection__Download.Channel.LatestALS,
-            ~variant=Connection__Download.SelectionVariant.Native,
-            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             ~versionString="Agda v2.8.0 Language Server v6",
           )
 
@@ -2340,8 +2337,7 @@ describe("Download", () => {
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
             ~channel=Connection__Download.Channel.DevALS,
-            ~variant=Connection__Download.SelectionVariant.Native,
-            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             ~versionString="Agda v2.8.0 Language Server (dev build)",
           )
 
@@ -2366,8 +2362,7 @@ describe("Download", () => {
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
             ~channel=Connection__Download.Channel.DevALS,
-            ~variant=Connection__Download.SelectionVariant.Native,
-            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             ~versionString="Agda v2.8.0 Language Server (dev build)",
           )
 
@@ -2394,8 +2389,7 @@ describe("Download", () => {
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
             ~channel=Connection__Download.Channel.DevALS,
-            ~variant=Connection__Download.SelectionVariant.Native,
-            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             ~versionString="Agda v9.9.9 Language Server (dev build)",
           )
 
@@ -2422,8 +2416,7 @@ describe("Download", () => {
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
             ~channel=Connection__Download.Channel.LatestALS,
-            ~variant=Connection__Download.SelectionVariant.Native,
-            ~platform=Connection__Download__Platform.MacOS_Arm,
+            ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
             ~versionString="Agda v2.8.0 Language Server (dev build)",
           )
 

@@ -1,7 +1,7 @@
 type availableDownload = {
   downloaded: bool,
   versionString: string,
-  variant: Connection__Download.SelectionVariant.t,
+  platform: Connection__Download.DownloadArtifact.Platform.t,
 }
 
 type sourceDownloadItem = {
@@ -20,7 +20,7 @@ let isDownloadedSource = async (
 
 let makeDownloadItem = async (
   globalStorageUri: VSCode.Uri.t,
-  variant: Connection__Download.SelectionVariant.t,
+  ~platform: Connection__Download.DownloadArtifact.Platform.t,
   source: Connection__Download.Source.t,
 ): sourceDownloadItem => {
   let downloaded = await isDownloadedSource(globalStorageUri, source)
@@ -28,7 +28,7 @@ let makeDownloadItem = async (
     download: {
       downloaded,
       versionString: Connection__Download.Source.toVersionString(source),
-      variant,
+      platform,
     },
     source: Some(source),
   }
@@ -36,12 +36,12 @@ let makeDownloadItem = async (
 
 let unavailableSourceItem = (
   ~downloadUnavailable: string,
-  variant: Connection__Download.SelectionVariant.t,
+  ~platform: Connection__Download.DownloadArtifact.Platform.t,
 ): sourceDownloadItem => {
   download: {
     downloaded: false,
     versionString: downloadUnavailable,
-    variant,
+    platform,
   },
   source: None,
 }
@@ -84,19 +84,16 @@ let getAll = async (
 ): array<availableDownload> => {
   module PlatformOps = unpack(platformDeps)
 
-  let unavailable = variant => unavailableSourceItem(~downloadUnavailable, variant)
+  let unavailable = (~platform) => unavailableSourceItem(~downloadUnavailable, ~platform)
 
   let allItems = switch await PlatformOps.determinePlatform() {
-  | Error(_) => [
-      unavailable(Connection__Download.SelectionVariant.Native),
-      unavailable(Connection__Download.SelectionVariant.WASM),
-    ]
+  | Error(_) => [unavailable(~platform=Connection__Download.DownloadArtifact.Platform.Wasm)]
   | Ok(Connection__Download__Platform.Web) =>
     let resolver = PlatformOps.resolveDownloadChannel(channel, true)
     switch await resolver(memento, globalStorageUri, Connection__Download__Platform.Web) {
-    | Error(_) => [unavailable(Connection__Download.SelectionVariant.WASM)]
+    | Error(_) => [unavailable(~platform=Connection__Download.DownloadArtifact.Platform.Wasm)]
     | Ok(Connection__Download.Source.FromURL(_, _, _)) =>
-      [unavailable(Connection__Download.SelectionVariant.WASM)]
+      [unavailable(~platform=Connection__Download.DownloadArtifact.Platform.Wasm)]
     | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
       let release = descriptor.release
       let makeSource = asset =>
@@ -107,30 +104,30 @@ let getAll = async (
         })
       let wasmAssets = Connection__Download__Assets.wasm(release)
       if Array.length(wasmAssets) == 0 {
-        [unavailable(Connection__Download.SelectionVariant.WASM)]
+        [unavailable(~platform=Connection__Download.DownloadArtifact.Platform.Wasm)]
       } else {
         await Promise.all(
           wasmAssets->Array.map(async asset =>
             await makeDownloadItem(
               globalStorageUri,
-              Connection__Download.SelectionVariant.WASM,
+              ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
               makeSource(asset),
             )
           ),
         )
       }
     }
-  | Ok(platform) =>
+  | Ok(downloadPlatform) =>
     let resolver = PlatformOps.resolveDownloadChannel(channel, true)
-    switch await resolver(memento, globalStorageUri, platform) {
+    switch await resolver(memento, globalStorageUri, downloadPlatform) {
     | Error(_) => [
-        unavailable(Connection__Download.SelectionVariant.Native),
-        unavailable(Connection__Download.SelectionVariant.WASM),
+        unavailable(~platform=Connection__Download.DownloadArtifact.Platform.fromDownloadPlatform(downloadPlatform)),
+        unavailable(~platform=Connection__Download.DownloadArtifact.Platform.Wasm),
       ]
     | Ok(Connection__Download.Source.FromURL(_, _, _)) =>
       [
-        unavailable(Connection__Download.SelectionVariant.Native),
-        unavailable(Connection__Download.SelectionVariant.WASM),
+        unavailable(~platform=Connection__Download.DownloadArtifact.Platform.fromDownloadPlatform(downloadPlatform)),
+        unavailable(~platform=Connection__Download.DownloadArtifact.Platform.Wasm),
       ]
     | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
       let release = descriptor.release
@@ -140,7 +137,8 @@ let getAll = async (
           release: release,
           saveAsFileName: descriptor.saveAsFileName,
         })
-      let nativeAssets = Connection__Download__Assets.nativeForPlatform(release, platform)
+      let nativePlatform = Connection__Download.DownloadArtifact.Platform.fromDownloadPlatform(downloadPlatform)
+      let nativeAssets = Connection__Download__Assets.nativeForPlatform(release, downloadPlatform)
       let wasmAssets = Connection__Download__Assets.wasm(release)
       let nativeItems = switch channel {
       | Connection__Download.Channel.DevALS =>
@@ -148,20 +146,20 @@ let getAll = async (
           nativeAssets->Array.map(async asset =>
             await makeDownloadItem(
               globalStorageUri,
-              Connection__Download.SelectionVariant.Native,
+              ~platform=nativePlatform,
               makeSource(asset),
             )
           ),
         )
       | Connection__Download.Channel.LatestALS =>
         if Array.length(nativeAssets) == 0 {
-          [unavailable(Connection__Download.SelectionVariant.Native)]
+          [unavailable(~platform=nativePlatform)]
         } else {
           await Promise.all(
             nativeAssets->Array.map(async asset =>
               await makeDownloadItem(
                 globalStorageUri,
-                Connection__Download.SelectionVariant.Native,
+                ~platform=nativePlatform,
                 makeSource(asset),
               )
             ),
@@ -174,20 +172,20 @@ let getAll = async (
           wasmAssets->Array.map(async asset =>
             await makeDownloadItem(
               globalStorageUri,
-              Connection__Download.SelectionVariant.WASM,
+              ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
               makeSource(asset),
             )
           ),
         )
       | Connection__Download.Channel.LatestALS =>
         if Array.length(wasmAssets) == 0 {
-          [unavailable(Connection__Download.SelectionVariant.WASM)]
+          [unavailable(~platform=Connection__Download.DownloadArtifact.Platform.Wasm)]
         } else {
           await Promise.all(
             wasmAssets->Array.map(async asset =>
               await makeDownloadItem(
                 globalStorageUri,
-                Connection__Download.SelectionVariant.WASM,
+                ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
                 makeSource(asset),
               )
             ),

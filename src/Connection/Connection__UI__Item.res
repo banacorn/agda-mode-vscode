@@ -36,11 +36,11 @@ let fromItemData = (itemData: ItemData.t, extensionUri: VSCode.Uri.t): t => {
         }
         (label, Some(description), Some(detail))
       }
-    | DownloadAction(downloaded, versionString, variant) => {
-        let label = switch variant {
-        | "native" => Labels.downloadNativeALS
-        | "wasm" => Labels.downloadWasmALS
-        | _ => Labels.downloadFallbackLabel
+    | DownloadAction(downloaded, versionString, platform) => {
+        let label = if platform == Connection__Download.DownloadArtifact.Platform.Wasm {
+          Labels.downloadWasmALS
+        } else {
+          Labels.downloadNativeALS
         }
         let description = downloaded ? Labels.downloadedAndInstalled : ""
         (label, Some(description), Some(versionString))
