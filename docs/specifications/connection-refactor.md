@@ -1,32 +1,16 @@
-# Connection Refactor Plan
+# Connection Refactor
 
-This plan drains `State__SwitchVersion` until it can be deleted.
-
-This document is transient. It describes module ownership and migration order only.
+This document describes module ownership.
 Behavioral/domain requirements belong in `connection.md`.
 
-The target ownership is:
+The current ownership is:
 
 ```text
 Connection__Download*  = download domain
 Connection__UI*        = connection picker UI
+Connection__Switch     = internal switch-version orchestration helper
 Connection.res         = public facade and connection orchestration
-State__SwitchVersion   = temporary shell to be drained and hard-deleted
 ```
-
-## Goal
-
-`State__SwitchVersion` and `Test__State__SwitchVersion*` should disappear.
-
-Code should move by responsibility, not by filename:
-
-- Download-related behavior goes to `Connection__Download*`.
-- Connection picker UI behavior goes to `Connection__UI*`.
-- Remaining connection orchestration goes to `Connection.res`.
-
-`Connection.res` should remain the public facade that other modules call.
-
-Internal APIs may be broken during refactor slices as long as tests are updated in the same slice.
 
 ## Ownership Rules
 
@@ -156,20 +140,23 @@ Rendering availability into picker rows belongs in `Connection__UI*`.
 
 ### Platform And Variant Modeling
 
-Prefer concrete platform variants over broad UI variants:
+Domain modules should model concrete artifact identity, not a grouped selector:
 
 ```rescript
 Ubuntu | MacOSArm64 | MacOSX64 | Windows | Wasm
 ```
 
-Avoid `Native | WASM` unless there is a concrete UI reason to keep that grouping.
+`Connection__Download.SelectionVariant = Native | WASM` and boolean aliases for it (`isWasm`) both collapse concrete artifact identity into an underspecified grouping. Neither belongs in download-domain APIs.
 
-If the UI needs grouping, derive it from platform:
+`Native | WASM` (or string equivalents `"native"` / `"wasm"`) may remain at the UI boundary if the picker still needs to group rows that way — but must not appear in `Availability`, `Flow`, or `ManagedStorage` types or signatures.
 
-```rescript
-isWasm(platform)
-isNative(platform)
-```
+**Current state (not yet done):** `Connection__Download.SelectionVariant` is still a first-class type in:
+
+- `Connection__Download__Availability` — `availableDownload.variant` field and `makeDownloadItem` / `unavailableSourceItem` parameters
+- `Connection__Download__Flow` — `sourceForSelection ~variant` parameter
+- `Connection__Download__ManagedStorage` — `findCandidateForSelection ~variant` parameter
+
+The next refactor slice should replace these with concrete `DownloadArtifact.Platform.t` or artifact-level discriminators, and keep any `Native | WASM` grouping only at the UI boundary (`Connection__UI__ItemData`, `Connection__UI__Handlers`).
 
 ## Migration Order
 
@@ -286,10 +273,16 @@ Picker UI tests go to:
 test/tests/Connection/Test__Connection__UI.res
 ```
 
-Connection orchestration tests go to:
+Connection orchestration tests (public facade) go to:
 
 ```text
 test/tests/Test__Connection.res
+```
+
+Switch-version orchestration implementation tests go to:
+
+```text
+test/tests/Connection/Test__Connection__Switch.res
 ```
 
 End state:
@@ -305,6 +298,6 @@ The primary ownership migration is complete:
 - `Connection__Switch` owns switch-version composition, config/memento policy, and download cleanup orchestration.
 - `State__SwitchVersion` has been deleted.
 - `Test__State__SwitchVersion.res` has been removed entirely.
-- All manager-level and orchestration tests live in `Test__Connection__Switch.res`.
+- All manager-level and orchestration tests live in `test/tests/Connection/Test__Connection__Switch.res`.
 - `Connection__Download__Availability` returns typed domain records.
 - `Connection__Download__Delete` returns a pure storage report; policy lives in `Connection__Switch.deleteDownloads`.
