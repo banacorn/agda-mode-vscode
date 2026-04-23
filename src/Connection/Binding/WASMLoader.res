@@ -16,6 +16,12 @@ type presetupCallbackArgs = {
 }
 type presetupCallback = presetupCallbackArgs => promise<unit>
 
+type installedLibrariesDesc = {
+  base: string,
+  prefix: string,
+  paths: array<string>,
+}
+
 // Setup result type
 type t = {
   factory: agdaLanguageServerFactory,
@@ -30,6 +36,10 @@ type t = {
 @send external createMemoryFileSystem: wasmAPI => promise<memoryFileSystem> = "createMemoryFileSystem"
 @send external bytes: Fetch.Response.t => promise<Uint8Array.t> = "bytes"
 @send external createDirectory: (memoryFileSystem, string) => unit = "createDirectory"
+@send external listInstalledLibraries: unit => promise<installedLibrariesDesc> = "listInstalledLibraries"
+
+let isDesktop = %raw("Vscode.env.uiKind === Vscode.UIKind.Desktop")
+let memfsAgdaDataDirCache = ref(None)
 
 let createFile: (memoryFileSystem, string, 'a) => unit = %raw(`
   function(memfs, path, options) {
@@ -44,11 +54,12 @@ let downloadStdlib = async () => {
   try {
     let response = await Fetch.fetch(
       "https://raw.githubusercontent.com/banacorn/agda-library-proxy/master/agda-stdlib-2.3.zip",
+      isDesktop ? {
+        method: #GET,
+        headers: Fetch.Headers.make(Fetch.Headers.Init.object({"User-Agent": "agda-mode-vscode"})),
+      } :
       // Cannot send additional headers because GitHub responds 403 to the CORS preflight request
-      {
-        // method: #GET,
-        // headers: Fetch.Headers.make(Fetch.Headers.Init.object({"User-Agent": "agda-mode-vscode"})),
-      },
+      {},
     )
     if Fetch.Response.ok(response) {
       Ok(await bytes(response))
@@ -70,19 +81,33 @@ let make = async (extension, raw: Uint8Array.t) => {
   let wasm = wasmAPILoader->load
   let mod = await WebAssembly.compile(raw)
   let factory = createFactory(agdaLanguageServerFactory, wasm, mod)
-  let memfsAgdaDataDir = await wasm->createMemoryFileSystem
 
-  // Populate memfsAgdaDataDir with standard library using extension's memfsUnzip
-  let stdlibSetupResult = switch await downloadStdlib() {
-  | Error(err) => Error(err)
-  | Ok(zipData) =>
-      try {
-        let _ = await memfsUnzip(memfsAgdaDataDir, zipData)
-        Ok()
-      } catch {
-      | Exn.Error(err) => Error(("Error unzipping downloaded archive.", err))
+  let (memfsAgdaDataDir, stdlibSetupResult) = {
+    switch memfsAgdaDataDirCache.contents {
+    | Some(memfs) => (memfs, Ok())
+    | None => {
+      let memfsAgdaDataDir = await wasm->createMemoryFileSystem
+
+      // Populate memfsAgdaDataDir with standard library using extension's memfsUnzip
+      let stdlibSetupResult = switch await downloadStdlib() {
+      | Error(err) => Error(err)
+      | Ok(zipData) =>
+        try {
+          let _ = await memfsUnzip(memfsAgdaDataDir, zipData)
+          Ok()
+        } catch {
+        | Exn.Error(err) => Error(("Error unzipping downloaded archive.", err))
+        }
       }
+
+      memfsAgdaDataDirCache.contents = Some(memfsAgdaDataDir)
+      (memfsAgdaDataDir, stdlibSetupResult)
+    }
+    }
   }
+
+  let desc = await exports["listInstalledLibraries"]()
+  let libsContent = desc.paths->Array.map(path => desc.base ++ "/" ++ path ++ "\n")->Array.join("")
 
   // Setup libraries file in memfsHome pointing to stdlib
   let presetupCallback = async ({memfsTempDir: _, memfsHome}) => {
@@ -93,14 +118,14 @@ let make = async (extension, raw: Uint8Array.t) => {
         createDirectory(memfsHome, ".config")
         createDirectory(memfsHome, ".config/agda")
         let _ = %raw(`
-          function(memfsHome, createFile) {
-            const content = new TextEncoder().encode('/opt/agda/agda-stdlib-2.3/standard-library.agda-lib\n');
+          function(memfsHome, createFile, libsContent) {
+            const content = new TextEncoder().encode('/opt/agda/agda-stdlib-2.3/standard-library.agda-lib\n' + libsContent);
             createFile(memfsHome, '.config/agda/libraries', {
               size: BigInt(content.length),
               reader: () => Promise.resolve(content)
             });
           }
-        `)(memfsHome, createFile)
+        `)(memfsHome, createFile, libsContent)
         Ok()
       } catch {
       | Exn.Error(err) => Error(("Error extract unzipped content to memfs.", err))
