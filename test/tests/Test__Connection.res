@@ -19,6 +19,51 @@ let withTempStorage = async (prefix, f) => {
   }
 }
 
+let normalizeLocalPathForAssert = (path: string): string =>
+  if OS.onUnix {
+    path
+  } else {
+    let rec replaceBackslashes = (index, acc) =>
+      if index >= String.length(path) {
+        acc
+      } else {
+        let ch = String.charAt(path, index)
+        replaceBackslashes(index + 1, acc ++ (if ch == "\\" { "/" } else { ch }))
+      }
+    let normalized = replaceBackslashes(0, "")->String.toLowerCase
+    if String.length(normalized) >= 4 &&
+        String.charAt(normalized, 0) == "/" &&
+        String.charAt(normalized, 2) == ":" &&
+        String.charAt(normalized, 3) == "/" {
+      String.sliceToEnd(normalized, ~start=1)
+    } else {
+      normalized
+    }
+  }
+
+let assertLocalPathEqual = (actual: string, expected: string) =>
+  Assert.deepStrictEqual(
+    normalizeLocalPathForAssert(actual),
+    normalizeLocalPathForAssert(expected),
+  )
+
+let probeKeyForLocalPath = (path: string): string =>
+  switch Connection__URI.parse(path) {
+  | FileURI(_, uri) => VSCode.Uri.fsPath(uri)
+  }
+
+let findProbeByLocalPath = (
+  errors: Connection.Error.Establish.t,
+  path: string,
+): option<(Connection__Error.Probe.t, Connection.Error.Establish.pathSource)> => {
+  let expectedKey = probeKeyForLocalPath(path)->normalizeLocalPathForAssert
+  errors.probes
+  ->Dict.toArray
+  ->Array.findMap(((storedKey, probeEntry)) =>
+    normalizeLocalPathForAssert(storedKey) == expectedKey ? Some(probeEntry) : None
+  )
+}
+
 let getAgdaTarget = async () => {
   let platformDeps = Desktop.make()
   switch await Connection.fromPathsOrCommands(
@@ -425,7 +470,7 @@ describe("Connection", () => {
         | Ok(_) => Assert.fail("Expected error for non-existent path")
         | Error(errors: Connection.Error.Establish.t) =>
           // Should have probe error for the non-existent path
-          switch errors.probes->Dict.get(nonExistentPath) {
+          switch findProbeByLocalPath(errors, nonExistentPath) {
           | Some((error, _source)) =>
             // Verify it's a CannotDetermineAgdaOrALS error wrapped in candidate error
             switch error {
@@ -464,7 +509,7 @@ describe("Connection", () => {
         | Ok(_) => Assert.fail("Expected error for unrecognized executable")
         | Error(errors) =>
           // Should have probe error for the unrecognized executable
-          switch errors.probes->Dict.get(mockPath) {
+          switch errors.probes->Dict.get(probeKeyForLocalPath(mockPath)) {
           | Some((error, _source)) =>
             switch error {
             | Connection__Error.Probe.NotAgdaOrALS(output) =>
@@ -569,7 +614,7 @@ describe("Connection", () => {
           )
 
           // Verify the specific probe error
-          switch errors.probes->Dict.get(invalidPath) {
+          switch findProbeByLocalPath(errors, invalidPath) {
           | Some((Connection__Error.Probe.CannotDetermineAgdaOrALS(_), _source)) => ()
           | Some(_) => Assert.fail("Expected CannotDetermineAgdaOrALS error")
           | None => Assert.fail("Expected probe error to be present")
@@ -712,7 +757,8 @@ describe("Connection", () => {
           switch result {
           | Ok(_) => Assert.fail("Expected error with invalid resource candidate")
           | Error(errors) =>
-            switch errors.probes->Dict.get(path) {
+            let probeKey = probeKeyForLocalPath(path)
+            switch errors.probes->Dict.get(probeKey) {
             | Some((_, source)) =>
               Assert.deepStrictEqual(source, Connection.Error.Establish.FromConfig)
             | None => Assert.fail("Expected probe error entry for invalid resource candidate")
@@ -860,7 +906,12 @@ describe("Connection", () => {
           switch result {
           | Ok(_) => Assert.fail("Expected error when resolved agda path cannot be probed")
           | Error(errors) =>
-            switch errors.probes->Dict.get("/definitely/not/a/real/agda") {
+            // The resolved path goes through Connection__URI.parse → VSCode.Uri.fsPath, which
+            // normalizes drive-letter case on Windows. Use the same normalization for the lookup.
+            let resolvedProbeKey = switch Connection__URI.parse("/definitely/not/a/real/agda") {
+            | Connection__URI.FileURI(_, uri) => VSCode.Uri.fsPath(uri)
+            }
+            switch errors.probes->Dict.get(resolvedProbeKey) {
             | Some((_, source)) =>
               Assert.deepStrictEqual(
                 source,
@@ -1697,10 +1748,7 @@ describe("Connection", () => {
 
         switch result {
         | Ok((resolvedPath, _probeResult)) =>
-          // Spec: on desktop, file:// candidates MUST normalize to fsPath
-          // The resolved path should be the fsPath (e.g. /tmp/foo.wasm),
-          // not the raw URI (e.g. file:///tmp/foo.wasm)
-          Assert.deepStrictEqual(resolvedPath, wasmPath)
+          assertLocalPathEqual(resolvedPath, wasmPath)
         | Error(_) => Assert.fail("Expected WASM probe to succeed")
         }
 
@@ -1771,7 +1819,8 @@ describe("Connection", () => {
         | Ok(_) =>
           Assert.fail("Expected error when cached native has no same-release WASM fallback")
         | Error(Connection.Error.Establish(errors)) =>
-          switch errors.probes->Dict.get(cachedNativePath) {
+          let normalizedNativeKey = VSCode.Uri.fsPath(VSCode.Uri.file(cachedNativePath))
+          switch errors.probes->Dict.get(normalizedNativeKey) {
           | Some((_, source)) =>
             Assert.deepStrictEqual(source, Connection.Error.Establish.FromManagedDownload)
           | None => Assert.fail("Expected probe error for cached managed download")
@@ -1859,7 +1908,8 @@ describe("Connection", () => {
         switch result {
         | Ok(_) => Assert.fail("Expected error when cached native managed fallback has no same-release WASM")
         | Error(Connection.Error.Establish(errors)) =>
-          switch errors.probes->Dict.get(cachedNativePath) {
+          let normalizedNativeKey = VSCode.Uri.fsPath(VSCode.Uri.file(cachedNativePath))
+          switch errors.probes->Dict.get(normalizedNativeKey) {
           | Some((_, source)) =>
             Assert.deepStrictEqual(source, Connection.Error.Establish.FromManagedDownload)
           | None => Assert.fail("Expected probe error for cached managed native download")
@@ -1941,12 +1991,14 @@ describe("Connection", () => {
           switch result {
           | Ok(_) => Assert.fail("Expected both managed native and managed WASM probes to fail")
           | Error(Connection.Error.Establish(errors)) =>
-            switch errors.probes->Dict.get(cachedNativePath) {
+            let normalizedNativeKey = VSCode.Uri.fsPath(VSCode.Uri.file(cachedNativePath))
+            switch errors.probes->Dict.get(normalizedNativeKey) {
             | Some((_, source)) =>
               Assert.deepStrictEqual(source, Connection.Error.Establish.FromManagedDownload)
             | None => Assert.fail("Expected probe error for cached managed native download")
             }
-            switch errors.probes->Dict.get(cachedWasmPath) {
+            let normalizedWasmKey = VSCode.Uri.fsPath(VSCode.Uri.file(cachedWasmPath))
+            switch errors.probes->Dict.get(normalizedWasmKey) {
             | Some((_, source)) =>
               Assert.deepStrictEqual(source, Connection.Error.Establish.FromManagedDownload)
             | None => Assert.fail("Expected probe error for cached managed WASM fallback")

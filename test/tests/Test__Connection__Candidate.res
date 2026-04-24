@@ -6,6 +6,10 @@ describe("Connection__Candidate", () => {
   let sampleResourcePath = if OS.onUnix { "/usr/bin/agda" } else { "D:\\usr\\bin\\agda.exe" }
   let sampleResourceUri = VSCode.Uri.file(sampleResourcePath)->VSCode.Uri.toString
   let sampleResolvedPath = if OS.onUnix { "/resolved/bin/agda" } else { "D:\\resolved\\bin\\agda.exe" }
+  let fileUriFromRawPath = raw =>
+    switch Connection__URI.parse(raw) {
+    | Connection__URI.FileURI(_, uri) => uri
+    }
 
   describe("make", () => {
     it("should construct bare command names as Command", () => {
@@ -145,9 +149,28 @@ describe("Connection__Candidate", () => {
 
   describe("isUnderDirectory", () => {
     let desktopStorageRoot =
-      "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode"
+      if OS.onUnix {
+        "/Users/banacorn/Library/Application Support/Code/User/globalStorage/banacorn.agda-mode"
+      } else {
+        "C:\\Users\\runner\\AppData\\Roaming\\Code\\User\\globalStorage\\banacorn.agda-mode"
+      }
+
     let desktopStorageRootEscaped =
-      "/Users/banacorn/Library/Application%20Support/Code/User/globalStorage/banacorn.agda-mode"
+      if OS.onUnix {
+        "/Users/banacorn/Library/Application%20Support/Code/User/globalStorage/banacorn.agda-mode"
+      } else {
+        "/c%3A/Users/runner/AppData/Roaming/Code/User/globalStorage/banacorn.agda-mode"
+      }
+
+    // On Unix, prepending "file://" to a path starting with "/" gives a valid file URI
+    // (macOS "Application Support" space tests the unescaped-space handling path).
+    // On Windows, VSCode.Uri.file produces the canonically encoded file URI.
+    let desktopFileUri = (rootPath, parts: array<string>) =>
+      if OS.onUnix {
+        "file://" ++ rootPath ++ "/" ++ parts->Array.join("/")
+      } else {
+        VSCode.Uri.file(NodeJs.Path.join(Array.concat([rootPath], parts)))->VSCode.Uri.toString
+      }
 
     it("should return false for Command candidates", () => {
       let directory = VSCode.Uri.file("/tmp/dev-als")
@@ -155,13 +178,13 @@ describe("Connection__Candidate", () => {
     })
 
     it("should recognize file resources under a file directory", () => {
-      let directory = VSCode.Uri.file("/tmp/dev-als")
+      let directory = fileUriFromRawPath("/tmp/dev-als")
       let candidate = Candidate.make("/tmp/dev-als/als")
       Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
     })
 
     it("should recognize unescaped file:// resources under a file directory", () => {
-      let directory = VSCode.Uri.file("/tmp/agda switch/dev-als")
+      let directory = fileUriFromRawPath("/tmp/agda switch/dev-als")
       let candidate = Candidate.make("file:///tmp/agda switch/dev-als/als.wasm")
       Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
     })
@@ -177,7 +200,7 @@ describe("Connection__Candidate", () => {
         VSCode.Uri.parse(
           "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/dev-als",
         )
-      let candidate = Candidate.make(desktopStorageRoot ++ "/dev-als/als")
+      let candidate = Candidate.make(NodeJs.Path.join([desktopStorageRoot, "dev-als", "als"]))
       Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
     })
 
@@ -186,9 +209,7 @@ describe("Connection__Candidate", () => {
         VSCode.Uri.parse(
           "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/dev-als",
         )
-      let candidate = Candidate.make(
-        "file://" ++ desktopStorageRoot ++ "/dev-als/als",
-      )
+      let candidate = Candidate.make(desktopFileUri(desktopStorageRoot, ["dev-als", "als"]))
       Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
     })
 
@@ -197,32 +218,21 @@ describe("Connection__Candidate", () => {
         VSCode.Uri.parse(
           "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/dev-als",
         )
-      let candidate = Candidate.make(desktopStorageRoot ++ "/dev-als/als.wasm")
+      let candidate = Candidate.make(NodeJs.Path.join([desktopStorageRoot, "dev-als", "als.wasm"]))
       Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
     })
 
-    it("should recognize native desktop file candidates under vscode-userdata dev-als managed directories", () => {
+    it("should recognize unescaped native desktop file:// candidates under vscode-userdata managed directories", () => {
       let directory =
         VSCode.Uri.parse(
           "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/dev-als",
         )
-      let candidate = Candidate.make(desktopStorageRoot ++ "/dev-als/als")
-      Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
-    })
-
-    it("should recognize unescaped native desktop file:// candidates with spaces under vscode-userdata managed directories", () => {
-      let directory =
-        VSCode.Uri.parse(
-          "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/dev-als",
-        )
-      let candidate = Candidate.make(
-        "file://" ++ desktopStorageRoot ++ "/dev-als/als.wasm",
-      )
+      let candidate = Candidate.make(desktopFileUri(desktopStorageRoot, ["dev-als", "als.wasm"]))
       Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
     })
 
     it("should recognize vscode-userdata desktop candidates under native file managed directories", () => {
-      let directory = VSCode.Uri.file(desktopStorageRoot ++ "/dev-als")
+      let directory = VSCode.Uri.file(NodeJs.Path.join([desktopStorageRoot, "dev-als"]))
       let candidate = Candidate.make(
         "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/dev-als/als",
       )
@@ -234,7 +244,7 @@ describe("Connection__Candidate", () => {
         VSCode.Uri.parse(
           "vscode-userdata://workspace" ++ desktopStorageRootEscaped ++ "/dev-als",
         )
-      let candidate = Candidate.make(desktopStorageRoot ++ "/dev-als/als")
+      let candidate = Candidate.make(NodeJs.Path.join([desktopStorageRoot, "dev-als", "als"]))
       Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), false)
     })
 
@@ -243,7 +253,7 @@ describe("Connection__Candidate", () => {
         VSCode.Uri.parse(
           "vscode-userdata:" ++ desktopStorageRootEscaped ++ "/dev-als",
         )
-      let candidate = Candidate.make(desktopStorageRoot ++ "/latest-als/als")
+      let candidate = Candidate.make(NodeJs.Path.join([desktopStorageRoot, "latest-als", "als"]))
       Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), false)
     })
 
