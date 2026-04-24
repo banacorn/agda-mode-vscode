@@ -1990,6 +1990,25 @@ describe("Connection", () => {
       },
     )
 
+    it(
+      "should canonicalize Windows file URI shape via VSCode.Uri.file when parsing command/resource paths",
+      () => {
+        if OS.onUnix {
+          ()
+        } else {
+          let windowsPath = "D:\\resolved\\bin\\agda.exe"
+          let result = Connection__URI.parse(windowsPath)
+          switch result {
+          | Connection__URI.FileURI(_, uri) =>
+            Assert.deepStrictEqual(
+              VSCode.Uri.toString(uri),
+              VSCode.Uri.file(windowsPath)->VSCode.Uri.toString,
+            )
+          }
+        }
+      },
+    )
+
     // I21: WASM path representation is inconsistent by download source
     // FromURL WASM returns URI string, FromGitHub WASM returns fsPath
     Async.it(

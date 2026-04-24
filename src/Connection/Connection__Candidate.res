@@ -79,6 +79,59 @@ let deduplicate = candidates => {
 let isUnderPrefix = (path: string, prefix: string, separator: string): bool =>
   path == prefix || String.startsWith(path, prefix ++ separator)
 
+let rec stripTrailingSlashes = (path: string): string =>
+  if path == "/" {
+    path
+  } else if String.endsWith(path, "/") {
+    stripTrailingSlashes(
+      String.slice(path, ~start=0, ~end=String.length(path) - 1),
+    )
+  } else {
+    path
+  }
+
+let normalizeWindowsSlashes = (path: string): string => {
+  let rec loop = (index: int, out: string): string =>
+    if index >= String.length(path) {
+      out
+    } else {
+      let ch = String.charAt(path, index)
+      let out = if ch == "\\" { out ++ "/" } else { out ++ ch }
+      loop(index + 1, out)
+    }
+  loop(0, "")
+}
+
+let startsWithWindowsDriveAfterSlash = (path: string): bool =>
+  if String.length(path) < 4 {
+    false
+  } else {
+    switch (String.charAt(path, 0), String.charAt(path, 1), String.charAt(path, 2), String.charAt(path, 3)) {
+    | ("/", letter, ":", "/") =>
+      String.charCodeAt(letter, 0) >= 97. &&
+      String.charCodeAt(letter, 0) <= 122.
+    | _ => false
+    }
+  }
+
+let normalizeComparableLocalPath = (path: string): string =>
+  if OS.onUnix {
+    stripTrailingSlashes(path)
+  } else {
+    path
+    ->normalizeWindowsSlashes
+    ->String.toLowerCase
+    ->(path => startsWithWindowsDriveAfterSlash(path) ? String.sliceToEnd(path, ~start=1) : path)
+    ->stripTrailingSlashes
+  }
+
+let isUnderComparableLocalPath = (~path: string, ~prefix: string): bool =>
+  isUnderPrefix(
+    normalizeComparableLocalPath(path),
+    normalizeComparableLocalPath(prefix),
+    "/",
+  )
+
 let localComparablePath = (uri: VSCode.Uri.t): option<string> =>
   switch (VSCode.Uri.scheme(uri), VSCode.Uri.authority(uri)) {
   | ("file", "") => Some(VSCode.Uri.fsPath(uri))
@@ -95,8 +148,7 @@ let isUnderDirectory = (candidate: t, directory: VSCode.Uri.t): bool =>
       if VSCode.Uri.scheme(resource) == "file" {
         let resourceFsPath = VSCode.Uri.fsPath(resource)
         let directoryFsPath = VSCode.Uri.fsPath(directory)
-        isUnderPrefix(resourceFsPath, directoryFsPath, NodeJs.Path.sep) ||
-        isUnderPrefix(resourceFsPath, directoryFsPath, "/")
+        isUnderComparableLocalPath(~path=resourceFsPath, ~prefix=directoryFsPath)
       } else {
         let resourcePath = VSCode.Uri.path(resource)
         let directoryPath = VSCode.Uri.path(directory)
@@ -105,15 +157,13 @@ let isUnderDirectory = (candidate: t, directory: VSCode.Uri.t): bool =>
     } else if VSCode.Uri.scheme(resource) == "file" {
       switch (localComparablePath(resource), localComparablePath(directory)) {
       | (Some(resourcePath), Some(directoryPath)) =>
-        isUnderPrefix(resourcePath, directoryPath, NodeJs.Path.sep) ||
-        isUnderPrefix(resourcePath, directoryPath, "/")
+        isUnderComparableLocalPath(~path=resourcePath, ~prefix=directoryPath)
       | _ => false
       }
     } else {
       switch (localComparablePath(resource), localComparablePath(directory)) {
       | (Some(resourcePath), Some(directoryPath)) =>
-        isUnderPrefix(resourcePath, directoryPath, NodeJs.Path.sep) ||
-        isUnderPrefix(resourcePath, directoryPath, "/")
+        isUnderComparableLocalPath(~path=resourcePath, ~prefix=directoryPath)
       | _ => false
       }
     }

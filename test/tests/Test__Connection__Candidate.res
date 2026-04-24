@@ -248,19 +248,95 @@ describe("Connection__Candidate", () => {
       let candidate = Candidate.make("/tmp/latest-als/als")
       Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), false)
     })
+
+    it("should treat Windows local paths case-insensitively for drive-letter differences", () => {
+      if OS.onUnix {
+        ()
+      } else {
+        let directory =
+          VSCode.Uri.file(
+            "C:\\Users\\alice\\AppData\\Roaming\\Code\\User\\globalStorage\\banacorn.agda-mode\\releases",
+          )
+        let candidate =
+          Candidate.make(
+            "c:\\Users\\alice\\AppData\\Roaming\\Code\\User\\globalStorage\\banacorn.agda-mode\\releases\\dev\\als.exe",
+          )
+        Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+      }
+    })
+
+    it("should match raw Windows file path candidate under file:// directory", () => {
+      if OS.onUnix {
+        ()
+      } else {
+        let rootPath =
+          "C:\\Users\\alice\\AppData\\Roaming\\Code\\User\\globalStorage\\banacorn.agda-mode\\releases\\dev"
+        let directory = VSCode.Uri.file(rootPath)
+        let candidate = Candidate.make(rootPath ++ "\\als.exe")
+        Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+      }
+    })
+
+    it("should match raw Windows file path candidate under vscode-userdata directory", () => {
+      if OS.onUnix {
+        ()
+      } else {
+        let rootPath =
+          "C:\\Users\\alice\\AppData\\Roaming\\Code\\User\\globalStorage\\banacorn.agda-mode\\releases\\dev"
+        let rootPathForVscodeUserdata =
+          "/c%3A/Users/alice/AppData/Roaming/Code/User/globalStorage/banacorn.agda-mode/releases/dev"
+        let directory = VSCode.Uri.parse("vscode-userdata:" ++ rootPathForVscodeUserdata)
+        let candidate = Candidate.make(rootPath ++ "\\als.exe")
+        Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+      }
+    })
+
+    it("should match Windows file:// candidate under vscode-userdata directory", () => {
+      if OS.onUnix {
+        ()
+      } else {
+        let rootPath =
+          "C:\\Users\\alice\\AppData\\Roaming\\Code\\User\\globalStorage\\banacorn.agda-mode\\releases\\dev"
+        let rootPathForVscodeUserdata =
+          "/c%3A/Users/alice/AppData/Roaming/Code/User/globalStorage/banacorn.agda-mode/releases/dev"
+        let directory = VSCode.Uri.parse("vscode-userdata:" ++ rootPathForVscodeUserdata)
+        let candidate =
+          Candidate.make(
+            VSCode.Uri.file(rootPath ++ "\\als.exe")->VSCode.Uri.toString,
+          )
+        Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+      }
+    })
+
+    it("should match Windows drive-letter case mismatch across mixed forms", () => {
+      if OS.onUnix {
+        ()
+      } else {
+        let directory =
+          VSCode.Uri.parse(
+            "vscode-userdata:/c%3A/Users/alice/AppData/Roaming/Code/User/globalStorage/banacorn.agda-mode/releases",
+          )
+        let candidate =
+          Candidate.make(
+            "file:///C%3A/Users/alice/AppData/Roaming/Code/User/globalStorage/banacorn.agda-mode/releases/dev/als.exe",
+          )
+        Assert.deepStrictEqual(Candidate.isUnderDirectory(candidate, directory), true)
+      }
+    })
   })
 
   describe("resolve", () => {
     Async.it("should resolve Command through Platform.findCommand", async () => {
+      let resolvedPath = if OS.onUnix { "/resolved/bin/agda" } else { "D:\\resolved\\bin\\agda.exe" }
       let findCommand = (command, ~timeout as _timeout=1000) =>
         switch command {
-        | "agda" => Promise.resolve(Ok("/resolved/bin/agda"))
+        | "agda" => Promise.resolve(Ok(resolvedPath))
         | _ => Promise.resolve(Error(Connection__Command.Error.NotFound))
         }
 
       switch await Candidate.resolve(findCommand, Candidate.make("agda")) {
       | Ok({original: Command("agda"), resource}) =>
-        let expected = VSCode.Uri.file("/resolved/bin/agda")->VSCode.Uri.toString
+        let expected = VSCode.Uri.file(resolvedPath)->VSCode.Uri.toString
         Assert.deepStrictEqual(resource->VSCode.Uri.toString, expected)
       | Error(_) => Assert.fail("Expected command resolution to succeed")
       | _ => Assert.fail("Expected resolved command to preserve original candidate")
