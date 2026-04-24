@@ -39,6 +39,30 @@ describe("Connection__URI", () => {
     )
 
     it(
+      "should parse POSIX absolute paths using standard path resolution",
+      () => {
+        let uri = URI.parse("/tmp/dev-als/als")
+        let expected = NodeJs.Path.resolve(["/tmp/dev-als/als"])->VSCode.Uri.file
+        switch uri {
+        | FileURI(_, actual) =>
+          Assert.deepStrictEqual(actual->VSCode.Uri.toString, expected->VSCode.Uri.toString)
+        }
+      },
+    )
+
+    it(
+      "should parse file:// POSIX absolute paths using standard path resolution",
+      () => {
+        let uri = URI.parse("file:///tmp/agda switch/dev-als/als.wasm")
+        let expected = NodeJs.Path.resolve(["/tmp/agda switch/dev-als/als.wasm"])->VSCode.Uri.file
+        switch uri {
+        | FileURI(_, actual) =>
+          Assert.deepStrictEqual(actual->VSCode.Uri.toString, expected->VSCode.Uri.toString)
+        }
+      },
+    )
+
+    it(
       "should parse relative file paths as FileURI variant",
       () => {
         let uri = URI.parse("usr/bin/agda")

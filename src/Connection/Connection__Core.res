@@ -357,7 +357,7 @@ module Module: Module = {
   let make = async (rawpath: string, source: Error.Establish.pathSource): result<
     t,
     Error.Establish.t,
-  > => await makeResolved(resolvedFromRawResource(rawpath), source, ~pathForErrors=rawpath)
+  > => await makeResolved(resolvedFromRawResource(rawpath), source)
 
   // Combinator: try each task in array until one succeeds, or return all failures
   let tryUntilSuccess = async (xs: array<unit => promise<result<'b, 'e>>>): result<

@@ -7,6 +7,40 @@
 type raw = string
 type t = FileURI(raw, VSCode.Uri.t)
 
+let startsWithWindowsDriveAfterSlash = (path: string): bool =>
+  if String.length(path) < 3 {
+    false
+  } else {
+    switch (String.charAt(path, 0), String.charAt(path, 1), String.charAt(path, 2)) {
+    | ("/", letter, "/") =>
+      let code = String.charCodeAt(letter, 0)
+      (code >= 65. && code <= 90.) || (code >= 97. && code <= 122.)
+    | _ => false
+    }
+  }
+
+let normalizeToBackslashes = (path: string): string => {
+  let rec loop = (index: int, out: string): string =>
+    if index >= String.length(path) {
+      out
+    } else {
+      let ch = String.charAt(path, index)
+      let out = if ch == "/" { out ++ "\\" } else { out ++ ch }
+      loop(index + 1, out)
+    }
+  loop(0, "")
+}
+
+let windowsSlashAbsoluteToDrivePath = (path: string): option<string> =>
+  if startsWithWindowsDriveAfterSlash(path) {
+    let driveLetter = String.charAt(path, 1)
+    let rest = String.sliceToEnd(path, ~start=2)
+    let windowsRest = normalizeToBackslashes(rest)
+    Some((driveLetter ++ ":" ++ windowsRest)->NodeJs.Path.normalize)
+  } else {
+    None
+  }
+
 // Parses a raw string into a Connection URI, handling various path formats.
 //
 // The function performs intelligent parsing by:
@@ -44,16 +78,17 @@ let parse = raw => {
     }
     // normalize the path by replacing the tilde "~/" with the absolute path of home directory
     let path = untildify(filePath)
-    let path = NodeJs.Path.normalize(path)
-
-    // on Windows, paths that start with a drive letter like "/c/path/to/agda" will be converted to "c:/path/to/agda"
-    let path = if OS.onUnix {
-      path
+    let absolutePath = if OS.onUnix {
+      let path = NodeJs.Path.normalize(path)
+      NodeJs.Path.resolve([path])
     } else {
-      path->String.replaceRegExp(%re("/^\\([a-zA-Z])\\/"), "$1\:\\")
+      switch windowsSlashAbsoluteToDrivePath(path) {
+      | Some(windowsDrivePath) => NodeJs.Path.resolve([windowsDrivePath])
+      | None =>
+        let path = NodeJs.Path.normalize(path)
+        NodeJs.Path.resolve([path])
+      }
     }
-
-    let absolutePath = NodeJs.Path.resolve([path])
 
     FileURI(raw, VSCode.Uri.file(absolutePath))
   }
