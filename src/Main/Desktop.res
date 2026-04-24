@@ -25,19 +25,25 @@ module Desktop: Platform.PlatformOps = {
   }
 
   let resolveDownloadChannel = (
-    channel: Connection__Download.Channel.t,
+    channel: Connection__Download__Channel.t,
     useCache,
   ) => async (memento, globalStorageUri, platform) => {
     switch channel {
     | LatestALS | DevALS =>
       let repo = switch channel {
-      | LatestALS => Connection__LatestALS.makeRepo(globalStorageUri)
-      | DevALS => Connection__DevALS.makeRepo(globalStorageUri)
+      | LatestALS => Connection__Download__Channel.Latest.makeRepo(globalStorageUri)
+      | DevALS => Connection__Download__Channel.Dev.makeRepo(globalStorageUri)
       }
 
       let toDownloadOrder = switch channel {
-      | LatestALS => Connection__LatestALS.toDownloadOrder(_, platform)
-      | DevALS => Connection__DevALS.toDownloadOrder(_, platform)
+      | LatestALS =>
+        releases =>
+          Connection__Download__Channel.Latest.toDownloadOrder(releases, platform)
+          ->Result.map(descriptor => Connection__Download__Source.FromGitHub(channel, descriptor))
+      | DevALS =>
+        releases =>
+          Connection__Download__Channel.Dev.toDownloadOrder(releases, platform)
+          ->Result.map(descriptor => Connection__Download__Source.FromGitHub(channel, descriptor))
       }
 
       switch await Connection__Download.getReleaseManifestFromGitHub(memento, repo, ~useCache) {

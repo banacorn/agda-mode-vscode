@@ -38,7 +38,7 @@ module SwitchVersionManager = {
     } else if cleanName == "als" || cleanName->String.startsWith("als-") {
       switch parentDirName {
       | Some(dirName) =>
-        switch Connection__Download.DownloadArtifact.parseName(dirName) {
+        switch Connection__Download__DownloadArtifact.parseName(dirName) {
         | Some(artifact) =>
           switch releaseDirName {
           | Some(releaseDirName)
@@ -335,23 +335,23 @@ module Download = {
     | Error(_) => [{
         downloaded: false,
         versionString: Connection__UI__Labels.checkingAvailability,
-        platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+        platform: Connection__Download__DownloadArtifact.Platform.Wasm,
       }]
     | Ok(Connection__Download__Platform.Web) => [{
         downloaded: false,
         versionString: Connection__UI__Labels.checkingAvailability,
-        platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+        platform: Connection__Download__DownloadArtifact.Platform.Wasm,
       }]
     | Ok(downloadPlatform) => [
         {
           downloaded: false,
           versionString: Connection__UI__Labels.checkingAvailability,
-          platform: Connection__Download.DownloadArtifact.Platform.fromDownloadPlatform(downloadPlatform),
+          platform: Connection__Download__DownloadArtifact.Platform.fromDownloadPlatform(downloadPlatform),
         },
         {
           downloaded: false,
           versionString: Connection__UI__Labels.checkingAvailability,
-          platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+          platform: Connection__Download__DownloadArtifact.Platform.Wasm,
         },
       ]
     }
@@ -360,7 +360,7 @@ module Download = {
   let getAllAvailableDownloads = async (
     state: State.t,
     platformDeps: Platform.t,
-    ~channel: Connection__Download.Channel.t=DevALS,
+    ~channel: Connection__Download__Channel.t=DevALS,
   ): array<Connection__Download__Availability.availableDownload> =>
     await Connection__Download__Availability.getAll(
       state.memento,
@@ -375,7 +375,7 @@ module Download = {
 let getAvailableDownloads = (
   state: State.t,
   platformDeps: Platform.t,
-  ~channel: Connection__Download.Channel.t=DevALS,
+  ~channel: Connection__Download__Channel.t=DevALS,
 ) => Download.getAllAvailableDownloads(state, platformDeps, ~channel)
 
 let activate = async (

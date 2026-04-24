@@ -449,7 +449,7 @@ describe("Config.Connection paths", () => {
         Connection__UI__Handlers.onSelection(
           mockState,
           platform,
-          ref(Connection__Download.Channel.DevALS),
+          ref(Connection__Download__Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [mockSelectedItem],
@@ -531,7 +531,7 @@ describe("Config.Connection paths", () => {
           Connection__UI__ItemData.DownloadAction(
             isAlreadyDownloaded,
             "Agda v2.8.0 Language Server (dev build)",
-            Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+            Connection__Download__DownloadArtifact.Platform.MacOSArm64,
           ),
           mockState.extensionUri,
         )
@@ -568,7 +568,7 @@ describe("Config.Connection paths", () => {
         Connection__UI__Handlers.onSelection(
           mockState,
           platformWithDiscovery,
-          ref(Connection__Download.Channel.DevALS),
+          ref(Connection__Download__Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [], // Empty selection

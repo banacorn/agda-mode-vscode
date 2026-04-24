@@ -1,5 +1,5 @@
 let getAgdaVersionFromAssetName = (asset: Connection__Download__GitHub.Asset.t) =>
-  Connection__Download.DownloadArtifact.parseName(asset.name)->Option.mapOr(
+  Connection__Download__DownloadArtifact.parseName(asset.name)->Option.mapOr(
     "",
     artifact => artifact.agdaVersion,
   )
@@ -11,9 +11,9 @@ let nativeForPlatform = (
   release.assets
   ->Array.filter(asset =>
     asset.name->String.endsWith(".zip") &&
-      switch Connection__Download.DownloadArtifact.parseName(asset.name) {
+      switch Connection__Download__DownloadArtifact.parseName(asset.name) {
       | Some(artifact) =>
-        Connection__Download.DownloadArtifact.Platform.matchesDownloadPlatform(
+        Connection__Download__DownloadArtifact.Platform.matchesDownloadPlatform(
           artifact.platform,
           platform,
         )
@@ -31,8 +31,8 @@ let wasm = (release: Connection__Download__GitHub.Release.t): array<
   release.assets
   ->Array.filter(asset =>
     asset.name->String.endsWith(".wasm") &&
-      switch Connection__Download.DownloadArtifact.parseName(asset.name) {
-      | Some(artifact) => artifact.platform == Connection__Download.DownloadArtifact.Platform.Wasm
+      switch Connection__Download__DownloadArtifact.parseName(asset.name) {
+      | Some(artifact) => artifact.platform == Connection__Download__DownloadArtifact.Platform.Wasm
       | None => false
       }
   )

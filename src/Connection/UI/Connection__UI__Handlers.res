@@ -1,22 +1,20 @@
-open Connection__Download
-
 module Picker = Connection__UI__Picker
 
 type downloadItems = array<Connection__Download__Availability.availableDownload>
 
 let logDownloadItems = (downloadItems: downloadItems): array<(bool, string, string)> =>
   downloadItems->Array.map(download => {
-    let platformTag = DownloadArtifact.Platform.isWasm(download.platform) ? "wasm" : "native"
+    let platformTag = Connection__Download__DownloadArtifact.Platform.isWasm(download.platform) ? "wasm" : "native"
     (download.downloaded, download.versionString, platformTag)
   })
 
 let handleDownload = async (
   state: State.t,
   platformDeps: Platform.t,
-  platform: DownloadArtifact.Platform.t,
+  platform: Connection__Download__DownloadArtifact.Platform.t,
   downloaded: bool,
   versionString: string,
-  ~channel: Channel.t=DevALS,
+  ~channel: Connection__Download__Channel.t=Connection__Download__Channel.DevALS,
   ~refreshUI: option<unit => promise<unit>>=None,
 ) => {
   state.channels.log->Chan.emit(
@@ -56,7 +54,7 @@ let handleDownload = async (
     switch downloadResult {
     | Error(error) =>
       VSCode.Window.showErrorMessage(
-        AgdaModeVscode.Connection__Download.Error.toString(error),
+        AgdaModeVscode.Connection__Download__Error.toString(error),
         [],
       )->Promise.done
     | Ok(downloadedPath) =>
@@ -76,15 +74,15 @@ let handleDownload = async (
 
 let handleChannelSwitch = async (
   state: State.t,
-  selectedChannel: ref<Channel.t>,
-  channel: Channel.t,
+  selectedChannel: ref<Connection__Download__Channel.t>,
+  channel: Connection__Download__Channel.t,
   updateUI: downloadItems => promise<unit>,
-  ~getDownloadItems: Channel.t => promise<downloadItems>,
+  ~getDownloadItems: Connection__Download__Channel.t => promise<downloadItems>,
 ) => {
   selectedChannel := channel
   await Memento.SelectedChannel.set(
     state.memento,
-    Channel.toString(channel),
+    Connection__Download__Channel.toString(channel),
   )
   let newDownloadItems = await getDownloadItems(channel)
   await updateUI(newDownloadItems)
@@ -93,13 +91,13 @@ let handleChannelSwitch = async (
 let onSelection = (
   state: State.t,
   platformDeps: Platform.t,
-  selectedChannel: ref<Channel.t>,
+  selectedChannel: ref<Connection__Download__Channel.t>,
   updateUI: downloadItems => promise<unit>,
   view: Picker.t,
   selectedItems: array<Connection__UI__Item.t>,
   ~hasSelectionChanged: string => bool,
   ~switchCandidate: string => promise<unit>,
-  ~getDownloadItems: Channel.t => promise<downloadItems>,
+  ~getDownloadItems: Connection__Download__Channel.t => promise<downloadItems>,
   ~showChannelPicker: (
     array<Connection__UI__Channel.pickerItem>,
     string,
@@ -135,7 +133,7 @@ let onSelection = (
             let channelResult = await showChannelPicker(pickerItems, "Select download channel")
             switch channelResult {
             | Some(value) =>
-              switch Channel.fromString(value) {
+              switch Connection__Download__Channel.fromString(value) {
               | Some(channel) =>
                 await handleChannelSwitch(
                   state,
@@ -228,23 +226,23 @@ let backgroundUpdateFailureFallback = async (
   | Error(_) => [{
       downloaded: false,
       versionString: Connection__UI__Labels.downloadUnavailable,
-      platform: DownloadArtifact.Platform.Wasm,
+      platform: Connection__Download__DownloadArtifact.Platform.Wasm,
     }]
   | Ok(Connection__Download__Platform.Web) => [{
       downloaded: false,
       versionString: Connection__UI__Labels.downloadUnavailable,
-      platform: DownloadArtifact.Platform.Wasm,
+      platform: Connection__Download__DownloadArtifact.Platform.Wasm,
     }]
   | Ok(downloadPlatform) => [
       {
         downloaded: false,
         versionString: Connection__UI__Labels.downloadUnavailable,
-        platform: DownloadArtifact.Platform.fromDownloadPlatform(downloadPlatform),
+        platform: Connection__Download__DownloadArtifact.Platform.fromDownloadPlatform(downloadPlatform),
       },
       {
         downloaded: false,
         versionString: Connection__UI__Labels.downloadUnavailable,
-        platform: DownloadArtifact.Platform.Wasm,
+        platform: Connection__Download__DownloadArtifact.Platform.Wasm,
       },
     ]
   }
@@ -275,17 +273,17 @@ let runBackgroundUpdate = async (
   }
 }
 
-let restoreSelectedChannel = (memento: Memento.t): Channel.t =>
+let restoreSelectedChannel = (memento: Memento.t): Connection__Download__Channel.t =>
   switch Memento.SelectedChannel.get(memento) {
-  | Some(label) => Channel.fromString(label)->Option.getOr(Channel.DevALS)
-  | None => Channel.DevALS
+  | Some(label) => Connection__Download__Channel.fromString(label)->Option.getOr(Connection__Download__Channel.DevALS)
+  | None => Connection__Download__Channel.DevALS
   }
 
 let onActivate = async (
   state: State.t,
   platformDeps: Platform.t,
   ~getPlaceholderDownloadItems: unit => promise<downloadItems>,
-  ~getDownloadItems: Channel.t => promise<downloadItems>,
+  ~getDownloadItems: Connection__Download__Channel.t => promise<downloadItems>,
   ~getItemData: (downloadItems, ~downloadHeader:string) => promise<array<Connection__UI__ItemData.t>>,
   ~probeVersions: unit => promise<bool>,
   ~hasSelectionChanged: string => bool,
@@ -324,8 +322,8 @@ let onActivate = async (
 
   view->Picker.setPlaceholder("Switch Agda Version")
 
-  if !(Channel.all->Array.includes(selectedChannel.contents)) {
-    selectedChannel := Channel.all->Array.get(0)->Option.getOr(Channel.DevALS)
+  if !(Connection__Download__Channel.all->Array.includes(selectedChannel.contents)) {
+    selectedChannel := Connection__Download__Channel.all->Array.get(0)->Option.getOr(Connection__Download__Channel.DevALS)
   }
 
   await updateUI(await getPlaceholderDownloadItems())

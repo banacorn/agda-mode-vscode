@@ -1,225 +1,3 @@
-module Channel = {
-  type t =
-    | LatestALS
-    | DevALS
-
-  let toDisplayString = channel =>
-    switch channel {
-    | LatestALS => "Latest Agda Language Server"
-    | DevALS => "Development Agda Language Server"
-  }
-
-  let toString = (channel: t): string =>
-    switch channel {
-    | LatestALS => "latest"
-    | DevALS => "dev"
-    }
-
-  let fromString = (s: string): option<t> =>
-    switch s {
-    | "latest" => Some(LatestALS)
-    | "dev" => Some(DevALS)
-    | _ => None
-    }
-
-  // DevALS first — it is the default fallback channel when none is persisted
-  let all: array<t> = [DevALS, LatestALS]
-}
-
-module DownloadArtifact = {
-  module Platform = {
-    type t =
-      | Wasm
-      | Ubuntu
-      | MacOSArm64
-      | MacOSX64
-      | Windows
-
-    let parse = tag =>
-      switch tag {
-      | "wasm" => Some(Wasm)
-      | "ubuntu" => Some(Ubuntu)
-      | "macos-arm64" => Some(MacOSArm64)
-      | "macos-x64" => Some(MacOSX64)
-      | "windows" => Some(Windows)
-      | _ => None
-      }
-
-    let toAssetTag = platform =>
-      switch platform {
-      | Wasm => "wasm"
-      | Ubuntu => "ubuntu"
-      | MacOSArm64 => "macos-arm64"
-      | MacOSX64 => "macos-x64"
-      | Windows => "windows"
-      }
-
-    let isWasm = platform =>
-      switch platform {
-      | Wasm => true
-      | _ => false
-      }
-
-    let matchesDownloadPlatform = (artifactPlatform, downloadPlatform) =>
-      switch (artifactPlatform, downloadPlatform) {
-      | (Windows, Connection__Download__Platform.Windows) => true
-      | (Ubuntu, Connection__Download__Platform.Ubuntu) => true
-      | (MacOSArm64, Connection__Download__Platform.MacOS_Arm) => true
-      | (MacOSX64, Connection__Download__Platform.MacOS_Intel) => true
-      | (Wasm, Connection__Download__Platform.Web) => true
-      | _ => false
-      }
-
-    let fromDownloadPlatform = (downloadPlatform: Connection__Download__Platform.t): t =>
-      switch downloadPlatform {
-      | Connection__Download__Platform.Windows => Windows
-      | Connection__Download__Platform.Ubuntu => Ubuntu
-      | Connection__Download__Platform.MacOS_Arm => MacOSArm64
-      | Connection__Download__Platform.MacOS_Intel => MacOSX64
-      | Connection__Download__Platform.Web => Wasm
-      }
-  }
-
-  type t = {
-    releaseTag: string,
-    agdaVersion: string,
-    platform: Platform.t,
-  }
-
-  let extensionMatchesPlatform = (platform, extension) =>
-    switch (platform, extension) {
-    | (_, None) => true
-    | (Platform.Wasm, Some("wasm")) => true
-    | (Platform.Wasm, Some(_)) => false
-    | (_, Some("zip")) => true
-    | (_, Some(_)) => false
-    }
-
-  let parseName = (raw: string): option<t> =>
-    switch String.match(
-      raw,
-      %re("/^als-([A-Za-z0-9.]+)-Agda-([0-9]+(?:\.[0-9]+)*)-(wasm|ubuntu|macos-arm64|macos-x64|windows)(?:\.(wasm|zip))?$/"),
-    ) {
-    | Some([_, Some(releaseTag), Some(agdaVersion), Some(platformTag), extension]) =>
-      switch Platform.parse(platformTag) {
-      | Some(platform) if extensionMatchesPlatform(platform, extension) =>
-        Some({releaseTag, agdaVersion, platform})
-      | _ => None
-      }
-    | _ => None
-    }
-
-  let cacheName = artifact =>
-    "als-" ++
-    artifact.releaseTag ++
-    "-Agda-" ++ artifact.agdaVersion ++ "-" ++ Platform.toAssetTag(artifact.platform)
-
-  let directoryParts = artifact => ["releases", artifact.releaseTag, cacheName(artifact)]
-
-  let executableName = artifact => Platform.isWasm(artifact.platform) ? "als.wasm" : "als"
-
-  let versionLabel = releaseTag =>
-    releaseTag->String.startsWith("v") ? releaseTag : "v" ++ releaseTag
-
-  let matchesChannel = (~channel: Channel.t, artifact: t): bool =>
-    switch channel {
-    | Channel.DevALS => artifact.releaseTag == "dev"
-    | Channel.LatestALS => artifact.releaseTag != "dev"
-    }
-
-  let toVersionString = (~channel: Channel.t, artifact: t): string =>
-    switch channel {
-    | Channel.DevALS => "Agda v" ++ artifact.agdaVersion ++ " Language Server (dev build)"
-    | Channel.LatestALS =>
-      "Agda v" ++ artifact.agdaVersion ++ " Language Server " ++ versionLabel(artifact.releaseTag)
-    }
-
-  let managedExecutableUri = (globalStorageUri: VSCode.Uri.t, artifact: t): VSCode.Uri.t => {
-    VSCode.Uri.joinPath(globalStorageUri, Array.concat(directoryParts(artifact), [
-      executableName(artifact),
-    ]))
-  }
-}
-
-module Source = {
-  type t =
-    | FromGitHub(Channel.t, Connection__Download__GitHub.DownloadDescriptor.t)
-    | FromURL(Channel.t, string, string) // (channel, url, saveAsFileName)
-
-  let toString = channel =>
-    switch channel {
-    | FromGitHub(abstractChannel, descriptor) =>
-      Channel.toDisplayString(abstractChannel) ++
-      Connection__Download__GitHub.DownloadDescriptor.toString(descriptor)
-    | FromURL(abstractChannel, url, _) =>
-      Channel.toDisplayString(abstractChannel) ++ " from " ++ url
-    }
-
-  let toVersionString = channel =>
-    switch channel {
-    | FromGitHub(abstractChannel, descriptor) =>
-      switch DownloadArtifact.parseName(descriptor.asset.name) {
-      | Some(artifact) => DownloadArtifact.toVersionString(~channel=abstractChannel, artifact)
-      | None =>
-        let agdaVersion = switch abstractChannel {
-        | Channel.LatestALS =>
-          descriptor.asset.name
-          ->String.replaceRegExp(%re("/als-Agda-/"), "")
-          ->String.replaceRegExp(%re("/-.*/"), "")
-        | Channel.DevALS =>
-          descriptor.asset.name
-          ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
-          ->String.replaceRegExp(%re("/-.*/"), "")
-        }
-        switch abstractChannel {
-        | Channel.LatestALS =>
-          let alsVersion =
-            descriptor.release.name
-            ->String.split(".")
-            ->Array.last
-            ->Option.getOr(descriptor.release.name)
-          "Agda v" ++ agdaVersion ++ " Language Server " ++ DownloadArtifact.versionLabel(
-            alsVersion,
-          )
-        | Channel.DevALS =>
-          "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
-        }
-      }
-    | FromURL(abstractChannel, _, _) =>
-      Channel.toDisplayString(abstractChannel)
-    }
-}
-
-module Error = {
-  type t =
-    | OptedNotToDownload
-    | PlatformNotSupported(Connection__Download__Platform.raw)
-    | CannotFetchALSReleases(Connection__Download__GitHub.Error.t)
-    | CannotDownloadALS(Connection__Download__GitHub.Error.t)
-    | CannotFindCompatibleALSRelease
-    | CannotDownloadFromURL(Connection__Download__GitHub.Error.t)
-
-  let toString = x =>
-    switch x {
-    | OptedNotToDownload => "Opted not to download the Agda Language Server"
-    | PlatformNotSupported(platform) =>
-      "The platform `" ++
-      platform["os"] ++
-      "/" ++
-      platform["dist"] ++ "` is not supported for downloading the Agda Language Server.\n"
-    | CannotFetchALSReleases(e) =>
-      "Cannot fetch releases of Agda Language Server: " ++
-      Connection__Download__GitHub.Error.toString(e)
-
-    | CannotFindCompatibleALSRelease => "Cannot find compatible Agda Language Server release for download. Prebuilts are only available for download on Ubuntu, Windows, and macOS (arm64, x64).\nPlease build from source if you are on a different platform. \nSee https://github.com/agda/agda-language-server for more information."
-    | CannotDownloadALS(e) =>
-      "Failed to download the Agda Language Server: " ++
-      Connection__Download__GitHub.Error.toString(e)
-    | CannotDownloadFromURL(e) =>
-      "Failed to download from URL: " ++ Connection__Download__GitHub.Error.toString(e)
-    }
-}
-
 // On desktop (file:// scheme), return fsPath; on web (vscode-userdata: etc.), return URI string
 let uriToPath = (uri: VSCode.Uri.t): string =>
   if VSCode.Uri.scheme(uri) == "file" {
@@ -245,21 +23,24 @@ let managedDeleteRoots = (globalStorageUri: VSCode.Uri.t): array<VSCode.Uri.t> =
 let downloadDestinationForDescriptor = (
   descriptor: Connection__Download__GitHub.DownloadDescriptor.t,
 ): Connection__Download__GitHub.downloadDestination =>
-  switch DownloadArtifact.parseName(descriptor.asset.name) {
+  switch Connection__Download__DownloadArtifact.parseName(descriptor.asset.name) {
   | Some(artifact) => {
-      directoryParts: DownloadArtifact.directoryParts(artifact),
-      executableName: DownloadArtifact.executableName(artifact),
-      isWasm: DownloadArtifact.Platform.isWasm(artifact.platform),
+      directoryParts: Connection__Download__DownloadArtifact.directoryParts(artifact),
+      executableName: Connection__Download__DownloadArtifact.executableName(artifact),
+      isWasm: Connection__Download__DownloadArtifact.Platform.isWasm(artifact.platform),
     }
   | None => Connection__Download__GitHub.downloadDestination(descriptor)
   }
 
-let expectedUriForSource = (globalStorageUri: VSCode.Uri.t, source: Source.t): VSCode.Uri.t => {
+let expectedUriForSource = (
+  globalStorageUri: VSCode.Uri.t,
+  source: Connection__Download__Source.t,
+): VSCode.Uri.t => {
   let destinationParts = switch source {
-  | Source.FromGitHub(_, descriptor) =>
+  | Connection__Download__Source.FromGitHub(_, descriptor) =>
     let destination = downloadDestinationForDescriptor(descriptor)
     Array.concat(destination.directoryParts, [destination.executableName])
-  | Source.FromURL(_, url, saveAsFileName) =>
+  | Connection__Download__Source.FromURL(_, url, saveAsFileName) =>
     let executableName = if url->String.endsWith(".wasm") { "als.wasm" } else { "als" }
     [saveAsFileName, executableName]
   }
@@ -267,13 +48,16 @@ let expectedUriForSource = (globalStorageUri: VSCode.Uri.t, source: Source.t): V
   VSCode.Uri.joinPath(globalStorageUri, destinationParts)
 }
 
-let expectedPathForSource = (globalStorageUri: VSCode.Uri.t, source: Source.t): string =>
+let expectedPathForSource = (
+  globalStorageUri: VSCode.Uri.t,
+  source: Connection__Download__Source.t,
+): string =>
   expectedUriForSource(globalStorageUri, source)->uriToPath
 
 // Get release manifest from cache if available, otherwise fetch from GitHub
 let getReleaseManifestFromGitHub = async (memento, repo, ~useCache=true) => {
   switch await Connection__Download__GitHub.ReleaseManifest.fetch(memento, repo, ~useCache) {
-  | (Error(error), _) => Error(Error.CannotFetchALSReleases(error))
+  | (Error(error), _) => Error(Connection__Download__Error.CannotFetchALSReleases(error))
   | (Ok(manifest), _) => Ok(manifest)
   }
 }
@@ -344,7 +128,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName,
         | Connection__Download__Util.Error.CannotWriteFile(exn) =>
           Connection__Download__GitHub.Error.CannotReadFile(exn)
         }
-        Error(Error.CannotDownloadFromURL(convertedError))
+        Error(Connection__Download__Error.CannotDownloadFromURL(convertedError))
       | Ok() =>
         // For WASM, skip ZIP validation and extraction - it's a raw binary
         if isWasm {
@@ -379,7 +163,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName,
               "message": "Downloaded file is not a ZIP file. The URL may require authentication or may not be a direct download link.",
             })
             Error(
-              Error.CannotDownloadFromURL(
+              Connection__Download__Error.CannotDownloadFromURL(
                 Connection__Download__GitHub.Error.CannotReadFile(genericError),
               ),
             )
@@ -406,11 +190,15 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName,
       }
     } catch {
     | Exn.Error(obj) =>
-      Error(Error.CannotDownloadFromURL(Connection__Download__GitHub.Error.CannotReadFile(obj)))
+      Error(
+        Connection__Download__Error.CannotDownloadFromURL(
+          Connection__Download__GitHub.Error.CannotReadFile(obj),
+        ),
+      )
     | _ =>
       let genericError = Obj.magic({"message": "Invalid URL"})
       Error(
-        Error.CannotDownloadFromURL(
+        Connection__Download__Error.CannotDownloadFromURL(
           Connection__Download__GitHub.Error.CannotReadFile(genericError),
         ),
       )
@@ -427,7 +215,7 @@ let download = async (
   ~fetch=?,
 ) =>
   switch channel {
-  | Source.FromGitHub(_, downloadDescriptor) =>
+  | Connection__Download__Source.FromGitHub(_, downloadDescriptor) =>
     let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
     switch await Connection__Download__GitHub.download(
       downloadDescriptor,
@@ -437,12 +225,12 @@ let download = async (
       ~fetchFile,
       ~downloadDestinationForDescriptor=downloadDestinationForDescriptor,
     ) {
-    | Error(error) => Error(Error.CannotDownloadALS(error))
+    | Error(error) => Error(Connection__Download__Error.CannotDownloadALS(error))
     | Ok(_isCached) =>
       // For WASM assets (detected by filename), use als.wasm, otherwise als
       Ok(expectedPathForSource(globalStorageUri, channel))
     }
-  | Source.FromURL(_, url, saveAsFileName) =>
+  | Connection__Download__Source.FromURL(_, url, saveAsFileName) =>
     await downloadFromURL(
       globalStorageUri,
       url,
@@ -452,4 +240,3 @@ let download = async (
       ~fetch?,
     )
   }
-

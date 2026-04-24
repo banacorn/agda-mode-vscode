@@ -23,7 +23,7 @@ describe("Connection UI", () => {
   let availableDownload = (
     ~downloaded=false,
     ~versionString,
-    ~platform: Connection__Download.DownloadArtifact.Platform.t,
+    ~platform: Connection__Download__DownloadArtifact.Platform.t,
   ): Connection__Download__Availability.availableDownload => {
     downloaded,
     versionString,
@@ -101,7 +101,7 @@ describe("Connection UI", () => {
       async () => {
         let state = createTestState()
         let view = Connection__UI__Picker.make(state.channels.log)
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let selectedChannel = ref(Connection__Download__Channel.DevALS)
         let switchCalled = ref(None)
         let sawDestroyed = ref(false)
         let sawSelectionCompleted = ref(false)
@@ -150,7 +150,7 @@ describe("Connection UI", () => {
       async () => {
         let state = createTestState()
         let view = Connection__UI__Picker.make(state.channels.log)
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let selectedChannel = ref(Connection__Download__Channel.DevALS)
         let sawSelectedCandidate = ref(false)
         let _ = state.channels.log->Chan.on(logEvent =>
           switch logEvent {
@@ -185,7 +185,7 @@ describe("Connection UI", () => {
         let platform = Mock.Platform.makeWithSuccessfulDownload(downloadedPath)
         let state = createTestStateWithPlatform(platform)
         let view = Connection__UI__Picker.make(state.channels.log)
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let selectedChannel = ref(Connection__Download__Channel.DevALS)
         let sawDestroyed = ref(false)
         let sawSelectionCompleted = ref(false)
         let sawSelectedDownloadAction = ref(false)
@@ -202,7 +202,7 @@ describe("Connection UI", () => {
 
         let selectedItem = makePickerItem(
           state,
-          DownloadAction(false, "Agda v2.8.0 Language Server (dev build)", Connection__Download.DownloadArtifact.Platform.Wasm),
+          DownloadAction(false, "Agda v2.8.0 Language Server (dev build)", Connection__Download__DownloadArtifact.Platform.Wasm),
         )
 
         Connection__UI__Handlers.onSelection(
@@ -243,13 +243,13 @@ describe("Connection UI", () => {
 
           await Config.Connection.setAgdaPaths(state.channels.log, [])
 
-          let selectedPlatform: Connection__Download.DownloadArtifact.Platform.t =
+          let selectedPlatform: Connection__Download__DownloadArtifact.Platform.t =
             label == Connection__UI__Labels.downloadWasmALS
-              ? Connection__Download.DownloadArtifact.Platform.Wasm
-              : Connection__Download.DownloadArtifact.Platform.MacOSArm64
+              ? Connection__Download__DownloadArtifact.Platform.Wasm
+              : Connection__Download__DownloadArtifact.Platform.MacOSArm64
 
           let expectedDownloadPath = switch selectedPlatform {
-          | Connection__Download.DownloadArtifact.Platform.Wasm =>
+          | Connection__Download__DownloadArtifact.Platform.Wasm =>
             NodeJs.Path.join([
               VSCode.Uri.fsPath(state.globalStorageUri),
               "releases",
@@ -299,7 +299,7 @@ describe("Connection UI", () => {
           Connection__UI__Handlers.onSelection(
             state,
             Mock.Platform.makeWithSuccessfulDownload(expectedDownloadPath),
-            ref(Connection__Download.Channel.DevALS),
+            ref(Connection__Download__Channel.DevALS),
             _downloadItems => Promise.resolve(),
             view,
             [
@@ -336,7 +336,7 @@ describe("Connection UI", () => {
       async () => {
         let state = createTestState()
         let view = Connection__UI__Picker.make(state.channels.log)
-        let selectedChannel = ref(Connection__Download.Channel.LatestALS)
+        let selectedChannel = ref(Connection__Download__Channel.LatestALS)
         let capturedItems: ref<array<Connection__UI__Channel.pickerItem>> = ref([])
         let showCallCount = ref(0)
         let patchShow: (Connection__UI__Picker.t, ref<int>) => unit = %raw(`function(view, counter) {
@@ -365,7 +365,7 @@ describe("Connection UI", () => {
 
         await Test__Util.wait(200)
 
-        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
+        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download__Channel.DevALS)
         Assert.deepStrictEqual(capturedItems.contents->Array.map(item => item.value), ["latest", "dev"])
         Assert.deepStrictEqual(showCallCount.contents, 1)
 
@@ -378,7 +378,7 @@ describe("Connection UI", () => {
       async () => {
         let state = createTestState()
         let view = Connection__UI__Picker.make(state.channels.log)
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let selectedChannel = ref(Connection__Download__Channel.DevALS)
         let fsPath = "/tmp/dev-als/als.wasm"
         let uriPath = "file:///tmp/dev-als/als.wasm"
         let sawSelectedCandidate = ref(false)
@@ -443,7 +443,7 @@ describe("Connection UI", () => {
       async () => {
         let state = createTestState()
         let view = Connection__UI__Picker.make(state.channels.log)
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let selectedChannel = ref(Connection__Download__Channel.DevALS)
         let sawDestroyed = ref(false)
         let sawSelectionCompleted = ref(false)
         let deleteCalled = ref(false)
@@ -496,7 +496,7 @@ describe("Connection UI", () => {
 
           let state = createTestStateWithPlatformAndStorage(makeMockPlatform(), storageUri)
           let view = Connection__UI__Picker.make(state.channels.log)
-          let selectedChannel = ref(Connection__Download.Channel.DevALS)
+          let selectedChannel = ref(Connection__Download__Channel.DevALS)
           let sawDestroyed = ref(false)
           let onSelectionCompleted = Log.on(
             state.channels.log,
@@ -561,7 +561,7 @@ describe("Connection UI", () => {
       async () => {
         let state = createTestState()
         let view = Connection__UI__Picker.make(state.channels.log)
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let selectedChannel = ref(Connection__Download__Channel.DevALS)
         let sawSelectionCompleted = ref(false)
         let sawSelectedDownloadAction = ref(false)
         let _ = state.channels.log->Chan.on(logEvent =>
@@ -579,7 +579,7 @@ describe("Connection UI", () => {
           DownloadAction(
             false,
             Connection__UI__Labels.checkingAvailability,
-            Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+            Connection__Download__DownloadArtifact.Platform.MacOSArm64,
           ),
         )
 
@@ -607,7 +607,7 @@ describe("Connection UI", () => {
       async () => {
         let state = createTestState()
         let view = Connection__UI__Picker.make(state.channels.log)
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let selectedChannel = ref(Connection__Download__Channel.DevALS)
         let capturedItems: ref<array<Connection__UI__Channel.pickerItem>> = ref([])
         let capturedPlaceholder = ref("")
 
@@ -653,7 +653,7 @@ describe("Connection UI", () => {
       async () => {
         let state = createTestState()
         let view = Connection__UI__Picker.make(state.channels.log)
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let selectedChannel = ref(Connection__Download__Channel.DevALS)
         let capturedItems: array<{"label": string, "description": string, "detail": string}> =
           %raw(`[]`)
         let resolvePickerCalled = ref((_: unit) => ())
@@ -708,7 +708,7 @@ describe("Connection UI", () => {
       async () => {
         let state = createTestState()
         let view = Connection__UI__Picker.make(state.channels.log)
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let selectedChannel = ref(Connection__Download__Channel.DevALS)
 
         view->Connection__UI__Picker.onHide(() => Connection__UI__Handlers.onHide(view))
 
@@ -799,7 +799,7 @@ describe("Connection UI", () => {
           Connection__UI__Handlers.onSelection(
             state,
             platform,
-            ref(Connection__Download.Channel.DevALS),
+            ref(Connection__Download__Channel.DevALS),
             _downloadItems => Promise.resolve(),
             view,
             [
@@ -841,15 +841,15 @@ describe("Connection UI", () => {
       "handleDownload should not modify PreferredCandidate",
       async () => {
         let testCases = [
-          (Some("/usr/bin/agda"), Connection__Download.DownloadArtifact.Platform.MacOSArm64, false),
-          (Some("/usr/bin/agda"), Connection__Download.DownloadArtifact.Platform.Wasm, false),
-          (None, Connection__Download.DownloadArtifact.Platform.MacOSArm64, false),
-          (None, Connection__Download.DownloadArtifact.Platform.Wasm, false),
+          (Some("/usr/bin/agda"), Connection__Download__DownloadArtifact.Platform.MacOSArm64, false),
+          (Some("/usr/bin/agda"), Connection__Download__DownloadArtifact.Platform.Wasm, false),
+          (None, Connection__Download__DownloadArtifact.Platform.MacOSArm64, false),
+          (None, Connection__Download__DownloadArtifact.Platform.Wasm, false),
         ]
 
         let runCase = async (
           initialPicked: option<string>,
-          platform: Connection__Download.DownloadArtifact.Platform.t,
+          platform: Connection__Download__DownloadArtifact.Platform.t,
           downloaded: bool,
         ) => {
           let state = createTestState()
@@ -866,7 +866,7 @@ describe("Connection UI", () => {
             })
 
           let expectedDownloadPath = switch platform {
-          | Connection__Download.DownloadArtifact.Platform.Wasm =>
+          | Connection__Download__DownloadArtifact.Platform.Wasm =>
             VSCode.Uri.toString(
               VSCode.Uri.joinPath(state.globalStorageUri, [
                 "releases",
@@ -929,10 +929,10 @@ describe("Connection UI", () => {
           await Connection__UI__Handlers.handleDownload(
             state,
             platform,
-            Connection__Download.DownloadArtifact.Platform.Wasm,
+            Connection__Download__DownloadArtifact.Platform.Wasm,
             true,
             "Agda v2.8.0 Language Server (dev build)",
-            ~channel=Connection__Download.Channel.DevALS,
+            ~channel=Connection__Download__Channel.DevALS,
             ~refreshUI=None,
           )
 
@@ -946,19 +946,19 @@ describe("Connection UI", () => {
       "handleChannelSwitch should persist channel selection in memento",
       async () => {
         let state = createTestState()
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let selectedChannel = ref(Connection__Download__Channel.DevALS)
 
         Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), None)
 
         await Connection__UI__Handlers.handleChannelSwitch(
           state,
           selectedChannel,
-          Connection__Download.Channel.DevALS,
+          Connection__Download__Channel.DevALS,
           _downloadItems => Promise.resolve(),
           ~getDownloadItems=_channel => Promise.resolve([]),
         )
 
-        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
+        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download__Channel.DevALS)
         Assert.deepStrictEqual(Memento.SelectedChannel.get(state.memento), Some("dev"))
       },
     )
@@ -968,7 +968,7 @@ describe("Connection UI", () => {
       async () => {
         let state = createTestState()
         let logChannel = state.channels.log
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let selectedChannel = ref(Connection__Download__Channel.DevALS)
 
         let existingPaths = ["/usr/bin/agda", "/downloaded/als-v1", "/downloaded/als-dev"]
         await Config.Connection.setAgdaPaths(logChannel, existingPaths)
@@ -976,12 +976,12 @@ describe("Connection UI", () => {
         await Connection__UI__Handlers.handleChannelSwitch(
           state,
           selectedChannel,
-          Connection__Download.Channel.DevALS,
+          Connection__Download__Channel.DevALS,
           _downloadItems => Promise.resolve(),
           ~getDownloadItems=_channel => Promise.resolve([]),
         )
 
-        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download.Channel.DevALS)
+        Assert.deepStrictEqual(selectedChannel.contents, Connection__Download__Channel.DevALS)
         Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), existingPaths)
       },
     )
@@ -1007,21 +1007,21 @@ describe("Connection UI", () => {
             let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
             let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
               switch channel {
-              | Connection__Download.Channel.DevALS =>
+              | Connection__Download__Channel.DevALS =>
                 Ok(
-                  Connection__Download.Source.FromURL(
-                    Connection__Download.Channel.DevALS,
+                  Connection__Download__Source.FromURL(
+                    Connection__Download__Channel.DevALS,
                     "https://example.invalid/dev-als.wasm",
                     "dev-als",
                   ),
                 )
-              | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              | _ => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
               }
             )
             let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) => {
               downloadedChannel := switch source {
-              | Connection__Download.Source.FromURL(ch, _, _) => Some(ch)
-              | Connection__Download.Source.FromGitHub(ch, _) => Some(ch)
+              | Connection__Download__Source.FromURL(ch, _, _) => Some(ch)
+              | Connection__Download__Source.FromGitHub(ch, _) => Some(ch)
               }
               Promise.resolve(Ok(downloadedPath))
             }
@@ -1031,11 +1031,11 @@ describe("Connection UI", () => {
           module(MockPlatform)
         }
 
-        let selectedChannel = ref(Connection__Download.Channel.DevALS)
+        let selectedChannel = ref(Connection__Download__Channel.DevALS)
         await Connection__UI__Handlers.handleChannelSwitch(
           state,
           selectedChannel,
-          Connection__Download.Channel.DevALS,
+          Connection__Download__Channel.DevALS,
           _downloadItems => Promise.resolve(),
           ~getDownloadItems=_channel => Promise.resolve([]),
         )
@@ -1043,13 +1043,13 @@ describe("Connection UI", () => {
         await Connection__UI__Handlers.handleDownload(
           state,
           platform,
-          Connection__Download.DownloadArtifact.Platform.Wasm,
+          Connection__Download__DownloadArtifact.Platform.Wasm,
           false,
           "ALS vTest",
-          ~channel=Connection__Download.Channel.DevALS,
+          ~channel=Connection__Download__Channel.DevALS,
         )
 
-        Assert.deepStrictEqual(downloadedChannel.contents, Some(Connection__Download.Channel.DevALS))
+        Assert.deepStrictEqual(downloadedChannel.contents, Some(Connection__Download__Channel.DevALS))
       },
     )
 
@@ -1078,7 +1078,7 @@ describe("Connection UI", () => {
           Connection__UI__ItemData.entriesToItemData(
             [],
             None,
-            [availableDownload(~versionString="ALS v1.0.0", ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64)],
+            [availableDownload(~versionString="ALS v1.0.0", ~platform=Connection__Download__DownloadArtifact.Platform.MacOSArm64)],
           )
 
         let hasSelectOtherChannels =
@@ -1104,9 +1104,9 @@ describe("Connection UI", () => {
             Promise.resolve(Error(Connection__Command.Error.NotFound))
           let alreadyDownloaded = _ => Promise.resolve(None)
           let resolveDownloadChannel = (_, _) =>
-            async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            async (_, _, _) => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
           let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
@@ -1137,9 +1137,9 @@ describe("Connection UI", () => {
             Promise.resolve(Error(Connection__Command.Error.NotFound))
           let alreadyDownloaded = _ => Promise.resolve(None)
           let resolveDownloadChannel = (_, _) =>
-            async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            async (_, _, _) => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
           let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
@@ -1158,7 +1158,7 @@ describe("Connection UI", () => {
           [
             availableDownload(
               ~versionString=Connection__UI__Labels.downloadUnavailable,
-              ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
+              ~platform=Connection__Download__DownloadArtifact.Platform.Wasm,
             ),
           ],
         )
@@ -1174,9 +1174,9 @@ describe("Connection UI", () => {
             Promise.resolve(Error(Connection__Command.Error.NotFound))
           let alreadyDownloaded = _ => Promise.resolve(None)
           let resolveDownloadChannel = (_, _) =>
-            async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            async (_, _, _) => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
           let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
@@ -1199,11 +1199,11 @@ describe("Connection UI", () => {
           [
             availableDownload(
               ~versionString=Connection__UI__Labels.downloadUnavailable,
-              ~platform=Connection__Download.DownloadArtifact.Platform.Ubuntu,
+              ~platform=Connection__Download__DownloadArtifact.Platform.Ubuntu,
             ),
             availableDownload(
               ~versionString=Connection__UI__Labels.downloadUnavailable,
-              ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
+              ~platform=Connection__Download__DownloadArtifact.Platform.Wasm,
             ),
           ],
         )
@@ -1219,9 +1219,9 @@ describe("Connection UI", () => {
             Promise.resolve(Error(Connection__Command.Error.NotFound))
           let alreadyDownloaded = _ => Promise.resolve(None)
           let resolveDownloadChannel = (_, _) =>
-            async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            async (_, _, _) => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
           let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
@@ -1244,7 +1244,7 @@ describe("Connection UI", () => {
           [
             availableDownload(
               ~versionString=Connection__UI__Labels.downloadUnavailable,
-              ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
+              ~platform=Connection__Download__DownloadArtifact.Platform.Wasm,
             ),
           ],
         )
@@ -1356,20 +1356,20 @@ describe("Connection UI", () => {
 
     describe("channel labels and details", () => {
       it("channelLabel LatestALS", () =>
-        Assert.deepStrictEqual(channelLabel(Connection__Download.Channel.LatestALS), "Latest")
+        Assert.deepStrictEqual(channelLabel(Connection__Download__Channel.LatestALS), "Latest")
       )
       it("channelLabel DevALS", () =>
-        Assert.deepStrictEqual(channelLabel(Connection__Download.Channel.DevALS), "Development")
+        Assert.deepStrictEqual(channelLabel(Connection__Download__Channel.DevALS), "Development")
       )
       it("channelDetail LatestALS", () =>
         Assert.deepStrictEqual(
-          channelDetail(Connection__Download.Channel.LatestALS),
+          channelDetail(Connection__Download__Channel.LatestALS),
           "Tracks the latest stable release",
         )
       )
       it("channelDetail DevALS", () =>
         Assert.deepStrictEqual(
-          channelDetail(Connection__Download.Channel.DevALS),
+          channelDetail(Connection__Download__Channel.DevALS),
           "Tracks the latest commit of the master branch",
         )
       )
@@ -1378,13 +1378,13 @@ describe("Connection UI", () => {
     describe("download header", () => {
       it("DevALS", () =>
         Assert.deepStrictEqual(
-          downloadHeader(Connection__Download.Channel.DevALS),
+          downloadHeader(Connection__Download__Channel.DevALS),
           "Download (Development)",
         )
       )
       it("LatestALS", () =>
         Assert.deepStrictEqual(
-          downloadHeader(Connection__Download.Channel.LatestALS),
+          downloadHeader(Connection__Download__Channel.LatestALS),
           "Download (Latest)",
         )
       )

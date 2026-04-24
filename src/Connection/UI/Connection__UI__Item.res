@@ -37,7 +37,7 @@ let fromItemData = (itemData: ItemData.t, extensionUri: VSCode.Uri.t): t => {
         (label, Some(description), Some(detail))
       }
     | DownloadAction(downloaded, versionString, platform) => {
-        let label = if platform == Connection__Download.DownloadArtifact.Platform.Wasm {
+        let label = if platform == Connection__Download__DownloadArtifact.Platform.Wasm {
           Labels.downloadWasmALS
         } else {
           Labels.downloadNativeALS

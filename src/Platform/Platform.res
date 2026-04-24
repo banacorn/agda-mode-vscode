@@ -14,18 +14,18 @@ module type PlatformOps = {
   // Download operations
   let alreadyDownloaded: VSCode.Uri.t => promise<option<string>>
   let resolveDownloadChannel: (
-    Connection__Download.Channel.t,
+    Connection__Download__Channel.t,
     bool,
   ) => (
     Memento.t,
     VSCode.Uri.t,
     Connection__Download__Platform.t,
-  ) => promise<result<Connection__Download.Source.t, Connection__Download.Error.t>>
+  ) => promise<result<Connection__Download__Source.t, Connection__Download__Error.t>>
   let download: (
     VSCode.Uri.t,
-    Connection__Download.Source.t,
+    Connection__Download__Source.t,
     ~trace: Connection__Download__Trace.callback=?,
-  ) => promise<result<string, Connection__Download.Error.t>>
+  ) => promise<result<string, Connection__Download__Error.t>>
 
   // User interaction
   let askUserAboutDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>

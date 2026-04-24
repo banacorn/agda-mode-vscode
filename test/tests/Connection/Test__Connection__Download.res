@@ -29,7 +29,7 @@ describe("Download", () => {
 
   describe("DownloadArtifact", () => {
     let expectParsed = (raw, releaseTag, agdaVersion, platform) =>
-      switch Connection__Download.DownloadArtifact.parseName(raw) {
+      switch Connection__Download__DownloadArtifact.parseName(raw) {
       | Some(parsed) =>
         Assert.deepStrictEqual(parsed.releaseTag, releaseTag)
         Assert.deepStrictEqual(parsed.agdaVersion, agdaVersion)
@@ -38,20 +38,20 @@ describe("Download", () => {
       }
 
     let expectRejected = raw =>
-      Assert.deepStrictEqual(Connection__Download.DownloadArtifact.parseName(raw), None)
+      Assert.deepStrictEqual(Connection__Download__DownloadArtifact.parseName(raw), None)
 
     it("should parse canonical WASM artifact filenames with typed platform", () => {
       expectParsed(
         "als-dev-Agda-2.8.0-wasm.wasm",
         "dev",
         "2.8.0",
-        Connection__Download.DownloadArtifact.Platform.Wasm,
+        Connection__Download__DownloadArtifact.Platform.Wasm,
       )
       expectParsed(
         "als-v6-Agda-2.8.0-wasm.wasm",
         "v6",
         "2.8.0",
-        Connection__Download.DownloadArtifact.Platform.Wasm,
+        Connection__Download__DownloadArtifact.Platform.Wasm,
       )
     })
 
@@ -60,25 +60,25 @@ describe("Download", () => {
         "als-v6-Agda-2.8.0-ubuntu.zip",
         "v6",
         "2.8.0",
-        Connection__Download.DownloadArtifact.Platform.Ubuntu,
+        Connection__Download__DownloadArtifact.Platform.Ubuntu,
       )
       expectParsed(
         "als-v6-Agda-2.8.0-macos-arm64.zip",
         "v6",
         "2.8.0",
-        Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+        Connection__Download__DownloadArtifact.Platform.MacOSArm64,
       )
       expectParsed(
         "als-v6-Agda-2.8.0-macos-x64.zip",
         "v6",
         "2.8.0",
-        Connection__Download.DownloadArtifact.Platform.MacOSX64,
+        Connection__Download__DownloadArtifact.Platform.MacOSX64,
       )
       expectParsed(
         "als-v6-Agda-2.8.0-windows.zip",
         "v6",
         "2.8.0",
-        Connection__Download.DownloadArtifact.Platform.Windows,
+        Connection__Download__DownloadArtifact.Platform.Windows,
       )
     })
 
@@ -87,13 +87,13 @@ describe("Download", () => {
         "als-dev-Agda-2.8.0-wasm",
         "dev",
         "2.8.0",
-        Connection__Download.DownloadArtifact.Platform.Wasm,
+        Connection__Download__DownloadArtifact.Platform.Wasm,
       )
       expectParsed(
         "als-v6-Agda-2.8.0-macos-arm64",
         "v6",
         "2.8.0",
-        Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+        Connection__Download__DownloadArtifact.Platform.MacOSArm64,
       )
     })
 
@@ -102,7 +102,7 @@ describe("Download", () => {
         "als-v6.1-Agda-2.8.0-wasm.wasm",
         "v6.1",
         "2.8.0",
-        Connection__Download.DownloadArtifact.Platform.Wasm,
+        Connection__Download__DownloadArtifact.Platform.Wasm,
       )
     })
 
@@ -117,7 +117,7 @@ describe("Download", () => {
     })
 
     it("should derive the artifact directory name from the artifact identity", () => {
-      let artifact = switch Connection__Download.DownloadArtifact.parseName(
+      let artifact = switch Connection__Download__DownloadArtifact.parseName(
         "als-v6.1-Agda-2.8.0-macos-arm64.zip",
       ) {
       | Some(artifact) => artifact
@@ -125,20 +125,20 @@ describe("Download", () => {
       }
 
       Assert.deepStrictEqual(
-        Connection__Download.DownloadArtifact.cacheName(artifact),
+        Connection__Download__DownloadArtifact.cacheName(artifact),
         "als-v6.1-Agda-2.8.0-macos-arm64",
       )
     })
 
     it("should construct release-based managed executable URIs", () => {
       let globalStorageUri = VSCode.Uri.file("/tmp/agda-mode-global-storage")
-      let wasmArtifact = switch Connection__Download.DownloadArtifact.parseName(
+      let wasmArtifact = switch Connection__Download__DownloadArtifact.parseName(
         "als-v6-Agda-2.8.0-wasm.wasm",
       ) {
       | Some(artifact) => artifact
       | None => raise(Failure("expected artifact to parse"))
       }
-      let nativeArtifact = switch Connection__Download.DownloadArtifact.parseName(
+      let nativeArtifact = switch Connection__Download__DownloadArtifact.parseName(
         "als-v6-Agda-2.8.0-macos-arm64.zip",
       ) {
       | Some(artifact) => artifact
@@ -147,7 +147,7 @@ describe("Download", () => {
 
       Assert.deepStrictEqual(
         VSCode.Uri.fsPath(
-          Connection__Download.DownloadArtifact.managedExecutableUri(
+          Connection__Download__DownloadArtifact.managedExecutableUri(
             globalStorageUri,
             wasmArtifact,
           ),
@@ -162,7 +162,7 @@ describe("Download", () => {
       )
       Assert.deepStrictEqual(
         VSCode.Uri.fsPath(
-          Connection__Download.DownloadArtifact.managedExecutableUri(
+          Connection__Download__DownloadArtifact.managedExecutableUri(
             globalStorageUri,
             nativeArtifact,
           ),
@@ -219,8 +219,8 @@ describe("Download", () => {
       }
 
       Assert.deepStrictEqual(
-        Connection__Download.Source.toVersionString(
-          Connection__Download.Source.FromGitHub(LatestALS, descriptor),
+        Connection__Download__Source.toVersionString(
+          Connection__Download__Source.FromGitHub(LatestALS, descriptor),
         ),
         "Agda v2.8.0 Language Server v6",
       )
@@ -229,7 +229,7 @@ describe("Download", () => {
 
   describe("expectedPathForSource with release artifacts", () => {
     let makeSource = (
-      ~channel: Connection__Download.Channel.t,
+      ~channel: Connection__Download__Channel.t,
       ~releaseTag,
       ~assetName,
     ) => {
@@ -276,7 +276,7 @@ describe("Download", () => {
         },
       }
 
-      Connection__Download.Source.FromGitHub(channel, descriptor)
+      Connection__Download__Source.FromGitHub(channel, descriptor)
     }
 
     it("should use release-based managed storage for DevALS native artifacts", () => {
@@ -382,9 +382,9 @@ describe("Download", () => {
       }
     }
 
-    let makeDevSource = (assetName: string): Connection__Download.Source.t => {
+    let makeDevSource = (assetName: string): Connection__Download__Source.t => {
       let release = makeDevRelease()
-      Connection__Download.Source.FromGitHub(Connection__Download.Channel.DevALS, {
+      Connection__Download__Source.FromGitHub(Connection__Download__Channel.DevALS, {
         Connection__Download__GitHub.DownloadDescriptor.asset: makeDevAsset(assetName),
         release,
         saveAsFileName: "dev-als",
@@ -400,18 +400,18 @@ describe("Download", () => {
           let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
             switch channel {
-            | Connection__Download.Channel.DevALS =>
+            | Connection__Download__Channel.DevALS =>
               Ok(
-                Connection__Download.Source.FromGitHub(
-                  Connection__Download.Channel.DevALS,
+                Connection__Download__Source.FromGitHub(
+                  Connection__Download__Channel.DevALS,
                   devDescriptor,
                 ),
               )
-            | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            | _ => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
             }
           )
           let download = (_globalStorageUri, _, ~trace as _trace=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
         }
@@ -428,7 +428,7 @@ describe("Download", () => {
         storageUri,
         platform,
         configPaths,
-        ~channel=Connection__Download.Channel.DevALS,
+        ~channel=Connection__Download__Channel.DevALS,
         ~downloadUnavailable="Not available for this platform",
       )
 
@@ -443,32 +443,32 @@ describe("Download", () => {
             {
               downloaded: false,
               versionString: "Agda v2.8.0 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+              platform: Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+              platform: Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+              platform: Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.8.0 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
           ])
         })
@@ -497,32 +497,32 @@ describe("Download", () => {
             {
               downloaded: true,
               versionString: "Agda v2.8.0 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+              platform: Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+              platform: Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+              platform: Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.8.0 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
           ])
         })
@@ -550,40 +550,39 @@ describe("Download", () => {
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+              platform: Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+              platform: Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             },
             {
               downloaded: false,
               versionString: "Agda v2.8.0 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
           ])
         })
       },
     )
 
-    it("Connection__DevALS.toDownloadOrder should pick the wasm asset for Web platform", () => {
+    it("Connection__Download__Channel.Dev.toDownloadOrder should pick the wasm asset for Web platform", () => {
       let releases = [makeDevRelease()]
-      let result = Connection__DevALS.toDownloadOrder(releases, Connection__Download__Platform.Web)
+      let result = Connection__Download__Channel.Dev.toDownloadOrder(releases, Connection__Download__Platform.Web)
       switch result {
-      | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
+      | Ok(descriptor) =>
         Assert.deepStrictEqual(descriptor.asset.name, "als-dev-Agda-2.8.0-wasm.wasm")
-      | Ok(_) => Assert.fail("expected FromGitHub source")
       | Error(_) => Assert.fail("expected Ok result, got Error")
       }
     })
@@ -601,16 +600,22 @@ describe("Download", () => {
               let resolveDownloadChannel = (channel, _useCache) =>
                 async (_memento, _storageUri, downloadPlatform) =>
                   switch channel {
-                  | Connection__Download.Channel.DevALS =>
-                    Connection__DevALS.toDownloadOrder(releases, downloadPlatform)
-                  | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+                  | Connection__Download__Channel.DevALS =>
+                    Connection__Download__Channel.Dev.toDownloadOrder(releases, downloadPlatform)
+                    ->Result.map(descriptor =>
+                      Connection__Download__Source.FromGitHub(
+                        Connection__Download__Channel.DevALS,
+                        descriptor,
+                      )
+                    )
+                  | _ => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
                   }
               let download = (
                 _globalStorageUri,
                 _,
                 ~trace as _trace=Connection__Download__Trace.noop,
               ) =>
-                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+                Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
               let findCommand = (_command, ~timeout as _timeout=1000) =>
                 Promise.resolve(Error(Connection__Command.Error.NotFound))
             }
@@ -623,17 +628,17 @@ describe("Download", () => {
             {
               downloaded: false,
               versionString: "Agda v2.8.0 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
           ])
         })
@@ -692,14 +697,206 @@ describe("Download", () => {
       body: Some("Latest stable build"),
     }
 
-    it("Connection__LatestALS.toDownloadOrder should pick the wasm asset for Web platform", () => {
+    it("Connection__Download__Channel.Latest.toDownloadOrder should pick the wasm asset for Web platform", () => {
       let releases = [makeLatestRelease()]
-      let result = Connection__LatestALS.toDownloadOrder(releases, Connection__Download__Platform.Web)
+      let result = Connection__Download__Channel.Latest.toDownloadOrder(releases, Connection__Download__Platform.Web)
       switch result {
-      | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
+      | Ok(descriptor) =>
         Assert.deepStrictEqual(descriptor.asset.name, "als-v6-Agda-2.8.0-wasm.wasm")
-      | Ok(_) => Assert.fail("expected FromGitHub source")
       | Error(_) => Assert.fail("expected Ok result, got Error")
+      }
+    })
+
+    it("should not pin v0.2.7.0.1.5 when v6 exists", () => {
+      let makeAsset = (name): Connection__Download__GitHub.Asset.t => {
+        url: "https://github.com/agda/agda-language-server/releases/download/v6/" ++ name,
+        id: 1,
+        node_id: "",
+        name,
+        label: None,
+        content_type: "application/zip",
+        state: "uploaded",
+        size: 1000000,
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+        browser_download_url: "https://github.com/agda/agda-language-server/releases/download/v6/" ++ name,
+      }
+
+      let makeRelease = (name, assets): Connection__Download__GitHub.Release.t => {
+        url: "",
+        assets_url: "",
+        upload_url: "",
+        html_url: "",
+        id: 1,
+        node_id: "",
+        tag_name: name,
+        target_commitish: "main",
+        name,
+        draft: false,
+        prerelease: false,
+        created_at: "2025-01-01T00:00:00Z",
+        published_at: "2025-01-01T00:00:00Z",
+        assets,
+        tarball_url: "",
+        zipball_url: "",
+        body: None,
+      }
+
+      let pinnedRelease = makeRelease("v0.2.7.0.1.5", [
+        makeAsset("als-v0.2.7.0.1.5-Agda-2.6.3-windows.zip"),
+      ])
+      let v6Release = makeRelease("v6", [
+        makeAsset("als-v6-Agda-2.8.0-windows.zip"),
+      ])
+
+      let releases = [pinnedRelease, v6Release]
+
+      let result = Connection__Download__Channel.Latest.toDownloadOrder(releases, Connection__Download__Platform.Windows)
+
+      switch result {
+      | Error(_) => Assert.fail("expected Ok but got Error")
+      | Ok(descriptor) =>
+        Assert.deepStrictEqual(descriptor.release.name, "v6")
+        Assert.deepStrictEqual(descriptor.asset.name, "als-v6-Agda-2.8.0-windows.zip")
+      }
+    })
+
+    it("should fall back to older release when newest lacks a compatible asset", () => {
+      let makeAsset = (tag, name): Connection__Download__GitHub.Asset.t => {
+        url: "https://github.com/agda/agda-language-server/releases/download/" ++ tag ++ "/" ++ name,
+        id: 1,
+        node_id: "",
+        name,
+        label: None,
+        content_type: "application/zip",
+        state: "uploaded",
+        size: 1000000,
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+        browser_download_url: "https://github.com/agda/agda-language-server/releases/download/" ++ tag ++ "/" ++ name,
+      }
+
+      let makeRelease = (tag, published_at, assets): Connection__Download__GitHub.Release.t => {
+        url: "",
+        assets_url: "",
+        upload_url: "",
+        html_url: "",
+        id: 1,
+        node_id: "",
+        tag_name: tag,
+        target_commitish: "main",
+        name: tag,
+        draft: false,
+        prerelease: false,
+        created_at: published_at,
+        published_at,
+        assets,
+        tarball_url: "",
+        zipball_url: "",
+        body: None,
+      }
+
+      let v7Release = makeRelease("v7", "2025-06-01T00:00:00Z", [
+        makeAsset("v7", "als-v7-Agda-2.9.0-ubuntu.zip"),
+      ])
+      let v6Release = makeRelease("v6", "2025-01-01T00:00:00Z", [
+        makeAsset("v6", "als-v6-Agda-2.8.0-windows.zip"),
+      ])
+
+      let releases = [v7Release, v6Release]
+
+      let result = Connection__Download__Channel.Latest.toDownloadOrder(releases, Connection__Download__Platform.Windows)
+
+      switch result {
+      | Error(_) => Assert.fail("expected Ok but got Error")
+      | Ok(descriptor) =>
+        Assert.deepStrictEqual(descriptor.release.name, "v6")
+        Assert.deepStrictEqual(descriptor.asset.name, "als-v6-Agda-2.8.0-windows.zip")
+      }
+    })
+
+    it("should skip prerelease/draft releases and pick stable v6", () => {
+      let makeAsset = (tag, name): Connection__Download__GitHub.Asset.t => {
+        url: "https://github.com/agda/agda-language-server/releases/download/" ++ tag ++ "/" ++ name,
+        id: 1,
+        node_id: "",
+        name,
+        label: None,
+        content_type: "application/zip",
+        state: "uploaded",
+        size: 1000000,
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+        browser_download_url: "https://github.com/agda/agda-language-server/releases/download/" ++ tag ++ "/" ++ name,
+      }
+
+      let v8DraftRelease: Connection__Download__GitHub.Release.t = {
+        url: "",
+        assets_url: "",
+        upload_url: "",
+        html_url: "",
+        id: 3,
+        node_id: "",
+        tag_name: "v8-draft",
+        target_commitish: "main",
+        name: "v8-draft",
+        draft: true,
+        prerelease: false,
+        created_at: "2025-09-01T00:00:00Z",
+        published_at: "2025-09-01T00:00:00Z",
+        assets: [makeAsset("v8-draft", "als-v8-draft-Agda-3.0.0-windows.zip")],
+        tarball_url: "",
+        zipball_url: "",
+        body: None,
+      }
+      let v7PreRelease: Connection__Download__GitHub.Release.t = {
+        url: "",
+        assets_url: "",
+        upload_url: "",
+        html_url: "",
+        id: 2,
+        node_id: "",
+        tag_name: "v7-rc1",
+        target_commitish: "main",
+        name: "v7-rc1",
+        draft: false,
+        prerelease: true,
+        created_at: "2025-06-01T00:00:00Z",
+        published_at: "2025-06-01T00:00:00Z",
+        assets: [makeAsset("v7-rc1", "als-v7-rc1-Agda-2.9.0-windows.zip")],
+        tarball_url: "",
+        zipball_url: "",
+        body: None,
+      }
+      let v6Release: Connection__Download__GitHub.Release.t = {
+        url: "",
+        assets_url: "",
+        upload_url: "",
+        html_url: "",
+        id: 1,
+        node_id: "",
+        tag_name: "v6",
+        target_commitish: "main",
+        name: "v6",
+        draft: false,
+        prerelease: false,
+        created_at: "2025-01-01T00:00:00Z",
+        published_at: "2025-01-01T00:00:00Z",
+        assets: [makeAsset("v6", "als-v6-Agda-2.8.0-windows.zip")],
+        tarball_url: "",
+        zipball_url: "",
+        body: None,
+      }
+
+      let releases = [v8DraftRelease, v7PreRelease, v6Release]
+
+      let result = Connection__Download__Channel.Latest.toDownloadOrder(releases, Connection__Download__Platform.Windows)
+
+      switch result {
+      | Error(_) => Assert.fail("expected Ok but got Error")
+      | Ok(descriptor) =>
+        Assert.deepStrictEqual(descriptor.release.name, "v6")
+        Assert.deepStrictEqual(descriptor.asset.name, "als-v6-Agda-2.8.0-windows.zip")
       }
     })
 
@@ -716,16 +913,22 @@ describe("Download", () => {
               let resolveDownloadChannel = (channel, _useCache) =>
                 async (_memento, _storageUri, downloadPlatform) =>
                   switch channel {
-                  | Connection__Download.Channel.LatestALS =>
-                    Connection__LatestALS.toDownloadOrder(releases, downloadPlatform)
-                  | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+                  | Connection__Download__Channel.LatestALS =>
+                    Connection__Download__Channel.Latest.toDownloadOrder(releases, downloadPlatform)
+                    ->Result.map(descriptor =>
+                      Connection__Download__Source.FromGitHub(
+                        Connection__Download__Channel.LatestALS,
+                        descriptor,
+                      )
+                    )
+                  | _ => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
                   }
               let download = (
                 _globalStorageUri,
                 _,
                 ~trace as _trace=Connection__Download__Trace.noop,
               ) =>
-                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+                Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
               let findCommand = (_command, ~timeout as _timeout=1000) =>
                 Promise.resolve(Error(Connection__Command.Error.NotFound))
             }
@@ -737,7 +940,7 @@ describe("Download", () => {
             storageUri,
             platform,
             [],
-            ~channel=Connection__Download.Channel.LatestALS,
+            ~channel=Connection__Download__Channel.LatestALS,
             ~downloadUnavailable="Not available for this platform",
           )
 
@@ -745,17 +948,17 @@ describe("Download", () => {
             {
               downloaded: false,
               versionString: "Agda v2.8.0 Language Server v6",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.7.0.1 Language Server v6",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server v6",
-              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
           ])
         })
@@ -799,7 +1002,7 @@ describe("Download", () => {
     }
 
     let makeGitHubSource = (channel, release, asset, saveAsFileName) =>
-      Connection__Download.Source.FromGitHub(channel, {
+      Connection__Download__Source.FromGitHub(channel, {
         GitHub.DownloadDescriptor.asset,
         release,
         saveAsFileName,
@@ -812,7 +1015,7 @@ describe("Download", () => {
         let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
         let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_channel => Ok(resolvedSource))
         let download = (_globalStorageUri, _, ~trace as _trace=Connection__Download__Trace.noop) =>
-          Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+          Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
         let findCommand = (_command, ~timeout as _timeout=1000) =>
           Promise.resolve(Error(Connection__Command.Error.NotFound))
       }
@@ -821,13 +1024,13 @@ describe("Download", () => {
 
     let expectGitHubAsset = (result, expectedChannel, expectedAssetName) =>
       switch result {
-      | Ok(Connection__Download.Source.FromGitHub(channel, descriptor)) =>
+      | Ok(Connection__Download__Source.FromGitHub(channel, descriptor)) =>
         Assert.deepStrictEqual(channel, expectedChannel)
         Assert.deepStrictEqual(descriptor.asset.name, expectedAssetName)
-      | Ok(Connection__Download.Source.FromURL(_, _, _)) =>
+      | Ok(Connection__Download__Source.FromURL(_, _, _)) =>
         Assert.fail("expected FromGitHub source")
       | Error(error) =>
-        Assert.fail("expected Ok source, got " ++ Connection__Download.Error.toString(error))
+        Assert.fail("expected Ok source, got " ++ Connection__Download__Error.toString(error))
       }
 
     Async.it(
@@ -841,21 +1044,21 @@ describe("Download", () => {
         ])
         let platform = makePlatform(
           Connection__Download__Platform.MacOS_Arm,
-          makeGitHubSource(Connection__Download.Channel.DevALS, release, nativeAsset, "dev-als"),
+          makeGitHubSource(Connection__Download__Channel.DevALS, release, nativeAsset, "dev-als"),
         )
 
         let result = await Connection__Download__Flow.sourceForSelection(
           Memento.make(None),
           VSCode.Uri.file("/tmp/agda-flow-dev-native"),
           platform,
-          ~channel=Connection__Download.Channel.DevALS,
-          ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+          ~channel=Connection__Download__Channel.DevALS,
+          ~platform=Connection__Download__DownloadArtifact.Platform.MacOSArm64,
           ~versionString="Agda v2.8.0 Language Server (dev build)",
         )
 
         expectGitHubAsset(
           result,
-          Connection__Download.Channel.DevALS,
+          Connection__Download__Channel.DevALS,
           "als-dev-Agda-2.8.0-macos-arm64.zip",
         )
       },
@@ -873,21 +1076,21 @@ describe("Download", () => {
         ])
         let platform = makePlatform(
           Connection__Download__Platform.MacOS_Arm,
-          makeGitHubSource(Connection__Download.Channel.DevALS, release, nativeAsset, "dev-als"),
+          makeGitHubSource(Connection__Download__Channel.DevALS, release, nativeAsset, "dev-als"),
         )
 
         let result = await Connection__Download__Flow.sourceForSelection(
           Memento.make(None),
           VSCode.Uri.file("/tmp/agda-flow-dev-wasm"),
           platform,
-          ~channel=Connection__Download.Channel.DevALS,
-          ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
+          ~channel=Connection__Download__Channel.DevALS,
+          ~platform=Connection__Download__DownloadArtifact.Platform.Wasm,
           ~versionString="Agda v2.8.0 Language Server (dev build)",
         )
 
         expectGitHubAsset(
           result,
-          Connection__Download.Channel.DevALS,
+          Connection__Download__Channel.DevALS,
           "als-dev-Agda-2.8.0-wasm.wasm",
         )
       },
@@ -898,24 +1101,24 @@ describe("Download", () => {
       let release = makeRelease("dev", [nativeAsset])
       let platform = makePlatform(
         Connection__Download__Platform.MacOS_Arm,
-        makeGitHubSource(Connection__Download.Channel.DevALS, release, nativeAsset, "dev-als"),
+        makeGitHubSource(Connection__Download__Channel.DevALS, release, nativeAsset, "dev-als"),
       )
 
       let result = await Connection__Download__Flow.sourceForSelection(
         Memento.make(None),
         VSCode.Uri.file("/tmp/agda-flow-no-match"),
         platform,
-        ~channel=Connection__Download.Channel.DevALS,
-        ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+        ~channel=Connection__Download__Channel.DevALS,
+        ~platform=Connection__Download__DownloadArtifact.Platform.MacOSArm64,
         ~versionString="Agda v9.9.9 Language Server (dev build)",
       )
 
-      Assert.deepStrictEqual(result, Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+      Assert.deepStrictEqual(result, Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
     })
 
     Async.it("should return FromURL sources directly", async () => {
-      let source = Connection__Download.Source.FromURL(
-        Connection__Download.Channel.DevALS,
+      let source = Connection__Download__Source.FromURL(
+        Connection__Download__Channel.DevALS,
         "https://example.invalid/als.wasm",
         "dev-als",
       )
@@ -925,8 +1128,8 @@ describe("Download", () => {
         Memento.make(None),
         VSCode.Uri.file("/tmp/agda-flow-url"),
         platform,
-        ~channel=Connection__Download.Channel.DevALS,
-        ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
+        ~channel=Connection__Download__Channel.DevALS,
+        ~platform=Connection__Download__DownloadArtifact.Platform.Wasm,
         ~versionString="irrelevant for URL sources",
       )
 
@@ -942,21 +1145,21 @@ describe("Download", () => {
       ])
       let platform = makePlatform(
         Connection__Download__Platform.MacOS_Arm,
-        makeGitHubSource(Connection__Download.Channel.LatestALS, release, latestAsset, "latest-als"),
+        makeGitHubSource(Connection__Download__Channel.LatestALS, release, latestAsset, "latest-als"),
       )
 
       let result = await Connection__Download__Flow.sourceForSelection(
         Memento.make(None),
         VSCode.Uri.file("/tmp/agda-flow-latest"),
         platform,
-        ~channel=Connection__Download.Channel.LatestALS,
-        ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+        ~channel=Connection__Download__Channel.LatestALS,
+        ~platform=Connection__Download__DownloadArtifact.Platform.MacOSArm64,
         ~versionString="Agda v2.8.0 Language Server v6",
       )
 
       expectGitHubAsset(
         result,
-        Connection__Download.Channel.LatestALS,
+        Connection__Download__Channel.LatestALS,
         "als-v6-Agda-2.8.0-macos-arm64.zip",
       )
     })
@@ -2041,8 +2244,8 @@ describe("Download", () => {
       async () => {
         await withTempDir("agda-trace-wire2-", async globalStorageUri => {
           let descriptor = makeFakeDescriptor()
-          let source = Connection__Download.Source.FromGitHub(
-            Connection__Download.Channel.DevALS,
+          let source = Connection__Download__Source.FromGitHub(
+            Connection__Download__Channel.DevALS,
             descriptor,
           )
 
@@ -2069,8 +2272,8 @@ describe("Download", () => {
       async () => {
         await withTempDir("agda-trace-wire3-", async globalStorageUri => {
           let fromUrlUrl = "https://trace-test.example/trace-check.zip"
-          let source = Connection__Download.Source.FromURL(
-            Connection__Download.Channel.DevALS,
+          let source = Connection__Download__Source.FromURL(
+            Connection__Download__Channel.DevALS,
             fromUrlUrl,
             "trace-url-test",
           )
@@ -2129,8 +2332,8 @@ describe("Download", () => {
               let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
               let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
               let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_ =>
-                Ok(Connection__Download.Source.FromURL(
-                  Connection__Download.Channel.DevALS,
+                Ok(Connection__Download__Source.FromURL(
+                  Connection__Download__Channel.DevALS,
                   "mock://trace-test",
                   "dev-als",
                 ))
@@ -2148,10 +2351,10 @@ describe("Download", () => {
           await Connection__UI__Handlers.handleDownload(
             state,
             platform,
-            Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+            Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             false,
             "ALS vTest",
-            ~channel=Connection__Download.Channel.DevALS,
+            ~channel=Connection__Download__Channel.DevALS,
           )
 
           let hasDownloadTrace = logEvents.contents->Array.some(e =>
@@ -2380,7 +2583,7 @@ describe("Download", () => {
           "should fetch release from GitHub API",
           async () => {
             let globalStorageUri = VSCode.Uri.file("/tmp/test-dev-als")
-            let repo = Connection__LatestALS.makeRepo(globalStorageUri)
+            let repo = Connection__Download__Channel.Latest.makeRepo(globalStorageUri)
             let memento = Memento.make(None)
             let releaseResult = await Connection__Download.getReleaseManifestFromGitHub(
               memento,
@@ -2390,7 +2593,7 @@ describe("Download", () => {
 
             switch releaseResult {
             | Error(e) =>
-              Assert.fail("Failed to fetch releases: " ++ Connection__Download.Error.toString(e))
+              Assert.fail("Failed to fetch releases: " ++ Connection__Download__Error.toString(e))
             | Ok(releases) =>
               // Verify we got releases from GitHub API
               Assert.ok(Array.length(releases) > 0)
@@ -2403,23 +2606,23 @@ describe("Download", () => {
 
   describe("Channel", () => {
     it("toString(LatestALS) == \"latest\"", () => {
-      Assert.deepStrictEqual(Connection__Download.Channel.toString(LatestALS), "latest")
+      Assert.deepStrictEqual(Connection__Download__Channel.toString(Connection__Download__Channel.LatestALS), "latest")
     })
 
     it("toString(DevALS) == \"dev\"", () => {
-      Assert.deepStrictEqual(Connection__Download.Channel.toString(DevALS), "dev")
+      Assert.deepStrictEqual(Connection__Download__Channel.toString(Connection__Download__Channel.DevALS), "dev")
     })
 
     it("fromString(\"latest\") == Some(LatestALS)", () => {
-      Assert.deepStrictEqual(Connection__Download.Channel.fromString("latest"), Some(LatestALS))
+      Assert.deepStrictEqual(Connection__Download__Channel.fromString("latest"), Some(Connection__Download__Channel.LatestALS))
     })
 
     it("fromString(\"dev\") == Some(DevALS)", () => {
-      Assert.deepStrictEqual(Connection__Download.Channel.fromString("dev"), Some(DevALS))
+      Assert.deepStrictEqual(Connection__Download__Channel.fromString("dev"), Some(Connection__Download__Channel.DevALS))
     })
 
     it("all is [DevALS, LatestALS]", () => {
-      Assert.deepStrictEqual(Connection__Download.Channel.all, [DevALS, LatestALS])
+      Assert.deepStrictEqual(Connection__Download__Channel.all, [Connection__Download__Channel.DevALS, Connection__Download__Channel.LatestALS])
     })
   })
 
@@ -2442,8 +2645,8 @@ describe("Download", () => {
 
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
-            ~channel=Connection__Download.Channel.DevALS,
-            ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+            ~channel=Connection__Download__Channel.DevALS,
+            ~platform=Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             ~versionString="Agda v2.8.0 Language Server (dev build)",
           )
 
@@ -2469,8 +2672,8 @@ describe("Download", () => {
 
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
-            ~channel=Connection__Download.Channel.DevALS,
-            ~platform=Connection__Download.DownloadArtifact.Platform.Wasm,
+            ~channel=Connection__Download__Channel.DevALS,
+            ~platform=Connection__Download__DownloadArtifact.Platform.Wasm,
             ~versionString="Agda v2.8.0 Language Server (dev build)",
           )
 
@@ -2499,8 +2702,8 @@ describe("Download", () => {
 
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
-            ~channel=Connection__Download.Channel.LatestALS,
-            ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+            ~channel=Connection__Download__Channel.LatestALS,
+            ~platform=Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             ~versionString="Agda v2.8.0 Language Server v6",
           )
 
@@ -2521,8 +2724,8 @@ describe("Download", () => {
 
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
-            ~channel=Connection__Download.Channel.DevALS,
-            ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+            ~channel=Connection__Download__Channel.DevALS,
+            ~platform=Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             ~versionString="Agda v2.8.0 Language Server (dev build)",
           )
 
@@ -2546,8 +2749,8 @@ describe("Download", () => {
 
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
-            ~channel=Connection__Download.Channel.DevALS,
-            ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+            ~channel=Connection__Download__Channel.DevALS,
+            ~platform=Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             ~versionString="Agda v2.8.0 Language Server (dev build)",
           )
 
@@ -2573,8 +2776,8 @@ describe("Download", () => {
 
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
-            ~channel=Connection__Download.Channel.DevALS,
-            ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+            ~channel=Connection__Download__Channel.DevALS,
+            ~platform=Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             ~versionString="Agda v9.9.9 Language Server (dev build)",
           )
 
@@ -2600,8 +2803,8 @@ describe("Download", () => {
 
           let result = await Connection__Download__ManagedStorage.findCandidateForSelection(
             globalStorageUri,
-            ~channel=Connection__Download.Channel.LatestALS,
-            ~platform=Connection__Download.DownloadArtifact.Platform.MacOSArm64,
+            ~channel=Connection__Download__Channel.LatestALS,
+            ~platform=Connection__Download__DownloadArtifact.Platform.MacOSArm64,
             ~versionString="Agda v2.8.0 Language Server (dev build)",
           )
 

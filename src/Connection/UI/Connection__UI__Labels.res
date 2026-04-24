@@ -27,7 +27,7 @@ let candidateDisplayInfo = (raw: string, entry: ResolvedMetadata.entry): (string
         ? alsWithSquirrel ++ agdaVersion ++ " Language Server (dev build)"
         : alsWithSquirrel ++
           agdaVersion ++
-          " Language Server " ++ Connection__Download.DownloadArtifact.versionLabel(alsVersion),
+          " Language Server " ++ Connection__Download__DownloadArtifact.versionLabel(alsVersion),
       None,
     )
   | (ALS(WASM, Some((alsVersion, agdaVersion, _))), _) =>
@@ -37,7 +37,7 @@ let candidateDisplayInfo = (raw: string, entry: ResolvedMetadata.entry): (string
         : alsWithSquirrel ++
           agdaVersion ++
           " Language Server " ++
-          Connection__Download.DownloadArtifact.versionLabel(alsVersion) ++ " WASM",
+          Connection__Download__DownloadArtifact.versionLabel(alsVersion) ++ " WASM",
       None,
     )
   | (ALS(Native, None), _) => (alsWithSquirrel ++ "Language Server (version unknown)", None)
@@ -48,20 +48,20 @@ let candidateDisplayInfo = (raw: string, entry: ResolvedMetadata.entry): (string
 }
 
 // Channel display text
-let channelLabel = (channel: Connection__Download.Channel.t): string =>
+let channelLabel = (channel: Connection__Download__Channel.t): string =>
   switch channel {
-  | Connection__Download.Channel.LatestALS => "Latest"
-  | Connection__Download.Channel.DevALS => "Development"
+  | Connection__Download__Channel.LatestALS => "Latest"
+  | Connection__Download__Channel.DevALS => "Development"
   }
 
-let channelDetail = (channel: Connection__Download.Channel.t): string =>
+let channelDetail = (channel: Connection__Download__Channel.t): string =>
   switch channel {
-  | Connection__Download.Channel.LatestALS => "Tracks the latest stable release"
-  | Connection__Download.Channel.DevALS => "Tracks the latest commit of the master branch"
+  | Connection__Download__Channel.LatestALS => "Tracks the latest stable release"
+  | Connection__Download__Channel.DevALS => "Tracks the latest commit of the master branch"
   }
 
 // Download section header
-let downloadHeader = (channel: Connection__Download.Channel.t): string =>
+let downloadHeader = (channel: Connection__Download__Channel.t): string =>
   "Download (" ++ channelLabel(channel) ++ ")"
 
 // Item-level labels

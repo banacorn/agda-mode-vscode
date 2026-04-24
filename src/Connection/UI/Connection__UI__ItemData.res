@@ -3,7 +3,7 @@ module ResolvedMetadata = Memento.ResolvedMetadata
 
 type t =
   | Candidate(string, string, ResolvedMetadata.entry, bool)
-  | DownloadAction(bool, string, Connection__Download.DownloadArtifact.Platform.t)
+  | DownloadAction(bool, string, Connection__Download__DownloadArtifact.Platform.t)
   | SelectOtherChannels
   | DeleteDownloads
   | NoInstallations
@@ -28,7 +28,7 @@ let toString = item =>
     ", versionString=" ++
     versionString ++
     ", type=" ++
-    (Connection__Download.DownloadArtifact.Platform.isWasm(platform) ? "wasm" : "native")
+    (Connection__Download__DownloadArtifact.Platform.isWasm(platform) ? "wasm" : "native")
   | SelectOtherChannels => "SelectOtherChannels"
   | DeleteDownloads => "DeleteDownloads"
   | NoInstallations => "NoInstallations"

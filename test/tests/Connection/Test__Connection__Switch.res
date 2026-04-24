@@ -442,13 +442,13 @@ describe("Connection__Switch", () => {
           let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
             switch channel {
-            | Connection__Download.Channel.DevALS =>
-              Ok(Connection__Download.Source.FromGitHub(Connection__Download.Channel.DevALS, devDescriptor))
-            | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            | Connection__Download__Channel.DevALS =>
+              Ok(Connection__Download__Source.FromGitHub(Connection__Download__Channel.DevALS, devDescriptor))
+            | _ => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
             }
           )
           let download = (_globalStorageUri, _, ~trace as _=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
           let findCommand = (_command, ~timeout as _=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
         }
@@ -483,7 +483,7 @@ describe("Connection__Switch", () => {
 
           let hasNativeDownloadAction =
             itemData->Array.some(item =>
-              switch item { | DownloadAction(_, _, platform) => !Connection__Download.DownloadArtifact.Platform.isWasm(platform) | _ => false }
+              switch item { | DownloadAction(_, _, platform) => !Connection__Download__DownloadArtifact.Platform.isWasm(platform) | _ => false }
             )
 
           await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
@@ -521,7 +521,7 @@ describe("Connection__Switch", () => {
 
           let hasNativeDownloadAction =
             itemData->Array.some(item =>
-              switch item { | DownloadAction(_, _, platform) => !Connection__Download.DownloadArtifact.Platform.isWasm(platform) | _ => false }
+              switch item { | DownloadAction(_, _, platform) => !Connection__Download__DownloadArtifact.Platform.isWasm(platform) | _ => false }
             )
 
           await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
@@ -556,7 +556,7 @@ describe("Connection__Switch", () => {
 
           let hasNativeDownloadAction =
             itemData->Array.some(item =>
-              switch item { | DownloadAction(_, _, platform) => !Connection__Download.DownloadArtifact.Platform.isWasm(platform) | _ => false }
+              switch item { | DownloadAction(_, _, platform) => !Connection__Download__DownloadArtifact.Platform.isWasm(platform) | _ => false }
             )
 
           await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
@@ -592,7 +592,7 @@ describe("Connection__Switch", () => {
 
           let hasNativeDownloadAction =
             itemData->Array.some(item =>
-              switch item { | DownloadAction(_, _, platform) => !Connection__Download.DownloadArtifact.Platform.isWasm(platform) | _ => false }
+              switch item { | DownloadAction(_, _, platform) => !Connection__Download__DownloadArtifact.Platform.isWasm(platform) | _ => false }
             )
 
           await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
@@ -627,7 +627,7 @@ describe("Connection__Switch", () => {
 
           let hasWasmDownloadAction =
             itemData->Array.some(item =>
-              switch item { | DownloadAction(_, _, platform) => Connection__Download.DownloadArtifact.Platform.isWasm(platform) | _ => false }
+              switch item { | DownloadAction(_, _, platform) => Connection__Download__DownloadArtifact.Platform.isWasm(platform) | _ => false }
             )
 
           await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
@@ -696,18 +696,18 @@ describe("Connection__Switch", () => {
             let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
             let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
               switch channel {
-              | Connection__Download.Channel.LatestALS =>
+              | Connection__Download__Channel.LatestALS =>
                 Ok(
-                  Connection__Download.Source.FromGitHub(
-                    Connection__Download.Channel.LatestALS,
+                  Connection__Download__Source.FromGitHub(
+                    Connection__Download__Channel.LatestALS,
                     latestDescriptor,
                   ),
                 )
-              | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              | _ => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
               }
             )
             let download = (_globalStorageUri, _, ~trace as _=Connection__Download__Trace.noop) =>
-              Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+              Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
             let findCommand = (_command, ~timeout as _=1000) =>
               Promise.resolve(Error(Connection__Command.Error.NotFound))
           }
@@ -718,7 +718,7 @@ describe("Connection__Switch", () => {
           let downloadItems = await Connection.getAvailableSwitchDownloads(
             state,
             platform,
-            ~channel=Connection__Download.Channel.LatestALS,
+            ~channel=Connection__Download__Channel.LatestALS,
           )
           let itemData = await Connection__Switch.SwitchVersionManager.getItemData(
             manager,
@@ -728,7 +728,7 @@ describe("Connection__Switch", () => {
           let hasNativeDownloadAction =
             itemData->Array.some(item =>
               switch item {
-              | DownloadAction(_, _, platform) => !Connection__Download.DownloadArtifact.Platform.isWasm(platform)
+              | DownloadAction(_, _, platform) => !Connection__Download__DownloadArtifact.Platform.isWasm(platform)
               | _ => false
               }
             )
@@ -1228,9 +1228,9 @@ describe("Connection__Switch", () => {
               Promise.resolve(Error(Connection__Command.Error.NotFound))
             let alreadyDownloaded = _ => Promise.resolve(None)
             let resolveDownloadChannel = (_, _) =>
-              async (_, _, _) => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              async (_, _, _) => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
             let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
-              Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+              Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
             let askUserAboutDownloadPolicy = () =>
               Promise.resolve(Config.Connection.DownloadPolicy.Yes)
           }

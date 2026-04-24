@@ -452,51 +452,51 @@ module Module: Module = {
       | Config.Connection.DownloadPolicy.Undecided =>
         // User cancelled, treat as No
         await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Establish.fromDownloadError(Connection__Download.Error.OptedNotToDownload))
+        Error(Error.Establish.fromDownloadError(Connection__Download__Error.OptedNotToDownload))
       | No =>
         // User opted not to download, set policy and return error
         await Config.Connection.DownloadPolicy.set(No)
-        Error(Error.Establish.fromDownloadError(Connection__Download.Error.OptedNotToDownload))
+        Error(Error.Establish.fromDownloadError(Connection__Download__Error.OptedNotToDownload))
       | Yes =>
         await Config.Connection.DownloadPolicy.set(Yes)
         // Use the selected channel from memento, defaulting to DevALS.
         // Stale memento values are clamped to DevALS.
         let channel = switch platform {
-        | Connection__Download__Platform.Web => Connection__Download.Channel.DevALS
+        | Connection__Download__Platform.Web => Connection__Download__Channel.DevALS
         | _ =>
           switch Memento.SelectedChannel.get(memento) {
           | Some(s) =>
-            Connection__Download.Channel.fromString(s)->Option.getOr(
-              Connection__Download.Channel.DevALS,
+            Connection__Download__Channel.fromString(s)->Option.getOr(
+              Connection__Download__Channel.DevALS,
             )
-          | None => Connection__Download.Channel.DevALS
+          | None => Connection__Download__Channel.DevALS
           }
         }
         // Fresh GitHub downloads can fall back to a WASM asset from the same resolved release.
         // Cached managed downloads use their managed path metadata instead of the selected channel.
-        let wasmFallbackSource: ref<option<Connection__Download.Source.t>> = ref(None)
+        let wasmFallbackSource: ref<option<Connection__Download__Source.t>> = ref(None)
         let rememberWasmFallbackFromSource = source =>
           switch source {
-          | Connection__Download.Source.FromGitHub(sourceChannel, descriptor) =>
+          | Connection__Download__Source.FromGitHub(sourceChannel, descriptor) =>
             let nativeAgdaVersion =
-              Connection__Download.DownloadArtifact.parseName(descriptor.asset.name)
+              Connection__Download__DownloadArtifact.parseName(descriptor.asset.name)
               ->Option.map(a => a.agdaVersion)
             wasmFallbackSource :=
               Connection__Download__Assets.wasm(descriptor.release)
               ->Array.find(asset =>
-                switch (nativeAgdaVersion, Connection__Download.DownloadArtifact.parseName(asset.name)) {
+                switch (nativeAgdaVersion, Connection__Download__DownloadArtifact.parseName(asset.name)) {
                 | (Some(nv), Some(wa)) => nv == wa.agdaVersion
                 | _ => false
                 }
               )
               ->Option.map(asset =>
-                Connection__Download.Source.FromGitHub(sourceChannel, {
+                Connection__Download__Source.FromGitHub(sourceChannel, {
                   Connection__Download__GitHub.DownloadDescriptor.asset: asset,
                   release: descriptor.release,
                   saveAsFileName: descriptor.saveAsFileName,
                 })
               )
-          | Connection__Download.Source.FromURL(_, _, _) => ()
+          | Connection__Download__Source.FromURL(_, _, _) => ()
           }
         let tryWasmFallback = async (~path, ~source) =>
           switch source {
@@ -506,11 +506,11 @@ module Module: Module = {
               path,
             ) {
             | Some(wasmPath) => Ok(wasmPath)
-            | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
             }
           | _ =>
             switch wasmFallbackSource.contents {
-            | None => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+            | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
             | Some(wasmSource) =>
               switch await PlatformOps.download(globalStorageUri, wasmSource) {
               | Ok(path) => Ok(path)
@@ -525,13 +525,13 @@ module Module: Module = {
             // For native downloads on any channel, retry once with WASM.
             // This gives desktop a graceful fallback when native artifacts fail.
             switch downloadSource {
-            | Connection__Download.Source.FromURL(_, url, _) =>
+            | Connection__Download__Source.FromURL(_, url, _) =>
               if url->String.endsWith(".wasm") {
                 Error(error)
               } else {
                 await tryWasmFallback(~path="", ~source=Error.Establish.FromDownload(channel))
               }
-            | Connection__Download.Source.FromGitHub(_, descriptor) =>
+            | Connection__Download__Source.FromGitHub(_, descriptor) =>
               if descriptor.asset.name->String.includes("wasm") {
                 Error(error)
               } else {
@@ -553,13 +553,13 @@ module Module: Module = {
           ) {
           | Error(resolveError) =>
             Error(Error.Establish.fromDownloadError(resolveError))
-          | Ok(Connection__Download.Source.FromGitHub(_, _) as source) =>
+          | Ok(Connection__Download__Source.FromGitHub(_, _) as source) =>
             rememberWasmFallbackFromSource(source)
             switch await tryDownloadSource(source) {
             | Error(error) => Error(Error.Establish.fromDownloadError(error))
             | Ok(path) => Ok((path, Error.Establish.FromDownload(channel)))
             }
-          | Ok(Connection__Download.Source.FromURL(_, _, _) as source) =>
+          | Ok(Connection__Download__Source.FromURL(_, _, _) as source) =>
             switch await tryDownloadSource(source) {
             | Error(error) => Error(Error.Establish.fromDownloadError(error))
             | Ok(path) => Ok((path, Error.Establish.FromDownload(channel)))

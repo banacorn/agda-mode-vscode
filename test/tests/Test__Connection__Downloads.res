@@ -249,8 +249,8 @@ describe("Connection Downloads", () => {
             resolvedChannel := Some(channel)
             async (_memento, _globalStorageUri, _platform) =>
               Ok(
-                Connection__Download.Source.FromURL(
-                  Connection__Download.Channel.DevALS,
+                Connection__Download__Source.FromURL(
+                  Connection__Download__Channel.DevALS,
                   "https://example.invalid/als.wasm",
                   "dev-als",
                 ),
@@ -258,7 +258,7 @@ describe("Connection Downloads", () => {
           }
           let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) => {
             checkedDownload := true
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
           }
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -271,7 +271,7 @@ describe("Connection Downloads", () => {
 
         let expected = Connection.Error.Establish.fromDownloadError(CannotFindCompatibleALSRelease)
         Assert.deepStrictEqual(result, Error(expected))
-        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download.Channel.DevALS))
+        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download__Channel.DevALS))
         Assert.deepStrictEqual(checkedDownload.contents, true)
       },
     )
@@ -291,15 +291,15 @@ describe("Connection Downloads", () => {
             resolvedChannel := Some(channel)
             async (_memento, _globalStorageUri, _platform) =>
               Ok(
-                Connection__Download.Source.FromURL(
-                  Connection__Download.Channel.DevALS,
+                Connection__Download__Source.FromURL(
+                  Connection__Download__Channel.DevALS,
                   "https://example.invalid/als.wasm",
                   "dev-als",
                 ),
               )
           }
           let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
         }
@@ -310,7 +310,7 @@ describe("Connection Downloads", () => {
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
         let _result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
 
-        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download.Channel.DevALS))
+        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download__Channel.DevALS))
       },
     )
 
@@ -330,8 +330,8 @@ describe("Connection Downloads", () => {
             resolvedChannel := Some(channel)
             async (_memento, _globalStorageUri, _platform) =>
               Ok(
-                Connection__Download.Source.FromURL(
-                  Connection__Download.Channel.DevALS,
+                Connection__Download__Source.FromURL(
+                  Connection__Download__Channel.DevALS,
                   "https://example.invalid/dev-als-native",
                   "dev-als",
                 ),
@@ -339,7 +339,7 @@ describe("Connection Downloads", () => {
           }
           let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) => {
             checkedDownload := true
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
           }
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -352,7 +352,7 @@ describe("Connection Downloads", () => {
 
         let expected = Connection.Error.Establish.fromDownloadError(CannotFindCompatibleALSRelease)
         Assert.deepStrictEqual(result, Error(expected))
-        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download.Channel.DevALS))
+        Assert.deepStrictEqual(resolvedChannel.contents, Some(Connection__Download__Channel.DevALS))
         Assert.deepStrictEqual(checkedDownload.contents, true)
       },
     )
@@ -411,10 +411,10 @@ describe("Connection Downloads", () => {
           let resolveDownloadChannel = (_channel, _useCache) =>
             async (_memento, _globalStorageUri, _platform) => {
               checkedResolve := true
-              Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+              Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
             }
           let download = (_globalStorageUri, _source, ~trace as _=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
         }
@@ -431,7 +431,7 @@ describe("Connection Downloads", () => {
         | Error(errors) =>
           Assert.deepStrictEqual(
             errors.download,
-            Connection.Error.Establish.Failed(Connection__Download.Error.CannotFindCompatibleALSRelease),
+            Connection.Error.Establish.Failed(Connection__Download__Error.CannotFindCompatibleALSRelease),
           )
         }
       },
@@ -484,23 +484,23 @@ describe("Connection Downloads", () => {
             let resolveDownloadChannel = (_channel, _useCache) =>
               async (_memento, _globalStorageUri, _platform) =>
                 Ok(
-                  Connection__Download.Source.FromGitHub(
-                    Connection__Download.Channel.DevALS,
+                  Connection__Download__Source.FromGitHub(
+                    Connection__Download__Channel.DevALS,
                     orderNativeDescriptor,
                   ),
                 )
             let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) =>
               switch source {
-              | Connection__Download.Source.FromGitHub(_, descriptor) =>
+              | Connection__Download__Source.FromGitHub(_, descriptor) =>
                 if descriptor.asset.name->String.includes("wasm") {
                   downloadAttempts := Array.concat(downloadAttempts.contents, ["wasm"])
                   Promise.resolve(Ok(downloadedMock))
                 } else {
                   downloadAttempts := Array.concat(downloadAttempts.contents, ["native"])
-                  Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+                  Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
                 }
               | _ =>
-                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+                Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
               }
             let findCommand = (_command, ~timeout as _timeout=1000) =>
               Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -531,7 +531,7 @@ describe("Connection Downloads", () => {
           await Config.Connection.DownloadPolicy.set(Undecided)
 
           let downloadAttempts: ref<array<string>> = ref([])
-          let resolvedChannels: ref<array<Connection__Download.Channel.t>> = ref([])
+          let resolvedChannels: ref<array<Connection__Download__Channel.t>> = ref([])
 
           let nativeUrl = "https://example.invalid/native-should-not-be-used"
 
@@ -544,17 +544,17 @@ describe("Connection Downloads", () => {
                 resolvedChannels :=
                   Array.concat(resolvedChannels.contents, [channel])
                 switch channel {
-                | Connection__Download.Channel.DevALS =>
+                | Connection__Download__Channel.DevALS =>
                   Ok(
-                    Connection__Download.Source.FromURL(
-                      Connection__Download.Channel.DevALS,
+                    Connection__Download__Source.FromURL(
+                      Connection__Download__Channel.DevALS,
                       "https://example.invalid/als.wasm",
                       "dev-als",
                     ),
                   )
                 | _ =>
                   Ok(
-                    Connection__Download.Source.FromURL(
+                    Connection__Download__Source.FromURL(
                       channel,
                       nativeUrl,
                       "other-als",
@@ -564,15 +564,15 @@ describe("Connection Downloads", () => {
               }
             let download = (_globalStorageUri, source, ~trace as _=Connection__Download__Trace.noop) =>
               switch source {
-              | Connection__Download.Source.FromURL(_, url, _)
+              | Connection__Download__Source.FromURL(_, url, _)
                 if url == "https://example.invalid/als.wasm" =>
                 downloadAttempts := Array.concat(downloadAttempts.contents, ["wasm"])
-                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
-              | Connection__Download.Source.FromURL(_, _, _) =>
+                Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+              | Connection__Download__Source.FromURL(_, _, _) =>
                 downloadAttempts := Array.concat(downloadAttempts.contents, ["native"])
-                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+                Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
               | _ =>
-                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+                Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
               }
             let findCommand = (_command, ~timeout as _timeout=1000) =>
               Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -587,7 +587,7 @@ describe("Connection Downloads", () => {
           Assert.deepStrictEqual(downloadAttempts.contents, ["wasm"])
           Assert.deepStrictEqual(
             resolvedChannels.contents,
-            [Connection__Download.Channel.DevALS],
+            [Connection__Download__Channel.DevALS],
           )
           switch result {
           | Ok(_) => Assert.fail("Expected failure when all downloads fail")
@@ -633,7 +633,7 @@ describe("Connection Downloads", () => {
           switch error {
           | Connection.Error.Establish(errors) =>
             switch errors.download {
-            | Failed(Connection__Download.Error.PlatformNotSupported(_)) => ()
+            | Failed(Connection__Download__Error.PlatformNotSupported(_)) => ()
             | _ => Assert.fail("Expected PlatformNotSupported download error")
             }
           | _ => Assert.fail("Expected Establish error")
@@ -892,7 +892,7 @@ describe("Connection Downloads", () => {
           switch error {
           | Connection.Error.Establish(errors) =>
             switch errors.download {
-            | Failed(Connection__Download.Error.CannotFindCompatibleALSRelease) => ()
+            | Failed(Connection__Download__Error.CannotFindCompatibleALSRelease) => ()
             | _ => Assert.fail("Expected CannotFindCompatibleALSRelease download error")
             }
           | _ => Assert.fail("Expected Establish error")
