@@ -40,3 +40,12 @@ let wasm = (release: Connection__Download__GitHub.Release.t): array<
     Util.Version.compare(getAgdaVersionFromAssetName(b), getAgdaVersionFromAssetName(a))
   )
 }
+
+let forPlatform = (
+  release: Connection__Download__GitHub.Release.t,
+  platform,
+): array<Connection__Download__GitHub.Asset.t> =>
+  switch platform {
+  | Connection__Download__Platform.Web => wasm(release)
+  | _ => nativeForPlatform(release, platform)
+  }

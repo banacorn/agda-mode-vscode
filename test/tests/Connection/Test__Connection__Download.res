@@ -641,6 +641,128 @@ describe("Download", () => {
     )
   })
 
+  describe("Availability — LatestALS", () => {
+    let makeLatestAsset = (name): Connection__Download__GitHub.Asset.t => {
+      url: "https://github.com/agda/agda-language-server/releases/download/v6/" ++ name,
+      id: 0,
+      node_id: "",
+      name,
+      label: Some(""),
+      content_type: name->String.endsWith(".wasm") ? "application/wasm" : "application/zip",
+      state: "uploaded",
+      size: 1000000,
+      created_at: "2025-01-01T00:00:00Z",
+      updated_at: "2025-01-01T00:00:00Z",
+      browser_download_url: "https://github.com/agda/agda-language-server/releases/download/v6/" ++ name,
+    }
+
+    let makeLatestRelease = (): Connection__Download__GitHub.Release.t => {
+      url: "https://api.github.com/repos/agda/agda-language-server/releases/v6",
+      assets_url: "https://api.github.com/repos/agda/agda-language-server/releases/v6/assets",
+      upload_url: "https://uploads.github.com/repos/agda/agda-language-server/releases/v6/assets",
+      html_url: "https://github.com/agda/agda-language-server/releases/tag/v6",
+      id: 2,
+      node_id: "v6",
+      tag_name: "v6",
+      target_commitish: "main",
+      name: "v6",
+      draft: false,
+      prerelease: false,
+      created_at: "2025-01-01T00:00:00Z",
+      published_at: "2025-01-01T00:00:00Z",
+      assets: [
+        makeLatestAsset("als-v6-Agda-2.8.0-macos-arm64.zip"),
+        makeLatestAsset("als-v6-Agda-2.8.0-macos-x64.zip"),
+        makeLatestAsset("als-v6-Agda-2.8.0-ubuntu.zip"),
+        makeLatestAsset("als-v6-Agda-2.8.0-windows.zip"),
+        makeLatestAsset("als-v6-Agda-2.8.0-wasm.wasm"),
+        makeLatestAsset("als-v6-Agda-2.7.0.1-macos-arm64.zip"),
+        makeLatestAsset("als-v6-Agda-2.7.0.1-macos-x64.zip"),
+        makeLatestAsset("als-v6-Agda-2.7.0.1-ubuntu.zip"),
+        makeLatestAsset("als-v6-Agda-2.7.0.1-windows.zip"),
+        makeLatestAsset("als-v6-Agda-2.7.0.1-wasm.wasm"),
+        makeLatestAsset("als-v6-Agda-2.6.4.3-macos-arm64.zip"),
+        makeLatestAsset("als-v6-Agda-2.6.4.3-macos-x64.zip"),
+        makeLatestAsset("als-v6-Agda-2.6.4.3-ubuntu.zip"),
+        makeLatestAsset("als-v6-Agda-2.6.4.3-windows.zip"),
+        makeLatestAsset("als-v6-Agda-2.6.4.3-wasm.wasm"),
+      ],
+      tarball_url: "https://api.github.com/repos/agda/agda-language-server/tarball/v6",
+      zipball_url: "https://api.github.com/repos/agda/agda-language-server/zipball/v6",
+      body: Some("Latest stable build"),
+    }
+
+    it("Connection__LatestALS.toDownloadOrder should pick the wasm asset for Web platform", () => {
+      let releases = [makeLatestRelease()]
+      let result = Connection__LatestALS.toDownloadOrder(releases, Connection__Download__Platform.Web)
+      switch result {
+      | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
+        Assert.deepStrictEqual(descriptor.asset.name, "als-v6-Agda-2.8.0-wasm.wasm")
+      | Ok(_) => Assert.fail("expected FromGitHub source")
+      | Error(_) => Assert.fail("expected Ok result, got Error")
+      }
+    })
+
+    Async.it(
+      "should return 3 wasm items for Web platform with LatestALS",
+      async () => {
+        await withTempStorage("agda-latestals-web-availability-", async (_tempDir, storageUri) => {
+          let releases = [makeLatestRelease()]
+          let platform: Platform.t = {
+            module MockWebLatestALSPlatform = {
+              let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
+              let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+              let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
+              let resolveDownloadChannel = (channel, _useCache) =>
+                async (_memento, _storageUri, downloadPlatform) =>
+                  switch channel {
+                  | Connection__Download.Channel.LatestALS =>
+                    Connection__LatestALS.toDownloadOrder(releases, downloadPlatform)
+                  | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+                  }
+              let download = (
+                _globalStorageUri,
+                _,
+                ~trace as _trace=Connection__Download__Trace.noop,
+              ) =>
+                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+              let findCommand = (_command, ~timeout as _timeout=1000) =>
+                Promise.resolve(Error(Connection__Command.Error.NotFound))
+            }
+            module(MockWebLatestALSPlatform)
+          }
+
+          let downloadItems = await Connection__Download__Availability.getAll(
+            Memento.make(None),
+            storageUri,
+            platform,
+            [],
+            ~channel=Connection__Download.Channel.LatestALS,
+            ~downloadUnavailable="Not available for this platform",
+          )
+
+          Assert.deepStrictEqual(downloadItems, [
+            {
+              downloaded: false,
+              versionString: "Agda v2.8.0 Language Server v6",
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.7.0.1 Language Server v6",
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.6.4.3 Language Server v6",
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+            },
+          ])
+        })
+      },
+    )
+  })
+
   describe("Flow.sourceForSelection", () => {
     let makeAsset = (name): GitHub.Asset.t => {
       url: "https://github.com/agda/agda-language-server/releases/download/test/" ++ name,
