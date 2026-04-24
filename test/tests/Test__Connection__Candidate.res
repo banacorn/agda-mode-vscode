@@ -3,6 +3,10 @@ open Mocha
 module Candidate = Connection__Candidate
 
 describe("Connection__Candidate", () => {
+  let sampleResourcePath = if OS.onUnix { "/usr/bin/agda" } else { "D:\\usr\\bin\\agda.exe" }
+  let sampleResourceUri = VSCode.Uri.file(sampleResourcePath)->VSCode.Uri.toString
+  let sampleResolvedPath = if OS.onUnix { "/resolved/bin/agda" } else { "D:\\resolved\\bin\\agda.exe" }
+
   describe("make", () => {
     it("should construct bare command names as Command", () => {
       switch Candidate.make("agda") {
@@ -19,10 +23,10 @@ describe("Connection__Candidate", () => {
     })
 
     it("should construct absolute file paths as Resource", () => {
-      let expected = NodeJs.Path.resolve(["/usr/bin/agda"])->VSCode.Uri.file
-      switch Candidate.make("/usr/bin/agda") {
+      let expected = NodeJs.Path.resolve([sampleResourcePath])->VSCode.Uri.file
+      switch Candidate.make(sampleResourcePath) {
       | Resource(uri) => Assert.deepStrictEqual(uri->VSCode.Uri.toString, expected->VSCode.Uri.toString)
-      | _ => Assert.fail("Expected Resource(file:///usr/bin/agda)")
+      | _ => Assert.fail("Expected Resource for absolute file path")
       }
     })
 
@@ -62,7 +66,7 @@ describe("Connection__Candidate", () => {
     })
 
     it("should render Resource as canonical URI string", () => {
-      let uri = VSCode.Uri.file("/usr/bin/agda")
+      let uri = VSCode.Uri.file(sampleResourcePath)
       Assert.deepStrictEqual(Candidate.toString(Resource(uri)), uri->VSCode.Uri.toString)
     })
   })
@@ -71,11 +75,11 @@ describe("Connection__Candidate", () => {
     it("should include command provenance for resolved commands", () => {
       let resolved: Candidate.Resolved.t = {
         original: Candidate.Command("agda"),
-        resource: VSCode.Uri.file("/resolved/bin/agda"),
+        resource: VSCode.Uri.file(sampleResolvedPath),
       }
       Assert.deepStrictEqual(
         Candidate.Resolved.toString(resolved),
-        "agda => " ++ (VSCode.Uri.file("/resolved/bin/agda")->VSCode.Uri.toString),
+        "agda => " ++ (VSCode.Uri.file(sampleResolvedPath)->VSCode.Uri.toString),
       )
     })
 
@@ -104,7 +108,7 @@ describe("Connection__Candidate", () => {
     })
 
     it("should be stable for file Resource candidates", () => {
-      assertStable("/usr/bin/agda")
+      assertStable(sampleResourcePath)
     })
 
     it("should be stable for vscode-userdata Resource candidates", () => {
@@ -114,22 +118,22 @@ describe("Connection__Candidate", () => {
 
   describe("equal", () => {
     it("should treat absolute filepath and file:// URI as equal resources", () => {
-      let filepath = Candidate.make("/usr/bin/agda")
-      let fileUri = Candidate.make("file:///usr/bin/agda")
+      let filepath = Candidate.make(sampleResourcePath)
+      let fileUri = Candidate.make(sampleResourceUri)
       Assert.deepStrictEqual(Candidate.equal(filepath, fileUri), true)
     })
 
     it("should distinguish Command from resolved Resource", () => {
       let command = Candidate.make("agda")
-      let resource = Candidate.make("/usr/bin/agda")
+      let resource = Candidate.make(sampleResourcePath)
       Assert.deepStrictEqual(Candidate.equal(command, resource), false)
     })
   })
 
   describe("deduplicate", () => {
     it("should deduplicate semantically equal resources while preserving first occurrence", () => {
-      let first = Candidate.make("/usr/bin/agda")
-      let duplicate = Candidate.make("file:///usr/bin/agda")
+      let first = Candidate.make(sampleResourcePath)
+      let duplicate = Candidate.make(sampleResourceUri)
       let command = Candidate.make("agda")
       let deduped = Candidate.deduplicate([first, duplicate, command])
 
@@ -327,16 +331,15 @@ describe("Connection__Candidate", () => {
 
   describe("resolve", () => {
     Async.it("should resolve Command through Platform.findCommand", async () => {
-      let resolvedPath = if OS.onUnix { "/resolved/bin/agda" } else { "D:\\resolved\\bin\\agda.exe" }
       let findCommand = (command, ~timeout as _timeout=1000) =>
         switch command {
-        | "agda" => Promise.resolve(Ok(resolvedPath))
+        | "agda" => Promise.resolve(Ok(sampleResolvedPath))
         | _ => Promise.resolve(Error(Connection__Command.Error.NotFound))
         }
 
       switch await Candidate.resolve(findCommand, Candidate.make("agda")) {
       | Ok({original: Command("agda"), resource}) =>
-        let expected = VSCode.Uri.file(resolvedPath)->VSCode.Uri.toString
+        let expected = VSCode.Uri.file(sampleResolvedPath)->VSCode.Uri.toString
         Assert.deepStrictEqual(resource->VSCode.Uri.toString, expected)
       | Error(_) => Assert.fail("Expected command resolution to succeed")
       | _ => Assert.fail("Expected resolved command to preserve original candidate")
@@ -347,7 +350,7 @@ describe("Connection__Candidate", () => {
       let findCommand = (_command, ~timeout as _timeout=1000) =>
         Promise.resolve(Error(Connection__Command.Error.NotFound))
 
-      let candidate = Candidate.make("file:///usr/bin/agda")
+      let candidate = Candidate.make(sampleResourceUri)
       switch (candidate, await Candidate.resolve(findCommand, candidate)) {
       | (Resource(expected), Ok({original: Resource(original), resource})) =>
         Assert.deepStrictEqual(resource->VSCode.Uri.toString, expected->VSCode.Uri.toString)
@@ -364,7 +367,7 @@ describe("Connection__Candidate", () => {
         Promise.resolve(Error(Connection__Command.Error.NotFound))
       }
 
-      let candidate = Candidate.make("file:///usr/bin/agda")
+      let candidate = Candidate.make(sampleResourceUri)
       switch await Candidate.resolve(findCommand, candidate) {
       | Ok(_) => Assert.deepStrictEqual(findCommandCalls.contents, 0)
       | Error(_) => Assert.fail("Expected Resource resolution to bypass findCommand")
