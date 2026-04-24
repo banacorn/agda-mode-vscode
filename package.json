@@ -24,7 +24,7 @@
 	},
 	"devDependencies": {
 		"@vscode/test-electron": "^2.3.8",
-		"@vscode/test-web": "^0.0.71",
+		"@vscode/test-web": "^0.0.80",
 		"buffer": "^6.0.3",
 		"copy-webpack-plugin": "^13.0.1",
 		"glob": "^7.1.6",
@@ -1226,7 +1226,10 @@
 					"items": {
 						"type": "string"
 					},
-					"default": ["agda", "als"],
+					"default": [
+						"agda",
+						"als"
+					],
 					"scope": "machine-overridable",
 					"description": "A list of file paths or URLs pointing to Agda binaries or Agda Language Servers. Items in this list will be tried for connection from the LAST to the first (because it's easier to append new items at the end). Use the '^X ^S' command to manage these items. When empty, items are inferred by searching for 'agda' or 'als' commands."
 				},
