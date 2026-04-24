@@ -834,11 +834,12 @@ describe("Connection__Switch", () => {
             NodeJs.Os.tmpdir(),
             "agda-devals-refine-" ++ string_of_int(int_of_float(Js.Date.now())),
           ])
+          let executableName = OS.onUnix ? "als" : "als.bat"
           let devALSPath = NodeJs.Path.join([
             storagePath,
             "dev-als",
             "als-dev-Agda-2.8.0-macos-arm64",
-            "als",
+            executableName,
           ])
           let parentDir = NodeJs.Path.dirname(devALSPath)
           let content =
@@ -1461,13 +1462,20 @@ describe("Connection__Switch", () => {
         NodeJs.Fs.writeFileSync(managed, NodeJs.Buffer.fromString(""))
         await Config.Connection.setAgdaPaths(state.channels.log, [managed])
 
-        // Make storage root read-only so deletion of releases/ fails
-        await NodeJs.Fs.chmod(storagePath, ~mode=0o555)
-
-        let _ = await Connection__Switch.deleteDownloads(state)
+        let failingRoot = VSCode.Uri.joinPath(storageUri, ["releases"])
+        let forcedFailure: Connection__Download__Delete.t = {
+          cleanedDirectories: [],
+          failedUris: [failingRoot],
+          deletedInFlightFiles: [],
+          failedInFlightFiles: [],
+        }
+        let _ =
+          await Connection__Switch.deleteDownloads(
+            ~runDelete=_ => Promise.resolve(forcedFailure),
+            state,
+          )
         let pathsAfter = Config.Connection.getAgdaPaths()
 
-        await NodeJs.Fs.chmod(storagePath, ~mode=0o755)
         await Config.Connection.setAgdaPaths(state.channels.log, previousPaths)
         let _ = await FS.deleteRecursive(storageUri)
         Assert.deepStrictEqual(pathsAfter, [managed])

@@ -254,10 +254,7 @@ describe("Config.Connection paths", () => {
     Async.it(
       "connection.paths default value should be [\"agda\", \"als\"] in package.json",
       async () => {
-        let packageJsonPath = NodeJs.Path.join([
-          NodeJs.Process.cwd(NodeJs.Process.process),
-          "package.json",
-        ])
+        let packageJsonPath = Path.toAbsolute("../../../../package.json")
         let content = NodeJs.Fs.readFileSync(packageJsonPath)->NodeJs.Buffer.toString
         let json = JSON.parseExn(content)
 

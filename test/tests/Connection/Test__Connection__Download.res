@@ -1817,25 +1817,50 @@ describe("Download", () => {
 
   describe("chmodExecutable", () => {
     Async.it(
-      "should set the executable bit on a file",
+      "should set executable mode bits on Unix",
       async () => {
-        let tempFile = NodeJs.Path.join([
-          NodeJs.Os.tmpdir(),
-          "chmod-test-" ++ string_of_int(int_of_float(Js.Date.now())),
-        ])
-        NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString("mock binary"))
-        await NodeJs.Fs.chmod(tempFile, ~mode=0o644)
+        if !OS.onUnix {
+          ()
+        } else {
+          let tempFile = NodeJs.Path.join([
+            NodeJs.Os.tmpdir(),
+            "chmod-test-unix-" ++ string_of_int(int_of_float(Js.Date.now())),
+          ])
+          NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString("mock binary"))
+          await NodeJs.Fs.chmod(tempFile, ~mode=0o644)
 
-        let statsBefore = NodeJs.Fs.lstatSync(#String(tempFile))
-        Assert.deepStrictEqual(land(statsBefore.mode, 0o111), 0)
+          let statsBefore = NodeJs.Fs.lstatSync(#String(tempFile))
+          Assert.deepStrictEqual(land(statsBefore.mode, 0o111), 0)
 
-        let result = await GitHub.chmodExecutable(tempFile)
-        Assert.deepStrictEqual(result, Ok())
+          let result = await GitHub.chmodExecutable(tempFile)
+          Assert.deepStrictEqual(result, Ok())
 
-        let statsAfter = NodeJs.Fs.lstatSync(#String(tempFile))
-        Assert.ok(land(statsAfter.mode, 0o111) != 0)
+          let statsAfter = NodeJs.Fs.lstatSync(#String(tempFile))
+          Assert.ok(land(statsAfter.mode, 0o111) != 0)
 
-        NodeJs.Fs.unlinkSync(tempFile)
+          NodeJs.Fs.unlinkSync(tempFile)
+        }
+      },
+    )
+
+    Async.it(
+      "should succeed on Windows without asserting POSIX executable bits",
+      async () => {
+        if OS.onUnix {
+          ()
+        } else {
+          let tempFile = NodeJs.Path.join([
+            NodeJs.Os.tmpdir(),
+            "chmod-test-win-" ++ string_of_int(int_of_float(Js.Date.now())),
+          ])
+          NodeJs.Fs.writeFileSync(tempFile, NodeJs.Buffer.fromString("mock binary"))
+
+          let result = await GitHub.chmodExecutable(tempFile)
+          Assert.deepStrictEqual(result, Ok())
+          Assert.ok(NodeJs.Fs.existsSync(tempFile))
+
+          NodeJs.Fs.unlinkSync(tempFile)
+        }
       },
     )
   })

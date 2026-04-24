@@ -198,8 +198,11 @@ module SwitchVersionManager = {
   }
 }
 
-let deleteDownloads = async (state: State.t) => {
-  let result = await Connection__Download__Delete.run(state.globalStorageUri)
+let deleteDownloads = async (
+  ~runDelete: VSCode.Uri.t => promise<Connection__Download__Delete.t>=Connection__Download__Delete.run,
+  state: State.t,
+) => {
+  let result = await runDelete(state.globalStorageUri)
   let metadataDirectoriesToClear = result.cleanedDirectories
   let releaseCachesToClear = [
     ("agda", "agda-language-server"),
