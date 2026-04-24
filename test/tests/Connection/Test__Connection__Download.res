@@ -24,6 +24,34 @@ let withTempStorage = async (prefix, f) => {
   }
 }
 
+let normalizeLocalPathForAssert = (path: string): string =>
+  if OS.onUnix {
+    path
+  } else {
+    let rec replaceBackslashes = (index, acc) =>
+      if index >= String.length(path) {
+        acc
+      } else {
+        let ch = String.charAt(path, index)
+        replaceBackslashes(index + 1, acc ++ (if ch == "\\" { "/" } else { ch }))
+      }
+    let normalized = replaceBackslashes(0, "")->String.toLowerCase
+    if String.length(normalized) >= 4 &&
+        String.charAt(normalized, 0) == "/" &&
+        String.charAt(normalized, 2) == ":" &&
+        String.charAt(normalized, 3) == "/" {
+      String.sliceToEnd(normalized, ~start=1)
+    } else {
+      normalized
+    }
+  }
+
+let assertLocalPathEqual = (actual: string, expected: string) =>
+  Assert.deepStrictEqual(
+    normalizeLocalPathForAssert(actual),
+    normalizeLocalPathForAssert(expected),
+  )
+
 describe("Download", () => {
   This.timeout(10000)
 
@@ -2030,7 +2058,11 @@ describe("Download", () => {
         let _ = await FS.deleteRecursive(globalStorageUri)
 
         let expectedPath = NodeJs.Path.join([tempDir, "test-als", "als"])
-        Assert.deepStrictEqual(result, Error(GitHub.Error.BinaryMissingAfterExtraction(expectedPath)))
+        switch result {
+        | Error(GitHub.Error.BinaryMissingAfterExtraction(path)) =>
+          assertLocalPathEqual(path, expectedPath)
+        | _ => Assert.fail("Expected BinaryMissingAfterExtraction error")
+        }
       },
     )
 
