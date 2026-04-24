@@ -286,131 +286,27 @@ module LanguageClient = {
   @module("vscode-languageclient")
   external languageClientConstructor: 'a = "LanguageClient"
 
-  let createStreamBackedWorker = %raw(`(factory) => {
-        const messageListeners = new Set();
-        const errorListeners = new Set();
-        let onmessageHandler = null;
-        let settledTransport = null;
-        let disposables = [];
-
-        const emitMessage = (data) => {
-          const event = { data };
-          if (typeof onmessageHandler === "function") {
-            onmessageHandler(event);
-          }
-          messageListeners.forEach((listener) => listener(event));
-        };
-
-        const emitError = (error) => {
-          console.error('[agda-mode] worker emitError', error instanceof Error ? error.stack : JSON.stringify(error, null, 2));
-          const event = { type: "error", error };
-          errorListeners.forEach((listener) => listener(event));
-        };
-
-        const ensureTransport = Promise.resolve()
-          .then(() => (typeof factory === "function" ? factory() : factory))
-          .then((transport) => {
-            if (!transport || typeof transport !== "object") {
-              throw new Error("agda-mode: invalid WASM transport");
-            }
-            const reader = transport.reader;
-            const writer = transport.writer;
-            if (!reader || typeof reader.listen !== "function") {
-              throw new Error("agda-mode: WASM transport missing reader");
-            }
-            if (!writer || typeof writer.write !== "function") {
-              throw new Error("agda-mode: WASM transport missing writer");
-            }
-            settledTransport = transport;
-            const listenerDisposable = reader.listen((data) => {
-              emitMessage(data);
-            });
-            if (listenerDisposable && typeof listenerDisposable.dispose === "function") {
-              disposables.push(listenerDisposable);
-            }
-            if (typeof reader.onError === "function") {
-              const errorDisposable = reader.onError((arg) => emitError(Array.isArray(arg) ? arg[0] : arg));
-              if (errorDisposable && typeof errorDisposable.dispose === "function") {
-                disposables.push(errorDisposable);
-              }
-            }
-            if (typeof reader.onClose === "function") {
-              const closeDisposable = reader.onClose(() => emitError(new Error("Language server stream closed")));
-              if (closeDisposable && typeof closeDisposable.dispose === "function") {
-                disposables.push(closeDisposable);
-              }
-            }
-            return transport;
-          });
-
-        ensureTransport.catch((error) => {
-          emitError(error);
-          throw error;
-        });
-
-        const worker = {};
-        Object.defineProperty(worker, "onmessage", {
-          get() {
-            return onmessageHandler;
-          },
-          set(handler) {
-            onmessageHandler = typeof handler === "function" ? handler : null;
-          },
-          enumerable: true,
-          configurable: true,
-        });
-
-        worker.addEventListener = (type, listener) => {
-          if (type === "message") {
-            messageListeners.add(listener);
-          } else if (type === "error") {
-            errorListeners.add(listener);
-          }
-        };
-
-        worker.removeEventListener = (type, listener) => {
-          if (type === "message") {
-            messageListeners.delete(listener);
-          } else if (type === "error") {
-            errorListeners.delete(listener);
-          }
-        };
-
-        worker.postMessage = (message) => {
-          ensureTransport
-            .then((transport) => {
-              transport.writer.write(message).catch(emitError);
-            })
-            .catch(() => {});
-        };
-
-        worker.terminate = () => {
-          disposables.forEach((disposable) => {
-            try {
-              if (disposable && typeof disposable.dispose === "function") {
-                disposable.dispose();
-              }
-            } catch (_) {}
-          });
-          disposables = [];
-          if (settledTransport && settledTransport.writer && typeof settledTransport.writer.end === "function") {
-            try {
-              settledTransport.writer.end();
-            } catch (_) {}
-          }
-          settledTransport = null;
-        };
-
-        return worker;
-      }
-  `)
-
-  let makeShim = (_languageClientCtor, _createStreamBackedWorker) =>
+  let makeShim = (_languageClientCtor) =>
     %raw(`
     (id, name, serverOptions, clientOptions) => {
+      // for retaining the reference to the transport when server options is resolved
+      let transport;
+      let onTransportReady;
+      const waitUntilTransportSet = new Promise(resolve => {
+        onTransportReady = resolve;
+      });
+
+      // serverOptions can be a string to a command (native), or a function to a promise resolving to transports (WASM)
+      const shouldDisposeServer = typeof serverOptions === 'function';
+      const serverThunk = shouldDisposeServer ?
+        () => serverOptions().then(t => {
+          transport = t;
+          onTransportReady();
+          return t;
+        }) :
+        serverOptions;
 
       let ctor = _languageClientCtor;
-      let createStreamBackedWorker = _createStreamBackedWorker;
       if (ctor && typeof ctor !== "function" && ctor.default && typeof ctor.default === "function") {
         ctor = ctor.default;
       }
@@ -418,22 +314,50 @@ module LanguageClient = {
         throw new Error("agda-mode: unable to locate vscode-languageclient constructor");
       }
 
+      let client;
       const ctorArity = typeof ctor.length === "number" ? ctor.length : 0;
       if (ctorArity === 4) {
+        // before language client v10, we need a shim in order to use it on the web
         if (typeof serverOptions !== "function" || !serverOptions.__agdaModeWasm) {
           throw new Error("agda-mode: browser LanguageClient requires WASM transport");
         }
-        const worker = createStreamBackedWorker(serverOptions);
-        return new ctor(id, name, clientOptions, worker);
+        // see https://github.com/microsoft/vscode-languageserver-node/blob/release/client/8.1.0/client/src/browser/main.ts
+        client = new ctor(id, name, clientOptions, serverThunk);
+        if (client.worker !== serverThunk) {
+          throw new Error("agda-mode: failed to shim the browser version of language client; remove it if using client v10");
+        }
+        client.createMessageTransports = () => serverThunk();
+      } else {
+        // the 5-arg constructor is the desktop one
+        client = new ctor(id, name, serverThunk, clientOptions);
       }
 
-      return new ctor(id, name, serverOptions, clientOptions);
+      if (shouldDisposeServer) {
+        const origDispose = client.dispose.bind(client);
+        client.dispose = async timeout => {
+          if (client._disposed) return;
+          // _disposed should be set by calling this
+          await origDispose(timeout);
+          // call dispose on the transport, which should in turn terminate the worker
+          let ret = -1;
+          if (transport == null) {
+            await waitUntilTransportSet;
+          }
+          // older ALS WASM loader might not support this
+          if (transport.dispose) {
+            ret = await transport.dispose();
+            transport = undefined;
+          }
+          return ret;
+        }
+      }
+
+      return client;
     }
   `)
 
   let make: (string, string, ServerOptions.t, LanguageClientOptions.t) => t = makeShim(
     languageClientConstructor,
-    createStreamBackedWorker,
   )
 
   // methods
@@ -441,6 +365,9 @@ module LanguageClient = {
 
   // default wait time: 2 seconds
   @send external stop: (t, option<int>) => promise<unit> = "stop"
+
+  @send external dispose: t => promise<'a> = "dispose"
+
   @send
   external onNotification: (t, string, 'a) => Disposable.t = "onNotification"
   // https://github.com/microsoft/vscode-languageserver-node/blob/02806427ce7251ec8fa2ff068febd9a9e59dbd2f/client/src/common/client.ts#L811C68-L811C81

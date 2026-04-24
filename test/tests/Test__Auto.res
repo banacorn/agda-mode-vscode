@@ -72,11 +72,12 @@ let run = normalization => {
 }
 
 describe("agda-mode.auto", () => {
-  This.timeout(4000)
 
   // // testing for Auto somehow hangs on GitHub Actions Windows runners (but works fine on my desktop Windows :))
   // // cannot find out why, so skip the tests on Windows for now
   // if OS.onUnix {
+  // at least we try awaiting longer
+  This.timeout(OS.onUnix ? 4000 : 20000)
   describe("AsIs", () => {
     run(AsIs)
   })
