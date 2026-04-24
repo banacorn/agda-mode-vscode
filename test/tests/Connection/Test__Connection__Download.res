@@ -576,6 +576,69 @@ describe("Download", () => {
         })
       },
     )
+
+    it("Connection__DevALS.toDownloadOrder should pick the wasm asset for Web platform", () => {
+      let releases = [makeDevRelease()]
+      let result = Connection__DevALS.toDownloadOrder(releases, Connection__Download__Platform.Web)
+      switch result {
+      | Ok(Connection__Download.Source.FromGitHub(_, descriptor)) =>
+        Assert.deepStrictEqual(descriptor.asset.name, "als-dev-Agda-2.8.0-wasm.wasm")
+      | Ok(_) => Assert.fail("expected FromGitHub source")
+      | Error(_) => Assert.fail("expected Ok result, got Error")
+      }
+    })
+
+    Async.it(
+      "should return 3 wasm items for Web platform with DevALS",
+      async () => {
+        await withTempStorage("agda-devals-web-availability-", async (_tempDir, storageUri) => {
+          let releases = [makeDevRelease()]
+          let platform: Platform.t = {
+            module MockWebDevALSPlatform = {
+              let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
+              let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+              let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
+              let resolveDownloadChannel = (channel, _useCache) =>
+                async (_memento, _storageUri, downloadPlatform) =>
+                  switch channel {
+                  | Connection__Download.Channel.DevALS =>
+                    Connection__DevALS.toDownloadOrder(releases, downloadPlatform)
+                  | _ => Error(Connection__Download.Error.CannotFindCompatibleALSRelease)
+                  }
+              let download = (
+                _globalStorageUri,
+                _,
+                ~trace as _trace=Connection__Download__Trace.noop,
+              ) =>
+                Promise.resolve(Error(Connection__Download.Error.CannotFindCompatibleALSRelease))
+              let findCommand = (_command, ~timeout as _timeout=1000) =>
+                Promise.resolve(Error(Connection__Command.Error.NotFound))
+            }
+            module(MockWebDevALSPlatform)
+          }
+
+          let downloadItems = await getDevALSAvailability(storageUri, platform)
+
+          Assert.deepStrictEqual(downloadItems, [
+            {
+              downloaded: false,
+              versionString: "Agda v2.8.0 Language Server (dev build)",
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.7.0.1 Language Server (dev build)",
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+            },
+            {
+              downloaded: false,
+              versionString: "Agda v2.6.4.3 Language Server (dev build)",
+              platform: Connection__Download.DownloadArtifact.Platform.Wasm,
+            },
+          ])
+        })
+      },
+    )
   })
 
   describe("Flow.sourceForSelection", () => {

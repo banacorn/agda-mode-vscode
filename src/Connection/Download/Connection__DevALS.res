@@ -8,7 +8,11 @@ let makeRepo = (globalStorageUri): Connection__Download__GitHub.Repo.t => {
 
 let chooseAssetByPlatform = (release: Connection__Download__GitHub.Release.t, platform): array<
   Connection__Download__GitHub.Asset.t,
-> => Connection__Download__Assets.nativeForPlatform(release, platform)
+> =>
+  switch platform {
+  | Connection__Download__Platform.Web => Connection__Download__Assets.wasm(release)
+  | _ => Connection__Download__Assets.nativeForPlatform(release, platform)
+  }
 
 let getAgdaVersionFromAssetName = (asset: Connection__Download__GitHub.Asset.t) =>
   Connection__Download__Assets.getAgdaVersionFromAssetName(asset)
