@@ -93,7 +93,10 @@ let make = async (extension, raw: Uint8Array.t) => {
 
       let stdlibSetupResult = switch listInstalledLibraries {
       // skip if having library management support
-      | Some(_) => Ok()
+      | Some(_) => {
+        memfsAgdaDataDirCache.contents = Some(memfsAgdaDataDir)
+        Ok()
+      }
 
       // Populate memfsAgdaDataDir with standard library using extension's memfsUnzip
       | None => switch await downloadStdlib() {
@@ -101,7 +104,8 @@ let make = async (extension, raw: Uint8Array.t) => {
         | Ok(zipData) =>
           try {
             let _ = await memfsUnzip(memfsAgdaDataDir, zipData)
-            memfsAgdaDataDirCache.contents = Some(memfsAgdaDataDir)
+            // NOTE: Do not save cache in this path;
+            // older ALS WASM Loader will stuck on setup process with unknown reason
             Ok()
           } catch {
           | Exn.Error(err) => Error(("Error unzipping downloaded archive.", err))
@@ -115,28 +119,30 @@ let make = async (extension, raw: Uint8Array.t) => {
   }
 
   let libsContent: string = await listInstalledLibraries->Option.mapOr(
-    // for older ALS WASM loader that does not support library management,
+    // For older ALS WASM loader that does not support library management,
     // provide the only entry stdlib-2.3 from `downloadStdlib`
     Promise.resolve("/opt/agda/agda-stdlib-2.3/standard-library.agda-lib\n"),
     fn => fn()->Promise.thenResolve(libsDescToLines))
 
   // Setup libraries file in memfsHome pointing to stdlib
   let presetupCallback = async ({memfsTempDir: _, memfsHome}) => {
+    let doCreateFile: (string, string) => unit = %raw(`
+      (memfsHome, createFile) => (path, content) =>
+        createFile(memfsHome, path, new TextEncoder().encode(content))
+    `)(memfsHome, createFile)
+
     let memfsSetupResult = switch stdlibSetupResult {
     | Error(err) => Error(err)
     | Ok() =>
       try {
         createDirectory(memfsHome, ".config")
         createDirectory(memfsHome, ".config/agda")
-        let _ = %raw(`
-          function(memfsHome, createFile, libsContent) {
-            const content = new TextEncoder().encode(libsContent);
-            createFile(memfsHome, '.config/agda/libraries', {
-              size: BigInt(content.length),
-              reader: () => Promise.resolve(content)
-            });
-          }
-        `)(memfsHome, createFile, libsContent)
+
+        doCreateFile(".config/agda/libraries", libsContent)
+        switch listInstalledLibraries {
+        | None => doCreateFile(".config/agda/defaults", "standard-library")
+        | _ => ()
+        }
         Ok()
       } catch {
       | Exn.Error(err) => Error(("Error extract unzipped content to memfs.", err))
