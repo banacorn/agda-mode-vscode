@@ -16,6 +16,12 @@ type presetupCallbackArgs = {
 }
 type presetupCallback = presetupCallbackArgs => promise<unit>
 
+type installedLibrariesDesc = {
+  base: string,
+  prefix: string,
+  paths: array<string>,
+}
+
 // Setup result type
 type t = {
   factory: agdaLanguageServerFactory,
@@ -31,6 +37,9 @@ type t = {
 @send external bytes: Fetch.Response.t => promise<Uint8Array.t> = "bytes"
 @send external createDirectory: (memoryFileSystem, string) => unit = "createDirectory"
 
+let isDesktop = %raw("Vscode.env.uiKind === Vscode.UIKind.Desktop")
+let memfsAgdaDataDirCache = ref(None)
+
 let createFile: (memoryFileSystem, string, 'a) => unit = %raw(`
   function(memfs, path, options) {
     memfs.createFile(path, options);
@@ -44,11 +53,12 @@ let downloadStdlib = async () => {
   try {
     let response = await Fetch.fetch(
       "https://raw.githubusercontent.com/banacorn/agda-library-proxy/master/agda-stdlib-2.3.zip",
+      isDesktop ? {
+        method: #GET,
+        headers: Fetch.Headers.make(Fetch.Headers.Init.object({"User-Agent": "agda-mode-vscode"})),
+      } :
       // Cannot send additional headers because GitHub responds 403 to the CORS preflight request
-      {
-        // method: #GET,
-        // headers: Fetch.Headers.make(Fetch.Headers.Init.object({"User-Agent": "agda-mode-vscode"})),
-      },
+      {},
     )
     if Fetch.Response.ok(response) {
       Ok(await bytes(response))
@@ -60,47 +70,79 @@ let downloadStdlib = async () => {
   }
 }
 
+let libsDescToLines = (desc: installedLibrariesDesc) =>
+  desc.paths->Array.map(path => desc.base ++ "/" ++ path ++ "\n")->Array.join("")
+
 let make = async (extension, raw: Uint8Array.t) => {
   let exports = VSCode.Extension.exports(extension)
   let agdaLanguageServerFactory: agdaLanguageServerFactory = exports["AgdaLanguageServerFactory"]
   let wasmAPILoader: wasmAPILoader = exports["WasmAPILoader"]
   let createUriConverters = exports["createUriConverters"]
   let memfsUnzip: (memoryFileSystem, Uint8Array.t) => promise<memoryFileSystem> = exports["memfsUnzip"]
+  let listInstalledLibraries: option<unit => promise<installedLibrariesDesc>> = exports["listInstalledLibraries"]
 
   let wasm = wasmAPILoader->load
   let mod = await WebAssembly.compile(raw)
   let factory = createFactory(agdaLanguageServerFactory, wasm, mod)
-  let memfsAgdaDataDir = await wasm->createMemoryFileSystem
 
-  // Populate memfsAgdaDataDir with standard library using extension's memfsUnzip
-  let stdlibSetupResult = switch await downloadStdlib() {
-  | Error(err) => Error(err)
-  | Ok(zipData) =>
-      try {
-        let _ = await memfsUnzip(memfsAgdaDataDir, zipData)
+  let (memfsAgdaDataDir, stdlibSetupResult) = {
+    switch memfsAgdaDataDirCache.contents {
+    | Some(cached) => (cached, Ok())
+    | None => {
+      let memfsAgdaDataDir = await wasm->createMemoryFileSystem
+
+      let stdlibSetupResult = switch listInstalledLibraries {
+      // skip if having library management support
+      | Some(_) => {
+        memfsAgdaDataDirCache.contents = Some(memfsAgdaDataDir)
         Ok()
-      } catch {
-      | Exn.Error(err) => Error(("Error unzipping downloaded archive.", err))
       }
+
+      // Populate memfsAgdaDataDir with standard library using extension's memfsUnzip
+      | None => switch await downloadStdlib() {
+        | Error(err) => Error(err)
+        | Ok(zipData) =>
+          try {
+            let _ = await memfsUnzip(memfsAgdaDataDir, zipData)
+            // NOTE: Do not save cache in this path;
+            // older ALS WASM Loader will stuck on setup process with unknown reason
+            Ok()
+          } catch {
+          | Exn.Error(err) => Error(("Error unzipping downloaded archive.", err))
+          }
+        }
+      }
+
+      (memfsAgdaDataDir, stdlibSetupResult)
+    }
+    }
   }
+
+  let libsContent: string = await listInstalledLibraries->Option.mapOr(
+    // For older ALS WASM loader that does not support library management,
+    // provide the only entry stdlib-2.3 from `downloadStdlib`
+    Promise.resolve("/opt/agda/agda-stdlib-2.3/standard-library.agda-lib\n"),
+    fn => fn()->Promise.thenResolve(libsDescToLines))
 
   // Setup libraries file in memfsHome pointing to stdlib
   let presetupCallback = async ({memfsTempDir: _, memfsHome}) => {
+    let doCreateFile: (string, string) => unit = %raw(`
+      (memfsHome, createFile) => (path, content) =>
+        createFile(memfsHome, path, new TextEncoder().encode(content))
+    `)(memfsHome, createFile)
+
     let memfsSetupResult = switch stdlibSetupResult {
     | Error(err) => Error(err)
     | Ok() =>
       try {
         createDirectory(memfsHome, ".config")
         createDirectory(memfsHome, ".config/agda")
-        let _ = %raw(`
-          function(memfsHome, createFile) {
-            const content = new TextEncoder().encode('/opt/agda/agda-stdlib-2.3/standard-library.agda-lib\n');
-            createFile(memfsHome, '.config/agda/libraries', {
-              size: BigInt(content.length),
-              reader: () => Promise.resolve(content)
-            });
-          }
-        `)(memfsHome, createFile)
+
+        doCreateFile(".config/agda/libraries", libsContent)
+        switch listInstalledLibraries {
+        | None => doCreateFile(".config/agda/defaults", "standard-library")
+        | _ => ()
+        }
         Ok()
       } catch {
       | Exn.Error(err) => Error(("Error extract unzipped content to memfs.", err))
