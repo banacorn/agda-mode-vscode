@@ -1,3 +1,5 @@
+module Core = Connection__Core
+
 module type Panel = {
   let get: State.t => WebviewPanel.t
   // restore panel content after the corresponding editor was activated
@@ -7,7 +9,7 @@ module type Panel = {
   let displayInAppendMode: (State.t, View.Header.t, View.Body.t) => promise<unit>
   let displayOutOfGoalError: State.t => promise<unit>
   let displayConnectionError: (State.t, Connection__Error.t) => promise<unit>
-  let displayConnectionStatus: (State.t, option<Connection.t>) => promise<unit>
+  let displayConnectionStatus: (State.t, option<Core.t>) => promise<unit>
   // Input Method
   let updateIM: (State.t, View.EventToView.InputMethod.t) => promise<unit>
   let updatePromptIM: (State.t, string) => promise<unit>
@@ -40,14 +42,14 @@ module Panel: Panel = {
     display(state, Error("Out of goal"), [Item.plainText("Please place the cursor in a goal")])
 
   let displayConnectionError = (state, error) => {
-    let (header, body) = Connection.Error.toString(error)
+    let (header, body) = Core.Error.toString(error)
     display(state, Error(header), [Item.plainText(body)])
   }
 
   // display connection status
   let displayConnectionStatus = (state, connection) => {
     let string = switch connection {
-    | Some(conn) => Connection.toString(conn)
+    | Some(conn) => Core.toString(conn)
     | None => "No connection"
     }
     sendEvent(state, SetConnectionStatus(string))

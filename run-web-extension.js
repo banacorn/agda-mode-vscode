@@ -56,6 +56,7 @@ buildProcess.on('close', (code) => {
             'vscode-test-web',
             '--extensionDevelopmentPath=.',
             '--quality=stable',
+            '--esm',
             '--port=3000',
             '--browser=none',
             '--coi',

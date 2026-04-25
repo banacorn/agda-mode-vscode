@@ -12,22 +12,20 @@ module type PlatformOps = {
   let findCommand: (string, ~timeout: int=?) => promise<result<string, Connection__Command.Error.t>>
 
   // Download operations
-  let alreadyDownloaded: (
-    VSCode.Uri.t,
-    Connection__Download.DownloadOrderAbstract.t,
-  ) => promise<option<string>>
-  let resolveDownloadOrder: (
-    Connection__Download.DownloadOrderAbstract.t,
+  let alreadyDownloaded: VSCode.Uri.t => promise<option<string>>
+  let resolveDownloadChannel: (
+    Connection__Download__Channel.t,
     bool,
   ) => (
     Memento.t,
     VSCode.Uri.t,
     Connection__Download__Platform.t,
-  ) => promise<result<Connection__Download.DownloadOrderConcrete.t, Connection__Download.Error.t>>
+  ) => promise<result<Connection__Download__Source.t, Connection__Download__Error.t>>
   let download: (
     VSCode.Uri.t,
-    Connection__Download.DownloadOrderConcrete.t,
-  ) => promise<result<string, Connection__Download.Error.t>>
+    Connection__Download__Source.t,
+    ~trace: Connection__Download__Trace.callback=?,
+  ) => promise<result<string, Connection__Download__Error.t>>
 
   // User interaction
   let askUserAboutDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>

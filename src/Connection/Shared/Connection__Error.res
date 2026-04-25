@@ -123,13 +123,14 @@ module Probe = {
 module Establish = {
   type pathSource =
     | FromConfig // From user's VS Code settings
-    | FromDownload(Connection__Download.DownloadOrderAbstract.t) // From download
+    | FromManagedDownload // From a previously downloaded managed artifact
+    | FromDownload(Connection__Download__Channel.t) // From download
     | FromCommandLookup(string) // From command lookup (e.g., `command -v agda`)
 
   type downloadStatus =
     | NotAttempted // Download was not attempted (user opted not to, or wasn't needed)
     | Succeeded // Download succeeded but connection failed afterwards
-    | Failed(Connection__Download.Error.t) // Download attempt failed
+    | Failed(Connection__Download__Error.t) // Download attempt failed
 
   // Organized in a way such that we can report all failed attempts of establishing a connection at once
   type t = {
@@ -141,9 +142,10 @@ module Establish = {
   let pathSourceToString = source =>
     switch source {
     | FromConfig => "from config"
-    | FromDownload(Connection__Download.DownloadOrderAbstract.LatestALS) =>
+    | FromManagedDownload => "from managed download"
+    | FromDownload(Connection__Download__Channel.LatestALS) =>
       "from LatestALS download"
-    | FromDownload(Connection__Download.DownloadOrderAbstract.DevALS) => "from DevALS download"
+    | FromDownload(Connection__Download__Channel.DevALS) => "from DevALS download"
     | FromCommandLookup(command) => "from PATH lookup (" ++ command ++ ")"
     }
 
@@ -179,7 +181,7 @@ module Establish = {
     | Succeeded => "" // Download succeeded, errors are already reported in probes/commands
     | Failed(error) =>
       "Tried to download the Agda Language Server but failed:\n  " ++
-      Connection__Download.Error.toString(error)
+      Connection__Download__Error.toString(error)
     }
     // Concatenate all parts
     probesStr ++ commandsStr ++ downloadStr

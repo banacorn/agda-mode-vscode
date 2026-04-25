@@ -1,122 +1,69 @@
-module DownloadOrderAbstract = {
-  type t =
-    | LatestALS
-    | DevALS
+// On desktop (file:// scheme), return fsPath; on web (vscode-userdata: etc.), return URI string
+let uriToPath = (uri: VSCode.Uri.t): string =>
+  if VSCode.Uri.scheme(uri) == "file" {
+    VSCode.Uri.fsPath(uri)
+  } else {
+    VSCode.Uri.toString(uri)
+  }
 
-  let toString = order =>
-    switch order {
-    | LatestALS => "Latest Agda Language Server"
-    | DevALS => "Development Agda Language Server"
+let sortDirectoryEntries = entries =>
+  entries->Array.toSorted(((a, _), (b, _)) =>
+    if a > b {
+      -1.
+    } else if a < b {
+      1.
+    } else {
+      0.
     }
+  )
+
+let managedDeleteRoots = (globalStorageUri: VSCode.Uri.t): array<VSCode.Uri.t> =>
+  [VSCode.Uri.joinPath(globalStorageUri, ["releases"])]
+
+let downloadDestinationForDescriptor = (
+  descriptor: Connection__Download__GitHub.DownloadDescriptor.t,
+): Connection__Download__GitHub.downloadDestination =>
+  switch Connection__Download__DownloadArtifact.parseName(descriptor.asset.name) {
+  | Some(artifact) => {
+      directoryParts: Connection__Download__DownloadArtifact.directoryParts(artifact),
+      executableName: Connection__Download__DownloadArtifact.executableName(artifact),
+      isWasm: Connection__Download__DownloadArtifact.Platform.isWasm(artifact.platform),
+    }
+  | None => Connection__Download__GitHub.downloadDestination(descriptor)
+  }
+
+let expectedUriForSource = (
+  globalStorageUri: VSCode.Uri.t,
+  source: Connection__Download__Source.t,
+): VSCode.Uri.t => {
+  let destinationParts = switch source {
+  | Connection__Download__Source.FromGitHub(_, descriptor) =>
+    let destination = downloadDestinationForDescriptor(descriptor)
+    Array.concat(destination.directoryParts, [destination.executableName])
+  | Connection__Download__Source.FromURL(_, url, saveAsFileName) =>
+    let executableName = if url->String.endsWith(".wasm") { "als.wasm" } else { "als" }
+    [saveAsFileName, executableName]
+  }
+
+  VSCode.Uri.joinPath(globalStorageUri, destinationParts)
 }
 
-module DownloadOrderConcrete = {
-  type t = FromGitHub(DownloadOrderAbstract.t, Connection__Download__GitHub.DownloadDescriptor.t)
-
-  let toString = order =>
-    switch order {
-    | FromGitHub(abstractOrder, descriptor) =>
-      DownloadOrderAbstract.toString(abstractOrder) ++
-      Connection__Download__GitHub.DownloadDescriptor.toString(descriptor)
-    }
-
-  let toVersionString = order =>
-    switch order {
-    | FromGitHub(abstractOrder, descriptor) =>
-      let getAgdaVersion = (asset: Connection__Download__GitHub.Asset.t) =>
-        switch abstractOrder {
-        | DownloadOrderAbstract.LatestALS =>
-          asset.name
-          ->String.replaceRegExp(%re("/als-Agda-/"), "")
-          ->String.replaceRegExp(%re("/-.*/"), "")
-        | DownloadOrderAbstract.DevALS =>
-          asset.name
-          ->String.replaceRegExp(%re("/als-dev-Agda-/"), "")
-          ->String.replaceRegExp(%re("/-.*/"), "")
-        }
-
-      let agdaVersion = getAgdaVersion(descriptor.asset)
-
-      switch abstractOrder {
-      | DownloadOrderAbstract.LatestALS =>
-        let alsVersion =
-          descriptor.release.name
-          ->String.split(".")
-          ->Array.last
-          ->Option.getOr(descriptor.release.name)
-        "Agda v" ++ agdaVersion ++ " Language Server v" ++ alsVersion
-      | DownloadOrderAbstract.DevALS => "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
-      }
-    }
-}
-
-module Error = {
-  type t =
-    | OptedNotToDownload
-    | PlatformNotSupported(Connection__Download__Platform.raw)
-    | CannotFetchALSReleases(Connection__Download__GitHub.Error.t)
-    | CannotDownloadALS(Connection__Download__GitHub.Error.t)
-    | CannotFindCompatibleALSRelease
-    | CannotDownloadFromURL(Connection__Download__GitHub.Error.t)
-
-  let toString = x =>
-    switch x {
-    | OptedNotToDownload => "Opted not to download the Agda Language Server"
-    | PlatformNotSupported(platform) =>
-      "The platform `" ++
-      platform["os"] ++
-      "/" ++
-      platform["dist"] ++ "` is not supported for downloading the Agda Language Server.\n"
-    | CannotFetchALSReleases(e) =>
-      "Cannot fetch releases of Agda Language Server: " ++
-      Connection__Download__GitHub.Error.toString(e)
-
-    | CannotFindCompatibleALSRelease => "Cannot find compatible Agda Language Server release for download. Prebuilts are only available for download on Ubuntu, Windows, and macOS (arm64, x64).\nPlease build from source if you are on a different platform. \nSee https://github.com/agda/agda-language-server for more information."
-    | CannotDownloadALS(e) =>
-      "Failed to download the Agda Language Server: " ++
-      Connection__Download__GitHub.Error.toString(e)
-    | CannotDownloadFromURL(e) =>
-      "Failed to download from URL: " ++ Connection__Download__GitHub.Error.toString(e)
-    }
-}
+let expectedPathForSource = (
+  globalStorageUri: VSCode.Uri.t,
+  source: Connection__Download__Source.t,
+): string =>
+  expectedUriForSource(globalStorageUri, source)->uriToPath
 
 // Get release manifest from cache if available, otherwise fetch from GitHub
 let getReleaseManifestFromGitHub = async (memento, repo, ~useCache=true) => {
   switch await Connection__Download__GitHub.ReleaseManifest.fetch(memento, repo, ~useCache) {
-  | (Error(error), _) => Error(Error.CannotFetchALSReleases(error))
+  | (Error(error), _) => Error(Connection__Download__Error.CannotFetchALSReleases(error))
   | (Ok(manifest), _) => Ok(manifest)
   }
 }
 
-// Download the given DownloadDescriptor and return the path of the downloaded file
-let download = async (globalStorageUri, order) =>
-  switch order {
-  | DownloadOrderConcrete.FromGitHub(_, downloadDescriptor) =>
-    let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
-    switch await Connection__Download__GitHub.download(
-      downloadDescriptor,
-      globalStorageUri,
-      reportProgress,
-    ) {
-    | Error(error) => Error(Error.CannotDownloadALS(error))
-    | Ok(_isCached) =>
-      // For WASM assets (detected by filename), use als.wasm, otherwise als
-      let fileName = if downloadDescriptor.asset.name->String.includes("wasm") {
-        "als.wasm"
-      } else {
-        "als"
-      }
-      let destUri = VSCode.Uri.joinPath(
-        globalStorageUri,
-        [downloadDescriptor.saveAsFileName, fileName],
-      )
-      let destPath = VSCode.Uri.fsPath(destUri)
-      Ok(destPath)
-    }
-  }
-
 // Download directly from a URL without GitHub release metadata and return the path of the downloaded file
-let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName) => {
+let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName, ~trace=Connection__Download__Trace.noop, ~fetch=?) => {
   let reportProgress = await Connection__Download__Util.Progress.report(displayName)
 
   // Create directory if it doesn't exist using URI operations
@@ -136,14 +83,11 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
   let execPathUri = VSCode.Uri.joinPath(destDirUri, [execFileName])
   switch await FS.stat(execPathUri) {
   | Ok(_) => {
-      // For WASM, return URI string with scheme preserved; for native, use fsPath
-      if isWasm {
-        Ok(VSCode.Uri.toString(execPathUri))
-      } else {
-        Ok(VSCode.Uri.fsPath(execPathUri))
-      }
+      Util.log("[ debug ] downloadFromURL: already cached, returning without chmod", uriToPath(execPathUri))
+      Ok(uriToPath(execPathUri))
     }
   | Error(_) =>
+    Util.log("[ debug ] downloadFromURL: not cached, downloading from", url)
     // Parse URL and create HTTP options
     try {
       // Parse URL using global WHATWG URL to support both Node and web
@@ -163,7 +107,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
         },
       }
 
-      switch await Connection__Download__Util.asFile(httpOptions, tempFileUri, reportProgress) {
+      switch await Connection__Download__Util.asFile(httpOptions, tempFileUri, reportProgress, ~trace, ~fetch?) {
       | Error(error) =>
         // Convert Connection__Download__Util.Error.t to Connection__Download__GitHub.Error.t
         let convertedError = switch error {
@@ -184,14 +128,13 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
         | Connection__Download__Util.Error.CannotWriteFile(exn) =>
           Connection__Download__GitHub.Error.CannotReadFile(exn)
         }
-        Error(Error.CannotDownloadFromURL(convertedError))
+        Error(Connection__Download__Error.CannotDownloadFromURL(convertedError))
       | Ok() =>
         // For WASM, skip ZIP validation and extraction - it's a raw binary
         if isWasm {
           // WASM file - save directly as als.wasm
           let _ = await FS.rename(tempFileUri, execPathUri)
-          // Return URI string with scheme preserved (e.g., vscode-userdata:/Users/...)
-          Ok(VSCode.Uri.toString(execPathUri))
+          Ok(uriToPath(execPathUri))
         } else {
           // Regular ZIP file processing
           let readResult = await FS.readFile(tempFileUri)
@@ -220,7 +163,7 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
               "message": "Downloaded file is not a ZIP file. The URL may require authentication or may not be a direct download link.",
             })
             Error(
-              Error.CannotDownloadFromURL(
+              Connection__Download__Error.CannotDownloadFromURL(
                 Connection__Download__GitHub.Error.CannotReadFile(genericError),
               ),
             )
@@ -235,6 +178,11 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
             // Remove ZIP file after extraction
             let _ = await FS.delete(zipFileUri)
 
+            // chmod the executable after extraction (Unix only)
+            if OS.onUnix {
+              let _ = await Connection__Download__GitHub.chmodExecutable(VSCode.Uri.fsPath(execPathUri))
+            }
+
             // Add the path of the downloaded file to the config
             Ok(VSCode.Uri.fsPath(execPathUri))
           }
@@ -242,11 +190,15 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
       }
     } catch {
     | Exn.Error(obj) =>
-      Error(Error.CannotDownloadFromURL(Connection__Download__GitHub.Error.CannotReadFile(obj)))
+      Error(
+        Connection__Download__Error.CannotDownloadFromURL(
+          Connection__Download__GitHub.Error.CannotReadFile(obj),
+        ),
+      )
     | _ =>
       let genericError = Obj.magic({"message": "Invalid URL"})
       Error(
-        Error.CannotDownloadFromURL(
+        Connection__Download__Error.CannotDownloadFromURL(
           Connection__Download__GitHub.Error.CannotReadFile(genericError),
         ),
       )
@@ -254,32 +206,37 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName)
   }
 }
 
-// Check if something is already downloaded
-// NOTE: This is a general-purpose fallback implementation used by tests.
-// Platform-specific implementations (Desktop, Web) should override this
-// to avoid platform mismatches (e.g., web finding native binaries).
-let alreadyDownloaded = async (globalStorageUri, order) => {
-  switch order {
-  | DownloadOrderAbstract.LatestALS => {
-      let uri = VSCode.Uri.joinPath(globalStorageUri, ["latest-als", "als"])
-      switch await FS.stat(uri) {
-      | Ok(_) => Some(uri->VSCode.Uri.fsPath)
-      | Error(_) => None
-      }
+// Download the given DownloadDescriptor and return the path of the downloaded file
+let download = async (
+  globalStorageUri,
+  channel,
+  ~trace=Connection__Download__Trace.noop,
+  ~fetchFile: option<Connection__Download__GitHub.fetchFile>=None,
+  ~fetch=?,
+) =>
+  switch channel {
+  | Connection__Download__Source.FromGitHub(_, downloadDescriptor) =>
+    let reportProgress = await Connection__Download__Util.Progress.report("Agda Language Server") // 📺
+    switch await Connection__Download__GitHub.download(
+      downloadDescriptor,
+      globalStorageUri,
+      reportProgress,
+      ~trace,
+      ~fetchFile,
+      ~downloadDestinationForDescriptor=downloadDestinationForDescriptor,
+    ) {
+    | Error(error) => Error(Connection__Download__Error.CannotDownloadALS(error))
+    | Ok(_isCached) =>
+      // For WASM assets (detected by filename), use als.wasm, otherwise als
+      Ok(expectedPathForSource(globalStorageUri, channel))
     }
-  | DownloadOrderAbstract.DevALS => {
-      // Check for WASM first (for web platform)
-      let wasmUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als.wasm"])
-      switch await FS.stat(wasmUri) {
-      | Ok(_) => Some(VSCode.Uri.toString(wasmUri)) // Use URI string for WASM
-      | Error(_) =>
-        // Check for native binary (als or als.exe)
-        let alsUri = VSCode.Uri.joinPath(globalStorageUri, ["dev-als", "als"])
-        switch await FS.stat(alsUri) {
-        | Ok(_) => Some(alsUri->VSCode.Uri.fsPath)
-        | Error(_) => None
-        }
-      }
-    }
+  | Connection__Download__Source.FromURL(_, url, saveAsFileName) =>
+    await downloadFromURL(
+      globalStorageUri,
+      url,
+      saveAsFileName,
+      "Agda Language Server",
+      ~trace,
+      ~fetch?,
+    )
   }
-}

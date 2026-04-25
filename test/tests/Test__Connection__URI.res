@@ -8,12 +8,11 @@ describe("Connection__URI", () => {
   // To compare URIs, use `Assert.ok` with `Connection__URI.equal` instead.
   describe("parse", () => {
     it(
-      "should parse lsp:// URLs as LspURI variant",
+      "should reject lsp:// URLs and treat as filepath",
       () => {
         let uri = URI.parse("lsp://localhost:8080")
         switch uri {
-        | LspURI(_, url) => Assert.deepStrictEqual(url->URL.protocol, "lsp:")
-        | FileURI(_) => Assert.fail("Expected LspURI variant")
+        | FileURI(_) => () // Expected — lsp:// is rejected, treated as filepath
         }
       },
     )
@@ -24,7 +23,6 @@ describe("Connection__URI", () => {
         let uri = URI.parse("http://example.com")
         switch uri {
         | FileURI(_) => () // Expected
-        | LspURI(_) => Assert.fail("Expected FileURI variant for non-lsp URL")
         }
       },
     )
@@ -36,7 +34,30 @@ describe("Connection__URI", () => {
         let expected = NodeJs.Path.resolve(["/usr/bin/agda"])->VSCode.Uri.file
         switch uri {
         | FileURI(_, actual) => Assert.deepStrictEqual(actual, expected)
-        | LspURI(_) => Assert.fail("Expected FileURI variant")
+        }
+      },
+    )
+
+    it(
+      "should parse POSIX absolute paths using standard path resolution",
+      () => {
+        let uri = URI.parse("/tmp/dev-als/als")
+        let expected = NodeJs.Path.resolve(["/tmp/dev-als/als"])->VSCode.Uri.file
+        switch uri {
+        | FileURI(_, actual) =>
+          Assert.deepStrictEqual(actual->VSCode.Uri.toString, expected->VSCode.Uri.toString)
+        }
+      },
+    )
+
+    it(
+      "should parse file:// POSIX absolute paths using standard path resolution",
+      () => {
+        let uri = URI.parse("file:///tmp/agda switch/dev-als/als.wasm")
+        let expected = NodeJs.Path.resolve(["/tmp/agda switch/dev-als/als.wasm"])->VSCode.Uri.file
+        switch uri {
+        | FileURI(_, actual) =>
+          Assert.deepStrictEqual(actual->VSCode.Uri.toString, expected->VSCode.Uri.toString)
         }
       },
     )
@@ -48,7 +69,6 @@ describe("Connection__URI", () => {
         let expected = NodeJs.Path.resolve(["usr/bin/agda"])->VSCode.Uri.file
         switch uri {
         | FileURI(_, actual) => Assert.deepStrictEqual(actual, expected)
-        | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
       },
     )
@@ -63,7 +83,6 @@ describe("Connection__URI", () => {
           // Should not contain tilde after untildify
           Assert.ok(!String.includes(VSCode.Uri.fsPath(actual), "~"))
           Assert.deepStrictEqual(actual->VSCode.Uri.toString, expected->VSCode.Uri.toString)
-        | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
       },
     )
@@ -76,7 +95,6 @@ describe("Connection__URI", () => {
         switch uri {
         | FileURI(_, actual) =>
           Assert.deepStrictEqual(actual->VSCode.Uri.toString, expected->VSCode.Uri.toString)
-        | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
       },
     )
@@ -124,7 +142,6 @@ describe("Connection__URI", () => {
         let uri = URI.parse("")
         switch uri {
         | FileURI(_) => () // Expected - empty string treated as filepath
-        | LspURI(_) => Assert.fail("Expected FileURI variant for empty string")
         }
       },
     )
@@ -138,7 +155,6 @@ describe("Connection__URI", () => {
         | FileURI(_, vscodeUri) =>
           let fsPath = VSCode.Uri.fsPath(vscodeUri)
           Assert.ok(String.includes(fsPath, "spaces"))
-        | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
       },
     )
@@ -150,7 +166,6 @@ describe("Connection__URI", () => {
         let uri = URI.parse(specialPath)
         switch uri {
         | FileURI(_) => () // Should parse successfully
-        | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
       },
     )
@@ -162,7 +177,6 @@ describe("Connection__URI", () => {
         let uri = URI.parse(multiSlashPath)
         switch uri {
         | FileURI(_) => () // Should parse and normalize
-        | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
       },
     )
@@ -174,7 +188,6 @@ describe("Connection__URI", () => {
         let uri = URI.parse(dotPath)
         switch uri {
         | FileURI(_) => () // Should parse and normalize
-        | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
       },
     )
@@ -186,7 +199,6 @@ describe("Connection__URI", () => {
         let uri = URI.parse(malformedLsp)
         switch uri {
         | FileURI(_) => () // Should fallback to filepath
-        | LspURI(_) => Assert.fail("Expected FileURI variant for malformed LSP URL")
         }
       },
     )
@@ -199,7 +211,6 @@ describe("Connection__URI", () => {
           let uri = URI.parse(reservedName)
           switch uri {
           | FileURI(_) => () // Should parse (though may cause issues at runtime)
-          | LspURI(_) => Assert.fail("Expected FileURI variant")
           }
         },
       )
@@ -211,7 +222,6 @@ describe("Connection__URI", () => {
           let uri = URI.parse(mixedPath)
           switch uri {
           | FileURI(_) => () // Should normalize separators
-          | LspURI(_) => Assert.fail("Expected FileURI variant")
           }
         },
       )
@@ -263,16 +273,6 @@ describe("Connection__URI", () => {
             Assert.ok(URI.equal(firstParse, secondParse))
           },
         )
-
-        it(
-          "should be idempotent for LSP URLs",
-          () => {
-            let original = "lsp://localhost:8080"
-            let firstParse = URI.parse(original)
-            let secondParse = URI.parse(URI.toString(firstParse))
-            Assert.ok(URI.equal(firstParse, secondParse))
-          },
-        )
       },
     )
   })
@@ -302,30 +302,9 @@ describe("Connection__URI", () => {
         Assert.ok(String.length(result) >= 0)
       },
     )
-
-    it(
-      "should convert payload of LspURI with `URL.toString`",
-      () => {
-        let url = URL.make("lsp://localhost:8080")
-        let expected = url->URL.toString
-        let actual = URI.toString(URI.LspURI("lsp://localhost:8080", url))
-        Assert.deepStrictEqual(actual, expected)
-      },
-    )
   })
 
   describe("round-trip parsing", () => {
-    it(
-      "should preserve lsp:// URLs through parse -> toString",
-      () => {
-        let original = "lsp://localhost:8080"
-        let parsed = URI.parse(original)
-        let stringified = URI.toString(parsed)
-        // Note: URLs may have trailing slash added
-        Assert.ok(String.startsWith(stringified, "lsp://localhost:8080"))
-      },
-    )
-
     it(
       "should handle normalization consistency",
       () => {
@@ -373,43 +352,6 @@ describe("Connection__URI", () => {
       },
     )
 
-    it(
-      "should return true for equal LSP URIs",
-      () => {
-        let url1 = URL.make("lsp://localhost:8080")
-        let url2 = URL.make("lsp://localhost:8080")
-        let uri1 = URI.LspURI("lsp://localhost:8080", url1)
-        let uri2 = URI.LspURI("lsp://localhost:8080", url2)
-        Assert.ok(URI.equal(uri1, uri2))
-      },
-    )
-
-    it(
-      "should return false for different LSP URIs",
-      () => {
-        let url1 = URL.make("lsp://localhost:8080")
-        let url2 = URL.make("lsp://localhost:9090")
-        let uri1 = URI.LspURI("lsp://localhost:8080", url1)
-        let uri2 = URI.LspURI("lsp://localhost:9090", url2)
-        Assert.ok(!URI.equal(uri1, uri2))
-      },
-    )
-
-    it(
-      "should return false for mixed FileURI and LspURI",
-      () => {
-        let testPath = if OS.onUnix {
-          "/usr/bin/agda"
-        } else {
-          "C:\\usr\\bin\\agda"
-        }
-        let uri1 = URI.FileURI(testPath, VSCode.Uri.file(testPath))
-        let url = URL.make("lsp://localhost:8080")
-        let uri2 = URI.LspURI("lsp://localhost:8080", url)
-        Assert.ok(!URI.equal(uri1, uri2))
-      },
-    )
-
     // Edge cases for equality
     it(
       "should handle normalized vs unnormalized paths",
@@ -430,7 +372,6 @@ describe("Connection__URI", () => {
         let uri = URI.parse(longPath)
         switch uri {
         | FileURI(_) => () // Should handle long paths
-        | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
       },
     )
@@ -444,7 +385,6 @@ describe("Connection__URI", () => {
         | FileURI(_, vscodeUri) =>
           let fsPath = VSCode.Uri.fsPath(vscodeUri)
           Assert.ok(String.includes(fsPath, "文件"))
-        | LspURI(_) => Assert.fail("Expected FileURI variant")
         }
       },
     )

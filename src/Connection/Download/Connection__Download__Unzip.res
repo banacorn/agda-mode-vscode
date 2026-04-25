@@ -4,14 +4,32 @@ module Unzipper = {
   external extract: {"path": string} => NodeJs.Fs.WriteStream.t = "Extract"
 }
 
-let run = (srcUri: VSCode.Uri.t, destUri: VSCode.Uri.t) =>
-  Promise.make((resolve, _) => {
-    // resolve the promise after the read stream has been closed by the Unzipper
-    let readStream = NodeJs.Fs.createReadStream(srcUri->VSCode.Uri.fsPath)
-    readStream->NodeJs.Fs.ReadStream.onCloseOnce(resolve)->ignore
+@send external onFinishOnce: (NodeJs.Fs.WriteStream.t, @as("finish") _, unit => unit) => NodeJs.Fs.WriteStream.t = "once"
+@send external onErrorOnce: ('stream, @as("error") _, Js.Exn.t => unit) => 'stream = "once"
 
-    // start unzipping the file
-    readStream
-    ->NodeJs.Fs.ReadStream.pipe(Unzipper.extract({"path": destUri->VSCode.Uri.fsPath}))
-    ->ignore
+let run = (
+  srcUri: VSCode.Uri.t,
+  destUri: VSCode.Uri.t,
+  ~makeStreams: option<(string, string) => (NodeJs.Fs.ReadStream.t, NodeJs.Fs.WriteStream.t)>=None,
+  ~doPipe: option<(NodeJs.Fs.ReadStream.t, NodeJs.Fs.WriteStream.t) => unit>=None,
+) =>
+  Promise.make((resolve, reject) => {
+    let srcPath = srcUri->VSCode.Uri.fsPath
+    let destPath = destUri->VSCode.Uri.fsPath
+
+    let (readStream, extractStream) = switch makeStreams {
+    | Some(make) => make(srcPath, destPath)
+    | None => (NodeJs.Fs.createReadStream(srcPath), Unzipper.extract({"path": destPath}))
+    }
+
+    // Handlers FIRST — before pipe, so no event emitted during/after pipe can be missed
+    extractStream->onFinishOnce(resolve)->ignore
+    readStream->onErrorOnce(err => reject(err->Obj.magic))->ignore
+    extractStream->onErrorOnce(err => reject(err->Obj.magic))->ignore
+
+    // Pipe AFTER handlers are attached
+    switch doPipe {
+    | Some(pipe) => pipe(readStream, extractStream)
+    | None => readStream->NodeJs.Fs.ReadStream.pipe(extractStream)->ignore
+    }
   })

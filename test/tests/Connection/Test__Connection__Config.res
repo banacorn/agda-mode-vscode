@@ -7,13 +7,11 @@ open Test__Util
 // │   ├── Multiple working paths → should not modify config
 // │   └── Mixed working/broken paths → should not modify config (working paths exist)
 // ├── Broken config paths
-// │   ├── All broken, auto discovery succeeds → should not add discovered path to config
 // │   └── All broken, auto discovery fails → should fail without modifying config
 // ├── Empty config paths
-// │   ├── Auto discovery succeeds → should not add discovered path to config
 // │   └── Auto discovery fails → should fail without modifying config
 // └── UI-triggered additions
-//     └── Switch version UI selection → should add selected path to config
+//     └── Switch version UI selection → should update PreferredCandidate only
 
 describe("Config.Connection paths", () => {
   // FIXME: UI-related tests are flaky on CI
@@ -28,12 +26,12 @@ describe("Config.Connection paths", () => {
 
   // setup the Agda mocks
   Async.before(async () => {
-    userAgda := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-user"))
-    systemAgda := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-system"))
-    alternativeAgda := (await Endpoint.Agda.mock(~version="2.7.0.1", ~name="agda-mock-alt"))
+    userAgda := (await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock-user"))
+    systemAgda := (await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock-system"))
+    alternativeAgda := (await Candidate.Agda.mock(~version="2.7.0.1", ~name="agda-mock-alt"))
     downloadedALS :=
       (
-        await Endpoint.ALS.mock(
+        await Candidate.ALS.mock(
           ~alsVersion="1.3.1",
           ~agdaVersion="2.6.3",
           ~name="als-make-mock",
@@ -43,10 +41,10 @@ describe("Config.Connection paths", () => {
 
   // cleanup the Agda mocks
   Async.after(async () => {
-    await Endpoint.Agda.destroy(userAgda.contents)
-    await Endpoint.Agda.destroy(systemAgda.contents)
-    await Endpoint.Agda.destroy(alternativeAgda.contents)
-    await Endpoint.ALS.destroy(downloadedALS.contents)
+    await Candidate.Agda.destroy(userAgda.contents)
+    await Candidate.Agda.destroy(systemAgda.contents)
+    await Candidate.Agda.destroy(alternativeAgda.contents)
+    await Candidate.ALS.destroy(downloadedALS.contents)
   })
 
   beforeEach(() => {
@@ -130,8 +128,8 @@ describe("Config.Connection paths", () => {
 
         switch result {
         | Ok(connection) =>
-          // should use first working path
-          Assert.deepStrictEqual(connection->Connection.getPath, userAgda.contents)
+          // should use last working path (reverse order per spec)
+          Assert.deepStrictEqual(connection->Connection.getPath, alternativeAgda.contents)
         | Error(_) => Assert.fail("Connection should succeed")
         }
       },
@@ -210,25 +208,6 @@ describe("Config.Connection paths", () => {
 
   describe("Broken config paths", () => {
     Async.it(
-      "should not add discovered path when all config paths are broken and auto discovery succeeds",
-      async () => {
-        let configPaths = [brokenAgda.contents, "/another/broken"]
-        let (logs, result) = await makeConnection(configPaths, platformWithDiscovery)
-
-        // should add discovered path to config
-        let expectedConfig = configPaths
-        Assert.deepStrictEqual(logs, [])
-        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), expectedConfig)
-
-        switch result {
-        | Ok(connection) =>
-          Assert.deepStrictEqual(connection->Connection.getPath, systemAgda.contents)
-        | Error(_) => Assert.fail("Connection should succeed")
-        }
-      },
-    )
-
-    Async.it(
       "should fail without modifying config when all config paths are broken and auto discovery fails",
       async () => {
         // Set download policy to No to prevent dialog prompts in test environment
@@ -251,25 +230,6 @@ describe("Config.Connection paths", () => {
 
   describe("Empty config paths", () => {
     Async.it(
-      "should not add discovered path when config is empty and auto discovery succeeds",
-      async () => {
-        let configPaths = []
-        let (logs, result) = await makeConnection(configPaths, platformWithDiscovery)
-
-        // should add discovered path to config
-        let expectedConfig = []
-        Assert.deepStrictEqual(logs, [])
-        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), expectedConfig)
-
-        switch result {
-        | Ok(connection) =>
-          Assert.deepStrictEqual(connection->Connection.getPath, systemAgda.contents)
-        | Error(_) => Assert.fail("Connection should succeed")
-        }
-      },
-    )
-
-    Async.it(
       "should fail without modifying config when config is empty and auto discovery fails",
       async () => {
         // Set download policy to No to prevent dialog prompts in test environment
@@ -286,6 +246,145 @@ describe("Config.Connection paths", () => {
         | Ok(_) => Assert.fail("Connection should fail when config is empty and no discovery")
         | Error(_) => () // expected to fail
         }
+      },
+    )
+  })
+
+  describe("Default value", () => {
+    Async.it(
+      "connection.paths default value should be [\"agda\", \"als\"] in package.json",
+      async () => {
+        let packageJsonPath = Path.toAbsolute("../../../../package.json")
+        let content = NodeJs.Fs.readFileSync(packageJsonPath)->NodeJs.Buffer.toString
+        let json = JSON.parseExn(content)
+
+        // Navigate to contributes.configuration.properties["agdaMode.connection.paths"].default
+        let default = switch json {
+        | Object(root) =>
+          root
+          ->Dict.get("contributes")
+          ->Option.flatMap(v =>
+            switch v {
+            | Object(contributes) => contributes->Dict.get("configuration")
+            | _ => None
+            }
+          )
+          ->Option.flatMap(v =>
+            switch v {
+            | Object(config) => config->Dict.get("properties")
+            | _ => None
+            }
+          )
+          ->Option.flatMap(v =>
+            switch v {
+            | Object(properties) => properties->Dict.get("agdaMode.connection.paths")
+            | _ => None
+            }
+          )
+          ->Option.flatMap(v =>
+            switch v {
+            | Object(pathConfig) => pathConfig->Dict.get("default")
+            | _ => None
+            }
+          )
+        | _ => None
+        }
+
+        Assert.deepStrictEqual(default, Some(JSON.Array([JSON.String("agda"), JSON.String("als")])))
+      },
+    )
+  })
+
+  describe("Duplicate candidates", () => {
+    Async.it(
+      "addAgdaPath should not add duplicate path",
+      async () => {
+        let initialPaths = ["/usr/bin/agda", "/opt/homebrew/bin/agda"]
+        await Config.Connection.setAgdaPaths(logChannel, initialPaths)
+
+        // Try to add a path that already exists
+        await Config.Connection.addAgdaPath(logChannel, "/usr/bin/agda")
+
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          ["/usr/bin/agda", "/opt/homebrew/bin/agda"],
+        )
+      },
+    )
+
+    Async.it(
+      "addAgdaPath should not add semantically duplicate candidate",
+      async () => {
+        let initialPaths = ["/usr/bin/agda"]
+        await Config.Connection.setAgdaPaths(logChannel, initialPaths)
+
+        await Config.Connection.addAgdaPath(logChannel, "file:///usr/bin/agda")
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/bin/agda"])
+      },
+    )
+
+    Async.it(
+      "setAgdaPaths should deduplicate paths",
+      async () => {
+        let pathsWithDuplicates = ["/usr/bin/agda", "/opt/homebrew/bin/agda", "/usr/bin/agda"]
+        await Config.Connection.setAgdaPaths(logChannel, pathsWithDuplicates)
+
+        // connection.paths MUST be an ordered list of unique Candidates
+        Assert.deepStrictEqual(
+          Config.Connection.getAgdaPaths(),
+          ["/usr/bin/agda", "/opt/homebrew/bin/agda"],
+        )
+      },
+    )
+
+    Async.it(
+      "setAgdaPaths should deduplicate semantically equal candidates while preserving first raw spelling",
+      async () => {
+        let pathsWithDuplicates = ["/usr/bin/agda", "file:///usr/bin/agda", "agda", "agda"]
+        await Config.Connection.setAgdaPaths(logChannel, pathsWithDuplicates)
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/bin/agda", "agda"])
+      },
+    )
+
+    Async.it(
+      "setAgdaPaths then getAgdaPaths should round-trip without reordering (production path)",
+      async () => {
+        // Temporarily disable testing mode to exercise the real config persistence path
+        // (exercises the real config read/write cycle through VSCode settings)
+        Config.inTestingMode := false
+
+        let paths = ["/first", "/second", "/third"]
+        await Config.Connection.setAgdaPaths(logChannel, paths)
+        let retrieved = Config.Connection.getAgdaPaths()
+
+        // Restore testing mode before assertions (in case assertion throws)
+        Config.inTestingMode := true
+
+        // Round-trip: set → get MUST return the same order
+        Assert.deepStrictEqual(retrieved, paths)
+      },
+    )
+
+    Async.it(
+      "addAgdaPath should preserve existing order (production path)",
+      async () => {
+        // Temporarily disable testing mode to exercise the real config persistence path
+        Config.inTestingMode := false
+
+        let initialPaths = ["/usr/bin/agda", "/opt/homebrew/bin/agda"]
+        await Config.Connection.setAgdaPaths(logChannel, initialPaths)
+
+        // Add a new path via the real addAgdaPath
+        await Config.Connection.addAgdaPath(logChannel, "/new/path/als")
+        let retrieved = Config.Connection.getAgdaPaths()
+
+        // Restore testing mode before assertions
+        Config.inTestingMode := true
+
+        // Existing paths MUST be in their original order, with new path appended
+        Assert.deepStrictEqual(retrieved, ["/usr/bin/agda", "/opt/homebrew/bin/agda", "/new/path/als"])
       },
     )
   })
@@ -331,8 +430,7 @@ describe("Config.Connection paths", () => {
 
       // Common execution pattern shared by all UI test builders
       let executeUITest = async (mockState, platform, mockSelectedItem) => {
-        let view = State__SwitchVersion.View.make(logChannel)
-        let manager = State__SwitchVersion.SwitchVersionManager.make(mockState)
+        let view = Connection__UI__Picker.make(logChannel)
 
         // Promise that resolves when onSelection handler has completed all operations
         let onOperationComplete = Log.on(
@@ -345,45 +443,59 @@ describe("Config.Connection paths", () => {
         )
 
         // Execute the selection
-        State__SwitchVersion.Handler.onSelection(
+        Connection__UI__Handlers.onSelection(
           mockState,
           platform,
-          manager,
+          ref(Connection__Download__Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [mockSelectedItem],
+          ~hasSelectionChanged=selectedPath =>
+            switch Memento.PreferredCandidate.get(mockState.memento) {
+            | Some(path) =>
+              !Connection__Candidate.equal(
+                Connection__Candidate.make(selectedPath),
+                Connection__Candidate.make(path),
+              )
+            | None => true
+            },
+          ~switchCandidate=selectedPath => Connection.switchCandidate(mockState, selectedPath),
+          ~getDownloadItems=channel =>
+            Connection.getAvailableSwitchDownloads(mockState, platform, ~channel),
         )
 
         await onOperationComplete
 
         // Clean up
-        view->State__SwitchVersion.View.destroy
+        view->Connection__UI__Picker.destroy
       }
 
       // Simplified path selection simulation
       let simulatePathSelection = async (
         initialConfig: array<string>,
         selectedPath: string,
-        ~description: string="",
       ) => {
         let (listener, mockState) = await setupUITest(initialConfig)
 
-        // Set up the path in memento endpoints so it can be selected
-        let discoveredEndpoints = Dict.make()
-        discoveredEndpoints->Dict.set(selectedPath, Memento.Endpoints.Agda(Some("2.7.0.1")))
-        await Memento.Endpoints.syncWithPaths(mockState.memento, discoveredEndpoints)
-
-        // Create mock QuickPickItem representing the path selection
-        let mockSelectedItem: VSCode.QuickPickItem.t = {
-          label: "Agda v2.7.0.1",
-          description,
-          detail: selectedPath,
-        }
+        let mockSelectedItem = Connection__UI__Item.fromItemData(
+          Connection__UI__ItemData.Candidate(
+            selectedPath,
+            selectedPath,
+            {
+              kind: Memento.ResolvedMetadata.Agda(Some("2.7.0.1")),
+              timestamp: Date.make(),
+              error: None,
+            },
+            false,
+          ),
+          mockState.extensionUri,
+        )
 
         await executeUITest(mockState, platformWithDiscovery, mockSelectedItem)
         let logs = listener(~filter=Log.isConfig)
         let finalConfig = Config.Connection.getAgdaPaths()
-        (logs, finalConfig)
+        let preferredCandidate = Memento.PreferredCandidate.get(mockState.memento)
+        (logs, finalConfig, preferredCandidate)
       }
 
       // Simplified download action simulation
@@ -392,13 +504,34 @@ describe("Config.Connection paths", () => {
         ~isAlreadyDownloaded: bool=false,
       ) => {
         let (listener, mockState) = await setupUITest(initialConfig)
-
-        // Create mock QuickPickItem representing download action
-        let mockSelectedItem: VSCode.QuickPickItem.t = {
-          label: "$(cloud-download)  Download the latest Agda Language Server",
-          description: isAlreadyDownloaded ? "Downloaded and installed" : "",
-          detail: "ALS v0.2.10, Agda v2.7.0.1",
+        let releasesDir =
+          VSCode.Uri.joinPath(mockState.globalStorageUri, ["releases"])
+        let expectedDownloadedPath = if isAlreadyDownloaded {
+          // Create a release-managed native artifact at the expected location
+          // so that findReleaseManagedDownloadedForDesktopPlatform finds it.
+          // The mock platform returns MacOS_Arm, so we use that artifact name.
+          let artifactDir = NodeJs.Path.join([
+            VSCode.Uri.fsPath(mockState.globalStorageUri),
+            "releases",
+            "dev",
+            "als-dev-Agda-2.8.0-macos-arm64",
+          ])
+          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+          let alsPath = NodeJs.Path.join([artifactDir, "als"])
+          NodeJs.Fs.writeFileSync(alsPath, NodeJs.Buffer.fromString("mock-native"))
+          alsPath
+        } else {
+          downloadedALS.contents
         }
+
+        let mockSelectedItem = Connection__UI__Item.fromItemData(
+          Connection__UI__ItemData.DownloadAction(
+            isAlreadyDownloaded,
+            "Agda v2.8.0 Language Server (dev build)",
+            Connection__Download__DownloadArtifact.Platform.MacOSArm64,
+          ),
+          mockState.extensionUri,
+        )
 
         await executeUITest(
           mockState,
@@ -407,15 +540,17 @@ describe("Config.Connection paths", () => {
         )
         let logs = listener(~filter=Log.isConfig)
         let finalConfig = Config.Connection.getAgdaPaths()
-        (logs, finalConfig)
+        let preferredCandidate = Memento.PreferredCandidate.get(mockState.memento)
+        // Clean up any release-managed files created in the shared tmpdir
+        let _ = await FS.deleteRecursive(releasesDir)
+        (logs, finalConfig, preferredCandidate, expectedDownloadedPath)
       }
 
       // Simulate empty selection (user cancels)
       let simulateEmptySelection = async (initialConfig: array<string>) => {
         let (listener, mockState) = await setupUITest(initialConfig)
 
-        let view = State__SwitchVersion.View.make(logChannel)
-        let manager = State__SwitchVersion.SwitchVersionManager.make(mockState)
+        let view = Connection__UI__Picker.make(logChannel)
 
         let onOperationComplete = Log.on(
           logChannel,
@@ -427,21 +562,38 @@ describe("Config.Connection paths", () => {
         )
 
         // Simulate empty selection (no items selected)
-        State__SwitchVersion.Handler.onSelection(
+        Connection__UI__Handlers.onSelection(
           mockState,
           platformWithDiscovery,
-          manager,
+          ref(Connection__Download__Channel.DevALS),
           _downloadInfo => Promise.resolve(),
           view,
           [], // Empty selection
+          ~hasSelectionChanged=selectedPath =>
+            switch Memento.PreferredCandidate.get(mockState.memento) {
+            | Some(path) =>
+              !Connection__Candidate.equal(
+                Connection__Candidate.make(selectedPath),
+                Connection__Candidate.make(path),
+              )
+            | None => true
+            },
+          ~switchCandidate=selectedPath => Connection.switchCandidate(mockState, selectedPath),
+          ~getDownloadItems=channel =>
+            Connection.getAvailableSwitchDownloads(
+              mockState,
+              platformWithDiscovery,
+              ~channel,
+            ),
         )
 
         await onOperationComplete
-        view->State__SwitchVersion.View.destroy
+        view->Connection__UI__Picker.destroy
 
         let logs = listener(~filter=Log.isConfig)
         let finalConfig = Config.Connection.getAgdaPaths()
-        (logs, finalConfig)
+        let preferredCandidate = Memento.PreferredCandidate.get(mockState.memento)
+        (logs, finalConfig, preferredCandidate)
       }
     }
 
@@ -449,61 +601,95 @@ describe("Config.Connection paths", () => {
       "Switch version UI selection",
       () => {
         Async.it(
-          "should add path to config when user selects existing path not in config",
+          "should update PreferredCandidate without modifying config when user selects existing path not in config",
           async () => {
             This.retries(2)
 
             let initialConfig = [userAgda.contents]
             let selectedPath = alternativeAgda.contents // not in initial config
 
-            let (logs, finalConfig) = await UITestBuilders.simulatePathSelection(
+            let (logs, finalConfig, preferredCandidate) = await UITestBuilders.simulatePathSelection(
               initialConfig,
               selectedPath,
-              ~description="",
             )
 
-            // Should add the selected path to config
-            let expectedConfig = Array.concat(initialConfig, [selectedPath])
-            Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
-            // FIXME: this test is flaky
-            Assert.deepStrictEqual(finalConfig, expectedConfig)
+            // Should not modify config
+            Assert.deepStrictEqual(logs, [])
+            Assert.deepStrictEqual(finalConfig, initialConfig)
+            // Should update PreferredCandidate
+            Assert.deepStrictEqual(preferredCandidate, Some(selectedPath))
           },
         )
 
         Async.it(
-          "should not modify config when user selects path already in config",
+          "should update PreferredCandidate without modifying config when user selects path already in config",
           async () => {
             let initialConfig = [userAgda.contents, alternativeAgda.contents]
             let selectedPath = userAgda.contents // already in config
 
-            let (logs, finalConfig) = await UITestBuilders.simulatePathSelection(
+            let (logs, finalConfig, preferredCandidate) = await UITestBuilders.simulatePathSelection(
               initialConfig,
               selectedPath,
-              ~description="Selected",
             )
 
             // Should not modify config since path already exists
             Assert.deepStrictEqual(logs, [])
             Assert.deepStrictEqual(finalConfig, initialConfig)
+            // Should update PreferredCandidate
+            Assert.deepStrictEqual(preferredCandidate, Some(selectedPath))
           },
         )
 
         Async.it(
-          "should add new path to config when user selects different path",
+          "should update PreferredCandidate when user selects different path",
           async () => {
             let initialConfig = [userAgda.contents]
             let selectedPath = alternativeAgda.contents
 
-            let (logs, finalConfig) = await UITestBuilders.simulatePathSelection(
+            let (logs, finalConfig, preferredCandidate) = await UITestBuilders.simulatePathSelection(
               initialConfig,
               selectedPath,
-              ~description="",
             )
 
-            // Should add the new path to existing config
-            let expectedConfig = Array.concat(initialConfig, [selectedPath])
-            Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
-            Assert.deepStrictEqual(finalConfig, expectedConfig)
+            // Should not modify config
+            Assert.deepStrictEqual(logs, [])
+            Assert.deepStrictEqual(finalConfig, initialConfig)
+            // Should update PreferredCandidate
+            Assert.deepStrictEqual(preferredCandidate, Some(selectedPath))
+          },
+        )
+
+        Async.it(
+          "should preserve bare agda command in PreferredCandidate without modifying config",
+          async () => {
+            let initialConfig = ["agda"]
+            let selectedPath = "agda"
+
+            let (logs, finalConfig, preferredCandidate) = await UITestBuilders.simulatePathSelection(
+              initialConfig,
+              selectedPath,
+            )
+
+            Assert.deepStrictEqual(logs, [])
+            Assert.deepStrictEqual(finalConfig, initialConfig)
+            Assert.deepStrictEqual(preferredCandidate, Some("agda"))
+          },
+        )
+
+        Async.it(
+          "should preserve bare als command in PreferredCandidate without modifying config",
+          async () => {
+            let initialConfig = ["als"]
+            let selectedPath = "als"
+
+            let (logs, finalConfig, preferredCandidate) = await UITestBuilders.simulatePathSelection(
+              initialConfig,
+              selectedPath,
+            )
+
+            Assert.deepStrictEqual(logs, [])
+            Assert.deepStrictEqual(finalConfig, initialConfig)
+            Assert.deepStrictEqual(preferredCandidate, Some("als"))
           },
         )
       },
@@ -517,15 +703,17 @@ describe("Config.Connection paths", () => {
           async () => {
             let initialConfig = [userAgda.contents]
 
-            let (logs, finalConfig) = await UITestBuilders.simulateDownloadAction(
+            let (logs, finalConfig, preferredCandidate, expectedDownloadedPath) = await UITestBuilders.simulateDownloadAction(
               initialConfig,
               ~isAlreadyDownloaded=false,
             )
 
             // Should add the downloaded ALS path to config
-            let expectedConfig = Array.concat(initialConfig, [downloadedALS.contents])
+            let expectedConfig = Array.concat(initialConfig, [expectedDownloadedPath])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
             Assert.deepStrictEqual(finalConfig, expectedConfig)
+            // Manual UI download must not modify PreferredCandidate
+            Assert.deepStrictEqual(preferredCandidate, None)
           },
         )
 
@@ -534,33 +722,38 @@ describe("Config.Connection paths", () => {
           async () => {
             let initialConfig = [userAgda.contents]
 
-            let (logs, finalConfig) = await UITestBuilders.simulateDownloadAction(
+            let (logs, finalConfig, preferredCandidate, expectedDownloadedPath) = await UITestBuilders.simulateDownloadAction(
               initialConfig,
               ~isAlreadyDownloaded=true,
             )
 
             // Should add the already downloaded ALS path to config
-            let expectedConfig = Array.concat(initialConfig, [downloadedALS.contents])
+            let expectedConfig = Array.concat(initialConfig, [expectedDownloadedPath])
             Assert.deepStrictEqual(logs, [Log.Config(Changed(initialConfig, expectedConfig))])
             Assert.deepStrictEqual(finalConfig, expectedConfig)
+            // Manual UI download must not modify PreferredCandidate
+            Assert.deepStrictEqual(preferredCandidate, None)
           },
         )
       },
     )
 
     describe(
-      "Non-endpoint selections",
+      "Non-candidate selections",
       () => {
         Async.it(
           "should handle empty selection correctly",
           async () => {
             let initialConfig = [userAgda.contents]
 
-            let (logs, finalConfig) = await UITestBuilders.simulateEmptySelection(initialConfig)
+            let (logs, finalConfig, preferredCandidate) = await UITestBuilders.simulateEmptySelection(
+              initialConfig,
+            )
 
             // Config should remain unchanged
             Assert.deepStrictEqual(logs, [])
             Assert.deepStrictEqual(finalConfig, initialConfig)
+            Assert.deepStrictEqual(preferredCandidate, None)
           },
         )
       },
