@@ -20,6 +20,8 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     await State__View.Panel.display(state, Plain("Loading ..."), [])
     // save the document before loading
     let _ = await VSCode.TextDocument.save(state.document)
+    // snapshot the current document
+    state.pendingLoad = Some(Editor.Text.getAll(state.document))
     // Issue #26 - don't load the document in preview mode
     let options = Some(VSCode.TextDocumentShowOptions.make(~preview=false, ()))
     let _ = await VSCode.Window.showTextDocumentWithShowOptions(state.document, options)

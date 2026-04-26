@@ -17,9 +17,10 @@ module type Module = {
   // Receive tokens from Agda
   let addEmacsFilePath: (t, string) => unit
   let addJSONFilePath: (t, string) => unit
-  let readTempFiles: (t, VSCode.TextEditor.t) => promise<unit>
+  let readTempFiles: (t, VSCode.TextEditor.t, ~requestText: string=?) => promise<unit>
   let insertWithVSCodeOffsets: (t, Token.t<vscodeOffset>) => unit
   let insertTokens: (t, VSCode.TextEditor.t, array<Token.t<agdaOffset>>) => unit
+  let insertTokensWithText: (t, string, array<Token.t<agdaOffset>>) => unit
 
   // Remove everything
   let reset: t => unit
@@ -201,18 +202,15 @@ module Module: Module = {
     }
   }
 
-  // insert a bunch of Tokens
+  // insert a bunch of Tokens referring from the given snapshot
   // merge Aspects with the existing Token that occupies the same Range
-  let insertTokens = (self, editor, tokens: array<Token.t<agdaOffset>>) => {
-    let document = editor->VSCode.TextEditor.document
-    let text = Editor.Text.getAll(document)
+  let insertTokensWithText = (self, text, tokens: array<Token.t<agdaOffset>>) => {
     let offsetConverter = Agda.OffsetConverter.make(text)
-    
+
     tokens->Array.forEach(token => {
       let start = Agda.OffsetConverter.convert(offsetConverter, token.start)
       let end = Agda.OffsetConverter.convert(offsetConverter, token.end)
-      
-      
+
       insertWithVSCodeOffsets(
         self,
         {
@@ -224,15 +222,24 @@ module Module: Module = {
     })
   }
 
+  let insertTokens = (self, editor, tokens: array<Token.t<agdaOffset>>) => {
+    let document = editor->VSCode.TextEditor.document
+    let text = Editor.Text.getAll(document)
+    insertTokensWithText(self, text, tokens)
+  }
+
   let addEmacsFilePath = (self, filepath) => self.tempFiles->Array.push(TempFile.Emacs(filepath))
   let addJSONFilePath = (self, filepath) => self.tempFiles->Array.push(TempFile.JSON(filepath))
 
   // read temp files and add Tokens added from "addEmacsFilePath" or "addJSONFilePath"
-  let readTempFiles = async (self, editor) => {
+  let readTempFiles = async (self, editor, ~requestText=?) => {
     // read and parse and concat them
     let xs = await self.tempFiles->Array.map(TempFile.readAndParse)->Promise.all
     let tokens = xs->Array.map(snd)->Array.flat
-    insertTokens(self, editor, tokens)
+    switch requestText {
+    | Some(text) => insertTokensWithText(self, text, tokens)
+    | None => insertTokens(self, editor, tokens)
+    }
     self.tempFiles = []
   }
 
