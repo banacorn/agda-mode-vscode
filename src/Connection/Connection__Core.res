@@ -117,14 +117,12 @@ module Module: Module = {
       | Agda(conn, _, _) =>
         await Agda.destroy(conn)
         Ok()
-      | ALS(conn, _, _) =>
+      | ALS(conn, _, _)
+      | ALSWASM(conn, _, _, _) =>
         switch await ALS.destroy(conn) {
         | Error(error) => Error(Error.CommWithALS(error))
         | Ok(_) => Ok()
         }
-      | ALSWASM(_) =>
-        // TODO: implement WASM connection destruction
-        Ok()
       }
     }
 
