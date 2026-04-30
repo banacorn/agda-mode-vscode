@@ -253,6 +253,13 @@ describe("Download", () => {
         "Agda v2.8.0 Language Server v6",
       )
     })
+
+    it("should derive hardcoded browser WASM version from canonical save name", () => {
+      Assert.deepStrictEqual(
+        Connection__Download__Source.toVersionString(Connection__Download__Source.hardcodedALSWasmFromNPM),
+        "Agda v2.8.0 Language Server (dev build)",
+      )
+    })
   })
 
   describe("expectedPathForSource with release artifacts", () => {
@@ -666,6 +673,43 @@ describe("Download", () => {
             {
               downloaded: false,
               versionString: "Agda v2.6.4.3 Language Server (dev build)",
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
+            },
+          ])
+        })
+      },
+    )
+
+    Async.it(
+      "should return one hardcoded FromURL WASM item for Web platform",
+      async () => {
+        await withTempStorage("agda-web-from-url-availability-", async (_tempDir, storageUri) => {
+          let platform: Platform.t = {
+            module MockWebFromURLPlatform = {
+              let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
+              let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+              let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
+              let resolveDownloadChannel = (_channel, _useCache) =>
+                async (_memento, _storageUri, _downloadPlatform) =>
+                  Ok(Connection__Download__Source.hardcodedALSWasmFromNPM)
+              let download = (
+                _globalStorageUri,
+                _,
+                ~trace as _trace=Connection__Download__Trace.noop,
+              ) =>
+                Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+              let findCommand = (_command, ~timeout as _timeout=1000) =>
+                Promise.resolve(Error(Connection__Command.Error.NotFound))
+            }
+            module(MockWebFromURLPlatform)
+          }
+
+          let downloadItems = await getDevALSAvailability(storageUri, platform)
+
+          Assert.deepStrictEqual(downloadItems, [
+            {
+              downloaded: false,
+              versionString: "Agda v2.8.0 Language Server (dev build)",
               platform: Connection__Download__DownloadArtifact.Platform.Wasm,
             },
           ])

@@ -16,32 +16,14 @@ module Web: Platform.PlatformOps = {
   let resolveDownloadChannel = (
     channel: Connection__Download__Channel.t,
     _useCache,
-  ) => async (memento, globalStorageUri, _platform) => {
+  ) => async (_, _, _) => {
     switch channel {
     | LatestALS => {
         // Web doesn't support LatestALS (native binaries)
         Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
       }
     | DevALS => {
-        let repo = Connection__Download__Channel.Dev.makeRepo(globalStorageUri)
-        switch await Connection__Download.getReleaseManifestFromGitHub(
-          memento,
-          repo,
-          ~useCache=_useCache,
-        ) {
-        | Error(error) => Error(error)
-        | Ok(releases) =>
-          Connection__Download__Channel.Dev.toDownloadOrder(
-            releases,
-            Connection__Download__Platform.Web,
-          )
-          ->Result.map(descriptor =>
-            Connection__Download__Source.FromGitHub(
-              Connection__Download__Channel.DevALS,
-              descriptor,
-            )
-          )
-        }
+        Ok(Connection__Download__Source.hardcodedALSWasmFromNPM)
       }
     }
   }

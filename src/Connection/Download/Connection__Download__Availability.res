@@ -92,8 +92,18 @@ let getAll = async (
     let resolver = PlatformOps.resolveDownloadChannel(channel, true)
     switch await resolver(memento, globalStorageUri, Connection__Download__Platform.Web) {
     | Error(_) => [unavailable(~platform=Connection__Download__DownloadArtifact.Platform.Wasm)]
-    | Ok(Connection__Download__Source.FromURL(_, _, _)) =>
-      [unavailable(~platform=Connection__Download__DownloadArtifact.Platform.Wasm)]
+    | Ok(Connection__Download__Source.FromURL(_, url, _) as source) =>
+      if url->String.endsWith(".wasm") {
+        [
+          await makeDownloadItem(
+            globalStorageUri,
+            ~platform=Connection__Download__DownloadArtifact.Platform.Wasm,
+            source,
+          ),
+        ]
+      } else {
+        [unavailable(~platform=Connection__Download__DownloadArtifact.Platform.Wasm)]
+      }
     | Ok(Connection__Download__Source.FromGitHub(_, descriptor)) =>
       let release = descriptor.release
       let makeSource = asset =>

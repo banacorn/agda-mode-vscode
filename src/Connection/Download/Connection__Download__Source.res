@@ -2,6 +2,12 @@ type t =
   | FromGitHub(Connection__Download__Channel.t, Connection__Download__GitHub.DownloadDescriptor.t)
   | FromURL(Connection__Download__Channel.t, string, string) // (channel, url, saveAsFileName)
 
+let hardcodedALSWasmFromNPM = FromURL(
+  Connection__Download__Channel.DevALS,
+  "https://unpkg.com/agda-wasm@0.0.3-als.2.8.0/als/2.8.0/als.wasm",
+  "als-dev-Agda-2.8.0-wasm"
+)
+
 let toString = source =>
   switch source {
   | FromGitHub(abstractChannel, descriptor) =>
@@ -45,6 +51,13 @@ let toVersionString = source =>
         "Agda v" ++ agdaVersion ++ " Language Server (dev build)"
       }
     }
-  | FromURL(abstractChannel, _, _) =>
-    Connection__Download__Channel.toDisplayString(abstractChannel)
+  | FromURL(abstractChannel, _, saveAsFileName) =>
+    switch Connection__Download__DownloadArtifact.parseName(saveAsFileName) {
+    | Some(artifact) =>
+      Connection__Download__Channel.artifactVersionString(
+        ~channel=abstractChannel,
+        artifact,
+      )
+    | None => Connection__Download__Channel.toDisplayString(abstractChannel)
+    }
   }
