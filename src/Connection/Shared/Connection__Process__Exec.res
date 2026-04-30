@@ -4,8 +4,8 @@ module Process = Connection__Transport__Process
 module Error = {
   type t =
     | PathMalformed(string)
-    | // the process has not been responding for 20 seconds
-    ProcessHanging
+    // the process has not been responding for xxx milliseconds
+    | ProcessHanging(int)
     // error from the shell
     | NotFound(string)
     // error from the process' stderr
@@ -16,7 +16,7 @@ module Error = {
   let toString = x =>
     switch x {
     | PathMalformed(msg) => "path malformed: " ++ msg
-    | ProcessHanging => "process hanging for more than 1 sec"
+    | ProcessHanging(timeout) => "process hanging for more than " ++ timeout->Int.toString ++ " milliseconds"
 
     | NotFound(_) => "command not found"
     | FromStderr(None, msg) => "stderr: \"" ++ msg ++ "\""
@@ -37,7 +37,7 @@ let run = async (path, args, ~timeout=10000, ~shell=true): result<'a, Error.t> =
 
   // reject if the process hasn't responded for more than `timeout` milliseconds
   let hangTimeout = ref(
-    Some(Js.Global.setTimeout(() => resolve(Error(Error.ProcessHanging)), timeout)),
+    Some(Js.Global.setTimeout(() => resolve(Error(Error.ProcessHanging(timeout))), timeout)),
   )
 
   let stdout = ref("")
