@@ -135,6 +135,42 @@ module IM = {
   }
 }
 
+let waitForRewriteApplication = (setup: setup, fileName) =>
+  Log.on(setup.channels.log, event =>
+    switch event {
+    | Log.InputMethod(Log.InputMethod.RewriteApplication(r)) =>
+      r.targetDocumentFileName == fileName && r.replacementCount > 0
+    | _ => false
+    }
+  )
+
+let collectInputMethodLogs = (setup: setup) => {
+  let stop = Log.collect(setup.channels.log)
+  () =>
+    stop()->Array.filterMap(event =>
+      switch event {
+      | Log.InputMethod(e) => Some(e)
+      | _ => None
+      }
+    )
+}
+
+let extractRoutingEvents = (events: array<Log.InputMethod.t>) =>
+  events->Array.filterMap(event =>
+    switch event {
+    | Log.InputMethod.TextChangeRouting(r) => Some(r)
+    | _ => None
+    }
+  )
+
+let extractRewriteEvents = (events: array<Log.InputMethod.t>) =>
+  events->Array.filterMap(event =>
+    switch event {
+    | Log.InputMethod.RewriteApplication(r) => Some(r)
+    | _ => None
+    }
+  )
+
 describe("Input Method (Editor)", () => {
   let setup = ref(None)
 
@@ -640,56 +676,99 @@ describe("Input Method (Editor)", () => {
           log,
         )
         Assert.equal("∧123\n1∧23\n12∧3\n123∧", Editor.Text.getAll(document)->replaceCRLF)
+        let log = await IM.deactivate(setup)
+        Assert.deepStrictEqual([IM.Log.Deactivate], log)
       },
     )
   })
 
-  // describe("Editor replacement while IM is active", () => {
-  //   Async.it(
-  //     "should keep processing IM updates after replacing the active TextEditor for the same document (Issue #300)",
-  //     async () => {
-  //       let setup = acquire(setup)
-  //       let path = Path.asset("InputMethod.agda")
-  //       let originalDocument = setup.editor->VSCode.TextEditor.document
+  describe("Editor replacement while IM is active", () => {
+    Async.it(
+      "should keep processing IM updates after replacing the active TextEditor for the same document (Issue #300)",
+      async () => {
+        let s = acquire(setup)
+        let originalEditor = s.editor
+        let originalDocument = originalEditor->VSCode.TextEditor.document
 
-  //       let log = await IM.activate(setup, ())
-  //       Assert.deepStrictEqual([IM.Log.Activate], log)
+        let log = await IM.activate(s, ())
+        Assert.deepStrictEqual([IM.Log.Activate], log)
 
-  //       // Replace the active editor instance to simulate tab switches where the old editor is disposed.
-  //       let _ = await VSCode.Commands.executeCommand0("workbench.action.closeActiveEditor")
-  //       let reopenedEditor = await VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(path), None)
-  //       let reopenedDocument = reopenedEditor->VSCode.TextEditor.document
-  //       Assert.equal(setup.editor == reopenedEditor, false)
-  //       Assert.equal(
-  //         originalDocument->VSCode.TextDocument.fileName,
-  //         reopenedDocument->VSCode.TextDocument.fileName,
-  //       )
+        let stopCollecting = collectInputMethodLogs(s)
 
-  //       let positions = Editor.Cursor.getMany(reopenedEditor)
-  //       let inserted = await reopenedDocument->Editor.Text.batchInsert(positions, "b")
-  //       Assert.equal(inserted, true)
+        let _ = await VSCode.Commands.executeCommand0("workbench.action.closeActiveEditor")
+        let reopenedEditor = await VSCode.Window.showTextDocumentWithUri(
+          VSCode.Uri.file(Path.asset("InputMethod.agda")),
+          None,
+        )
+        let reopenedDocument = reopenedEditor->VSCode.TextEditor.document
 
-  //       // Explicitly deactivate to avoid leaking IM state to subsequent tests.
-  //       let waitForRewrite = async () => {
-  //         let rec loop = async triesLeft =>
-  //           if triesLeft <= 0 {
-  //             false
-  //           } else if Editor.Text.getAll(reopenedDocument) == "♭" {
-  //             true
-  //           } else {
-  //             let _ = await wait(100)
-  //             await loop(triesLeft - 1)
-  //           }
-  //         await loop(12)
-  //       }
+        setup := Some({editor: reopenedEditor, channels: s.channels})
 
-  //       let rewritten = await waitForRewrite()
-  //       let _ = await VSCode.Commands.executeCommand0("agda-mode.escape")
+        Assert.equal(originalEditor === reopenedEditor, false)
+        Assert.equal(
+          originalDocument->VSCode.TextDocument.fileName,
+          reopenedDocument->VSCode.TextDocument.fileName,
+        )
 
-  //       // Deterministic assertion: if IM tracked reopened editor, "b" should be rewritten to "♭".
-  //       Assert.equal(rewritten, true)
-  //       Assert.equal(Editor.Text.getAll(reopenedDocument), "♭")
-  //     },
-  //   )
-  // })
+        let reopenedFileName = reopenedDocument->VSCode.TextDocument.fileName
+        let onRewrite = waitForRewriteApplication(s, reopenedFileName)
+        let positions = Editor.Cursor.getMany(reopenedEditor)
+        let _ = await reopenedDocument->Editor.Text.batchInsert(positions, "b")
+        await onRewrite
+
+        let log = await IM.deactivate(acquire(setup))
+        Assert.deepStrictEqual([IM.Log.Deactivate], log)
+
+        let imEvents = stopCollecting()
+        let routingEvents = extractRoutingEvents(imEvents)
+        let rewriteEvents =
+          extractRewriteEvents(imEvents)->Array.filter(r =>
+            r.targetDocumentFileName == reopenedFileName && r.replacementCount > 0
+          )
+
+        let relevantRouting =
+          routingEvents->Array.filter(r =>
+            r.eventDocumentFileName == reopenedFileName &&
+            r.stateEditorDocumentFileName == reopenedFileName
+          )
+        // At least one routing event must show the stale-capture shape that proves Issue #300:
+        // state.editor was updated to the new editor, but the closure-captured editor is stale
+        Assert.equal(
+          relevantRouting->Array.some(r =>
+            r.capturedEditorIsStateEditor == false && r.eventDocumentIsStateDocument == true
+          ),
+          true,
+        )
+        if originalDocument !== reopenedDocument {
+          Assert.equal(
+            relevantRouting->Array.some(r =>
+              !r.capturedDocumentIsEventDocument || !r.capturedDocumentIsStateDocument
+            ),
+            true,
+          )
+        }
+
+        Assert.equal(rewriteEvents->Array.length > 0, true)
+        rewriteEvents->Array.forEach(r => {
+          Assert.deepStrictEqual(r.applyEditResult, Log.InputMethod.ApplyEditResult.Succeeded)
+        })
+        // Check all rewrite events for the reopened file — not just those with replacementCount > 0
+        let allRewriteEventsForFile =
+          extractRewriteEvents(imEvents)->Array.filter(r =>
+            r.targetDocumentFileName == reopenedFileName
+          )
+        Assert.equal(
+          allRewriteEventsForFile->Array.some(r =>
+            switch r.applyEditResult {
+            | Log.InputMethod.ApplyEditResult.Failed | Threw(_) => true
+            | Succeeded => false
+            }
+          ),
+          false,
+        )
+
+        Assert.equal(Editor.Text.getAll(reopenedDocument), "♭")
+      },
+    )
+  })
 })
