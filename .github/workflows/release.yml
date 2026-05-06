@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
         
       - name: Install dependencies
-        run: npm version && npm install
+        run: npm version && npm ci
         
       - name: Build stuff
         run: npm run dry-run-publish
