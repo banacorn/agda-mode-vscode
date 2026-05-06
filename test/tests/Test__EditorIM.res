@@ -643,4 +643,53 @@ describe("Input Method (Editor)", () => {
       },
     )
   })
+
+  // describe("Editor replacement while IM is active", () => {
+  //   Async.it(
+  //     "should keep processing IM updates after replacing the active TextEditor for the same document (Issue #300)",
+  //     async () => {
+  //       let setup = acquire(setup)
+  //       let path = Path.asset("InputMethod.agda")
+  //       let originalDocument = setup.editor->VSCode.TextEditor.document
+
+  //       let log = await IM.activate(setup, ())
+  //       Assert.deepStrictEqual([IM.Log.Activate], log)
+
+  //       // Replace the active editor instance to simulate tab switches where the old editor is disposed.
+  //       let _ = await VSCode.Commands.executeCommand0("workbench.action.closeActiveEditor")
+  //       let reopenedEditor = await VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(path), None)
+  //       let reopenedDocument = reopenedEditor->VSCode.TextEditor.document
+  //       Assert.equal(setup.editor == reopenedEditor, false)
+  //       Assert.equal(
+  //         originalDocument->VSCode.TextDocument.fileName,
+  //         reopenedDocument->VSCode.TextDocument.fileName,
+  //       )
+
+  //       let positions = Editor.Cursor.getMany(reopenedEditor)
+  //       let inserted = await reopenedDocument->Editor.Text.batchInsert(positions, "b")
+  //       Assert.equal(inserted, true)
+
+  //       // Explicitly deactivate to avoid leaking IM state to subsequent tests.
+  //       let waitForRewrite = async () => {
+  //         let rec loop = async triesLeft =>
+  //           if triesLeft <= 0 {
+  //             false
+  //           } else if Editor.Text.getAll(reopenedDocument) == "♭" {
+  //             true
+  //           } else {
+  //             let _ = await wait(100)
+  //             await loop(triesLeft - 1)
+  //           }
+  //         await loop(12)
+  //       }
+
+  //       let rewritten = await waitForRewrite()
+  //       let _ = await VSCode.Commands.executeCommand0("agda-mode.escape")
+
+  //       // Deterministic assertion: if IM tracked reopened editor, "b" should be rewritten to "♭".
+  //       Assert.equal(rewritten, true)
+  //       Assert.equal(Editor.Text.getAll(reopenedDocument), "♭")
+  //     },
+  //   )
+  // })
 })

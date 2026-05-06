@@ -124,6 +124,27 @@ let initialize = (
     State__InputMethod.select(state, intervals)->ignore
   })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(event => {
+    channels.log->Chan.emit(
+      Log.InputMethod(
+        Log.InputMethod.TextChangeRouting({
+          capturedEditorDocumentFileName: editor
+          ->VSCode.TextEditor.document
+          ->VSCode.TextDocument.fileName,
+          stateEditorDocumentFileName: state.editor
+          ->VSCode.TextEditor.document
+          ->VSCode.TextDocument.fileName,
+          eventDocumentFileName: event
+          ->VSCode.TextDocumentChangeEvent.document
+          ->VSCode.TextDocument.fileName,
+          capturedEditorIsStateEditor: editor === state.editor,
+          capturedDocumentIsStateDocument: editor->VSCode.TextEditor.document === state.document,
+          eventDocumentIsStateDocument: event->VSCode.TextDocumentChangeEvent.document ===
+            state.document,
+          capturedDocumentIsEventDocument: editor->VSCode.TextEditor.document ===
+            event->VSCode.TextDocumentChangeEvent.document,
+        }),
+      ),
+    )
     // update the input method accordingly
     let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
     State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
@@ -292,12 +313,18 @@ let activateWithoutContext = (
 
   // Channel for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
+  let inputMethod = Chan.make()
+  let log = Chan.make()
   let channels = {
-    State.inputMethod: Chan.make(),
+    State.inputMethod,
     responseHandled: Chan.make(),
     commandHandled: Chan.make(),
-    log: Chan.make(),
+    log,
   }
+  // bridge IM engine events into the main log channel
+  inputMethod->Chan.on(event =>
+    log->Chan.emit(Log.InputMethod(Log.InputMethod.EngineLog(event)))
+  )->ignore
   // subscribe to the logging channel when in debug mode
   let debug = false
   if debug {
