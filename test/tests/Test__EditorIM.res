@@ -739,15 +739,16 @@ describe("Input Method (Editor)", () => {
           ),
           true,
         )
+        // When the document object was replaced on reopen, the cached initialDocument
+        // must differ from both state.document and the event document
         if originalDocument !== reopenedDocument {
           Assert.equal(
-            relevantRouting->Array.some(r =>
-              !r.capturedDocumentIsEventDocument || !r.capturedDocumentIsStateDocument
+            relevantRouting->Array.every(r =>
+              !r.capturedDocumentIsStateDocument && !r.capturedDocumentIsEventDocument
             ),
             true,
           )
         }
-
         Assert.equal(rewriteEvents->Array.length > 0, true)
         rewriteEvents->Array.forEach(r => {
           Assert.deepStrictEqual(r.applyEditResult, Log.InputMethod.ApplyEditResult.Succeeded)
