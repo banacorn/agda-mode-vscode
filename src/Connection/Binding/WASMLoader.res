@@ -76,9 +76,13 @@ let downloadStdlib = async () => {
 let libsDescToLines = (desc: installedLibrariesDesc) =>
   desc.paths->Array.map(path => desc.base ++ "/" ++ path ++ "\n")->Array.join("")
 
+let managedLibrariesAreEmpty = (desc: installedLibrariesDesc) => desc.paths->Array.length == 0
+
 let resolveLibrarySetup = async listInstalledLibraries => {
   switch listInstalledLibraries {
-  | Some(fn) => Managed(await fn())
+  | Some(fn) =>
+    let desc = await fn()
+    managedLibrariesAreEmpty(desc) ? StdlibFallback : Managed(desc)
   | None => StdlibFallback
   }
 }
@@ -97,43 +101,36 @@ let makeWithStdlibDownloader = async (extension, raw: Uint8Array.t, downloadStdl
 
   let librarySetup = await resolveLibrarySetup(listInstalledLibraries)
 
-  let (memfsAgdaDataDir, stdlibSetupResult) = {
+  let (memfsAgdaDataDir, stdlibSetupResult) = switch librarySetup {
+  | Managed(_) =>
     switch memfsAgdaDataDirCache.contents {
     | Some(cached) => (cached, Ok())
-    | None => {
+    | None =>
       let memfsAgdaDataDir = await wasm->createMemoryFileSystem
-
-      let stdlibSetupResult = switch librarySetup {
-      // skip if having library management support
-      | Managed(_) => {
-        memfsAgdaDataDirCache.contents = Some(memfsAgdaDataDir)
+      memfsAgdaDataDirCache.contents = Some(memfsAgdaDataDir)
+      (memfsAgdaDataDir, Ok())
+    }
+  | StdlibFallback =>
+    let memfsAgdaDataDir = await wasm->createMemoryFileSystem
+    let stdlibSetupResult = switch await downloadStdlib() {
+    | Error(err) => Error(err)
+    | Ok(zipData) =>
+      try {
+        let _ = await memfsUnzip(memfsAgdaDataDir, zipData)
+        // NOTE: Do not save cache in this path;
+        // older ALS WASM Loader will stuck on setup process with unknown reason.
         Ok()
+      } catch {
+      | Exn.Error(err) => Error(("Error unzipping downloaded archive.", err))
       }
-
-      // Populate memfsAgdaDataDir with standard library using extension's memfsUnzip
-      | StdlibFallback => switch await downloadStdlib() {
-        | Error(err) => Error(err)
-        | Ok(zipData) =>
-          try {
-            let _ = await memfsUnzip(memfsAgdaDataDir, zipData)
-            // NOTE: Do not save cache in this path;
-            // older ALS WASM Loader will stuck on setup process with unknown reason
-            Ok()
-          } catch {
-          | Exn.Error(err) => Error(("Error unzipping downloaded archive.", err))
-          }
-        }
-      }
-
-      (memfsAgdaDataDir, stdlibSetupResult)
     }
-    }
+    (memfsAgdaDataDir, stdlibSetupResult)
   }
 
   let libsContent: string = switch librarySetup {
   | Managed(desc) => libsDescToLines(desc)
-    // For older ALS WASM loader that does not support library management,
-    // provide the only entry stdlib-2.3 from `downloadStdlib`
+  // For older ALS WASM loaders, or newer loaders without installed libraries,
+  // provide the stdlib-2.3 entry from `downloadStdlib`.
   | StdlibFallback => "/opt/agda/agda-stdlib-2.3/standard-library.agda-lib\n"
   }
 
