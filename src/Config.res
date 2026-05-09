@@ -271,9 +271,14 @@ module Highlighting = {
 }
 
 // Backend
+let backendInTestingMode = ref("GHCNoMain")
+
 let getBackend = () => {
-  let raw =
+  let raw = if inTestingMode.contents {
+    Some(backendInTestingMode.contents)
+  } else {
     Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get("backend")
+  }
   switch raw {
   | Some("GHC") => "GHCNoMain"
   | Some("LaTeX") => "LaTeX"

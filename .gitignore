@@ -1,6 +1,9 @@
 # Testing
 test/globalStoragePath
 *.agdai
+test/tests/assets/MAlonzo/
+test/tests/assets/Compile
+test/tests/assets/Compile.exe
 
 
 .DS_Store
