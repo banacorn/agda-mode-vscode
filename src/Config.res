@@ -280,7 +280,8 @@ let getBackend = () => {
     Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get("backend")
   }
   switch raw {
-  | Some("GHC") => "GHCNoMain"
+  | Some("GHC") => "GHC"
+  | Some("GHCNoMain") => "GHCNoMain"
   | Some("LaTeX") => "LaTeX"
   | Some("QuickLaTeX") => "QuickLaTeX"
   | _ => "GHCNoMain"

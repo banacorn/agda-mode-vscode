@@ -1291,8 +1291,15 @@
 					"default": "GHC",
 					"enum": [
 						"GHC",
+						"GHCNoMain",
 						"LaTeX",
 						"QuickLaTeX"
+					],
+					"enumDescriptions": [
+						"Compile to executable (requires a main function)",
+						"Compile without main (MAlonzo tree only)",
+						"LaTeX backend",
+						"QuickLaTeX backend"
 					],
 					"scope": "machine-overridable",
 					"description": "Backend target"
