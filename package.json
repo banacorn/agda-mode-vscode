@@ -702,11 +702,6 @@
 			},
 			{
 				"command": "agda-mode.input-symbol[Activate]",
-				"key": "\\",
-				"when": "config.agdaMode.inputMethod.enabled && !agdaModeTyping && editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && editorTextFocus && variableLanguage"
-			},
-			{
-				"command": "agda-mode.input-symbol[Activate]",
 				"key": "[Backslash]",
 				"when": "config.agdaMode.inputMethod.enabled && !agdaModeTyping && editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && editorTextFocus"
 			},
