@@ -31,6 +31,11 @@ describe("agda-mode.compile", () => {
   })
 
   Async.it("should compile with GHC backend when backend is set to GHC", async () => {
+    // GHC compilation on Windows CI takes too long (>60s) for Agda 2.7.0+                                                          
+    if not(OS.onUnix) {                                                                                                             
+      This.skip()                                                                                                                   
+    }                                                                                
+
     switch await Connection__Command.search("ghc") {
     | Ok(_) => ()
     | Error(_) => This.skip()
