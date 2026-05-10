@@ -277,6 +277,28 @@ describe("Input Method (Editor)", () => {
         Assert.equal("⁎", document->Editor.Text.getAll)
       },
     )
+
+    Async.it(
+      `Issue #234, should not preview newline while more input is possible`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let log = await IM.activate(setup, ())
+        Assert.deepStrictEqual([IM.Log.Activate], log)
+        let log = await IM.insertChar(setup, "p")
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.equal("p", document->Editor.Text.getAll)
+        let log = await IM.insertChar(setup, "a")
+        Assert.deepStrictEqual(
+          [IM.Log.RewriteIssued([(((0, 0), (0, 2)), "▰")]), UpdateView, RewriteApplied],
+          log,
+        )
+        Assert.equal("▰", document->Editor.Text.getAll)
+        let log = await IM.insertChar(setup, "r")
+        Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
+        Assert.equal("▰r", document->Editor.Text.getAll)
+      },
+    )
   })
 
   describe("Backspacing", () => {
