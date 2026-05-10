@@ -11,15 +11,20 @@ type rec trie = {
 @module("./../../../../asset/keymap.js")
 external rawKeymapObject: {.} = "default"
 
+let containsLineBreak = symbol => symbol->String.includes("\n") || symbol->String.includes("\r")
+
 let rec fromObject = (obj: {.}): trie => {
-  let symbols = %raw(`
+  let symbols: array<string> = %raw(`
     obj[">>"] || []
   `)
+  let childKeys = obj->Object.keysToArray->Array.filter(key => key != ">>")
+  let symbols = if Array.length(childKeys) == 0 {
+    symbols
+  } else {
+    symbols->Array.filter(symbol => !containsLineBreak(symbol))
+  }
   let subTrie =
-    obj
-    ->Object.keysToArray
-    ->Array.filter(key => key != ">>")
-    ->Array.map(key => (
+    childKeys->Array.map(key => (
       key,
       fromObject(
         %raw(`
@@ -117,7 +122,24 @@ let translate = (input: string, state: option<state>): translation => {
 let initialTranslation = x => translate("", x)
 
 let lookup = (symbol): option<array<string>> =>
-  symbol->String.codePointAt(0)->Option.map(string_of_int)->Option.flatMap(Dict.get(rawTable, ...))
+  symbol
+  ->String.codePointAt(0)
+  ->Option.map(string_of_int)
+  ->Option.flatMap(Dict.get(rawTable, ...))
+  ->Option.flatMap(sequences => {
+    let sequences =
+      sequences->Array.filter(sequence =>
+        switch isInKeymap(sequence) {
+        | Some(trie) => trie.symbols->Array.includes(symbol)
+        | None => false
+        }
+      )
+    if Array.length(sequences) == 0 {
+      None
+    } else {
+      Some(sequences)
+    }
+  })
 
 let decode = {
   open JsonCombinators.Json.Decode
