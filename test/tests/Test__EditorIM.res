@@ -279,7 +279,7 @@ describe("Input Method (Editor)", () => {
     )
 
     Async.it(
-      `Issue #234, should not preview newline while more input is possible`,
+      `Issue #234, should filter newline preview while more input is possible`,
       async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
@@ -297,8 +297,38 @@ describe("Input Method (Editor)", () => {
         let log = await IM.insertChar(setup, "r")
         Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("▰r", document->Editor.Text.getAll)
-        let log = await IM.deactivate(setup)
-        Assert.deepStrictEqual([IM.Log.Deactivate], log)
+        let _ = await IM.insertChar(setup, "t")
+        let _ = await IM.insertChar(setup, "i")
+        let _ = await IM.insertChar(setup, "a")
+        let log = await IM.insertChar(setup, "l")
+        Assert.deepStrictEqual(
+          [IM.Log.RewriteIssued([(((0, 0), (0, 6)), "∂")]), Deactivate, RewriteApplied],
+          log,
+        )
+        Assert.equal("∂", document->Editor.Text.getAll)
+      },
+    )
+
+    Async.it(
+      `Issue #234, should keep leaf newline sequence`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let replaceCRLF = x => x->String.replaceRegExp(%re("/\r\n/g"), "\n") // RegEx updated to v10.1.4
+        let log = await IM.activate(setup, ())
+        Assert.deepStrictEqual([IM.Log.Activate], log)
+        let _ = await IM.insertChar(setup, "n")
+        let _ = await IM.insertChar(setup, "e")
+        let _ = await IM.insertChar(setup, "w")
+        let _ = await IM.insertChar(setup, "l")
+        let _ = await IM.insertChar(setup, "i")
+        let _ = await IM.insertChar(setup, "n")
+        let log = await IM.insertChar(setup, "e")
+        Assert.deepStrictEqual(
+          [IM.Log.RewriteIssued([(((0, 0), (0, 6)), "\n")]), Deactivate, RewriteApplied],
+          log,
+        )
+        Assert.equal("\n", document->Editor.Text.getAll->replaceCRLF)
       },
     )
   })

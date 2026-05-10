@@ -37,8 +37,6 @@ let toSurface = self =>
 
 let toString = self => "\"" ++ (toSurface(self) ++ ("\"[" ++ (toSequence(self) ++ "]")))
 
-let isUnsafePreview = symbol => symbol->String.includes("\n") || symbol->String.includes("\r")
-
 let moveUp = self => {
   ...self,
   candidateIndex: max(0, self.candidateIndex - 10),
@@ -114,28 +112,12 @@ let update = (self, start, change: change): (t, option<string>) => {
       (buffer, None)
     }
   | Some(symbol) =>
-    if translation.further && isUnsafePreview(symbol) {
-      if newSequence->String.includes(sequence) {
-        let diff = String.substringToEnd(~start=String.length(sequence), newSequence)
-        let buffer = {...self, tail: self.tail ++ diff, translation: translation}
-        (buffer, None)
-      } else {
-        let buffer = {
-          symbol: None,
-          tail: newSequence,
-          translation: translation,
-          candidateIndex: self.candidateIndex,
-        }
-        (buffer, Some(toSurface(buffer)))
-      }
-    } else {
-      let buffer = {
-        symbol: Some((symbol, newSequence)),
-        tail: "",
-        translation: translation,
-        candidateIndex: self.candidateIndex,
-      }
-      (buffer, Some(toSurface(buffer)))
+    let buffer = {
+      symbol: Some((symbol, newSequence)),
+      tail: "",
+      translation: translation,
+      candidateIndex: self.candidateIndex,
     }
+    (buffer, Some(toSurface(buffer)))
   }
 }
