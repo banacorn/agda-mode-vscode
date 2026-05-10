@@ -297,6 +297,8 @@ describe("Input Method (Editor)", () => {
         let log = await IM.insertChar(setup, "r")
         Assert.deepStrictEqual([IM.Log.RewriteIssued([]), UpdateView, RewriteApplied], log)
         Assert.equal("▰r", document->Editor.Text.getAll)
+        let log = await IM.deactivate(setup)
+        Assert.deepStrictEqual([IM.Log.Deactivate], log)
       },
     )
   })
