@@ -123,23 +123,33 @@ let initialize = (
 
     State__InputMethod.select(state, intervals)->ignore
   })->subscribe
+
   VSCode.Workspace.onDidChangeTextDocument(event => {
-    // update the input method accordingly
-    let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
-    State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
-    // updates positions of semantic highlighting tokens accordingly
-    state.tokens->Tokens.applyEdit(editor, event)
-    // updates positions of goals accordingly
-    let changes =
-      event
-      ->VSCode.TextDocumentChangeEvent.contentChanges
-      ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
-      ->Array.toReversed
-    if Array.length(changes) != 0 {
-      state.goals->Goals.scanAllGoals(editor, changes)->Promise.done
+    let handleTextDocumentChange = (event: VSCode.TextDocumentChangeEvent.t) => {
+      // update the input method accordingly
+      let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
+      State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
+
+      // updates positions of semantic highlighting tokens accordingly
+      state.tokens->Tokens.applyEdit(editor, event)
+
+      // updates positions of goals accordingly
+      let changesForGoals = event
+        ->VSCode.TextDocumentChangeEvent.contentChanges
+        ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
+        ->Array.toReversed
+
+      if Array.length(changes) != 0 {
+        state.goals->Goals.scanAllGoals(editor, changesForGoals)->Promise.done
+      }
+
+      // state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done
     }
 
-    // state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done
+    // only apply changes that matches the editor
+    if (event->VSCode.TextDocumentChangeEvent.document == VSCode.TextEditor.document(editor)) {
+      handleTextDocumentChange(event)
+    }
   })->subscribe
 
   // definition provider for go-to-definition
