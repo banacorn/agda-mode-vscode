@@ -58,7 +58,9 @@ let initialize = (
   ->Promise.done
 
   // not in the Registry, instantiate a State
-  let id = VSCode.TextEditor.document(editor)->VSCode.TextDocument.fileName
+  // Cache identity anchors once — never read the captured editor after this point
+  let initialDocument = VSCode.TextEditor.document(editor)
+  let id = initialDocument->VSCode.TextDocument.fileName
   let state = State.make(
     id,
     platformDeps,
@@ -101,9 +103,8 @@ let initialize = (
   ->WebviewPanel.onEvent(event => {
     switch getCurrentEditor() {
     | Some(editor') =>
-      let fileName = editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
       let fileName' = editor'->VSCode.TextEditor.document->VSCode.TextDocument.fileName
-      if fileName' == fileName {
+      if fileName' == id {
         State__Command.dispatchCommand(state, Command.EventFromView(event))->ignore
       }
     | None => ()
@@ -112,31 +113,52 @@ let initialize = (
   ->subscribe
   // register event listeners for the input method
   VSCode.Window.onDidChangeTextEditorSelection(event => {
-    let document = VSCode.TextEditor.document(editor)
-    let intervals =
-      event
-      ->VSCode.TextEditorSelectionChangeEvent.selections
-      ->Array.map(selection => (
-        VSCode.TextDocument.offsetAt(document, VSCode.Selection.start(selection)),
-        VSCode.TextDocument.offsetAt(document, VSCode.Selection.end_(selection)),
-      ))
-
-    State__InputMethod.select(state, intervals)->ignore
+    let eventEditor = event->VSCode.TextEditorSelectionChangeEvent.textEditor
+    let eventDocument = eventEditor->VSCode.TextEditor.document
+    if eventDocument->VSCode.TextDocument.fileName == state.document->VSCode.TextDocument.fileName {
+      let intervals =
+        event
+        ->VSCode.TextEditorSelectionChangeEvent.selections
+        ->Array.map(selection => (
+          VSCode.TextDocument.offsetAt(state.document, VSCode.Selection.start(selection)),
+          VSCode.TextDocument.offsetAt(state.document, VSCode.Selection.end_(selection)),
+        ))
+      State__InputMethod.select(state, intervals)->ignore
+    }
   })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(event => {
-    // update the input method accordingly
-    let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
-    State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
-    // updates positions of semantic highlighting tokens accordingly
-    state.tokens->Tokens.applyEdit(editor, event)
-    // updates positions of goals accordingly
-    let changes =
-      event
-      ->VSCode.TextDocumentChangeEvent.contentChanges
-      ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
-      ->Array.toReversed
-    if Array.length(changes) != 0 {
-      state.goals->Goals.scanAllGoals(editor, changes)->Promise.done
+    let eventDocument = event->VSCode.TextDocumentChangeEvent.document
+    // ignore changes to documents other than this state's document
+    if eventDocument->VSCode.TextDocument.fileName == state.document->VSCode.TextDocument.fileName {
+      channels.log->Chan.emit(
+        Log.InputMethod(
+          Log.InputMethod.TextChangeRouting({
+            capturedEditorDocumentFileName: id,
+            stateEditorDocumentFileName: state.editor
+            ->VSCode.TextEditor.document
+            ->VSCode.TextDocument.fileName,
+            eventDocumentFileName: eventDocument->VSCode.TextDocument.fileName,
+            capturedEditorIsStateEditor: editor === state.editor,
+            capturedDocumentIsStateDocument: initialDocument === state.document,
+            eventDocumentIsStateDocument: eventDocument === state.document,
+            capturedDocumentIsEventDocument: initialDocument === eventDocument,
+          }),
+        ),
+      )
+      // update the input method accordingly
+      let changes = IM.Input.fromTextDocumentChangeEvent(state.editor, event)
+      State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
+      // updates positions of semantic highlighting tokens accordingly
+      state.tokens->Tokens.applyEdit(state.editor, event)
+      // updates positions of goals accordingly
+      let changes =
+        event
+        ->VSCode.TextDocumentChangeEvent.contentChanges
+        ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
+        ->Array.toReversed
+      if Array.length(changes) != 0 {
+        state.goals->Goals.scanAllGoals(state.editor, changes)->Promise.done
+      }
     }
 
     // state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done
@@ -292,12 +314,18 @@ let activateWithoutContext = (
 
   // Channel for testing, emits events when something has been completed,
   // for example, when the input method has translated a key sequence into a symbol
+  let inputMethod = Chan.make()
+  let log = Chan.make()
   let channels = {
-    State.inputMethod: Chan.make(),
+    State.inputMethod,
     responseHandled: Chan.make(),
     commandHandled: Chan.make(),
-    log: Chan.make(),
+    log,
   }
+  // bridge IM engine events into the main log channel
+  inputMethod->Chan.on(event =>
+    log->Chan.emit(Log.InputMethod(Log.InputMethod.EngineLog(event)))
+  )->ignore
   // subscribe to the logging channel when in debug mode
   let debug = false
   if debug {

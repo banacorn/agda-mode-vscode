@@ -28,7 +28,23 @@ module Module: Module = {
         | UpdateView(sequence, translation, index) =>
           await State__View.Panel.updateIM(state, Update(sequence, translation, index))
         | Rewrite(replacements, resolve) =>
-          let _ = await Editor.Text.batchReplace(state.document, replacements)
+          let applyEditResult =
+            switch await Editor.Text.batchReplace(state.document, replacements) {
+            | true => Log.InputMethod.ApplyEditResult.Succeeded
+            | false => Log.InputMethod.ApplyEditResult.Failed
+            | exception Js.Exn.Error(e) =>
+              Threw(Js.Exn.message(e)->Option.getOr("unknown"))
+            | exception _ => Threw("unknown")
+            }
+          state.channels.log->Chan.emit(
+            Log.InputMethod(
+              Log.InputMethod.RewriteApplication({
+                targetDocumentFileName: state.document->VSCode.TextDocument.fileName,
+                replacementCount: Array.length(replacements),
+                applyEditResult,
+              }),
+            ),
+          )
           resolve()
         | Activate =>
           await State__View.Panel.display(state, Plain("Unicode input mode"), [])

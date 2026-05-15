@@ -390,10 +390,19 @@ module Platform = {
 module Channels = {
   // Create mock channels for testing
   let make = () => {
-    State.inputMethod: Chan.make(),
-    responseHandled: Chan.make(),
-    commandHandled: Chan.make(),
-    log: Chan.make(),
+    let inputMethod = Chan.make()
+    let log = Chan.make()
+    let channels = {
+      State.inputMethod,
+      responseHandled: Chan.make(),
+      commandHandled: Chan.make(),
+      log,
+    }
+    // bridge IM engine events into the main log channel
+    inputMethod->Chan.on(event =>
+      log->Chan.emit(Log.InputMethod(Log.InputMethod.EngineLog(event)))
+    )->ignore
+    channels
   }
 }
 

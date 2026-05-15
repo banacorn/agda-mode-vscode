@@ -281,6 +281,67 @@ module Config = {
     }
 }
 
+module InputMethod = {
+  module ApplyEditResult = {
+    type t =
+      | Succeeded
+      | Failed
+      | Threw(string)
+  }
+
+  type textChangeRouting = {
+    capturedEditorDocumentFileName: string,
+    stateEditorDocumentFileName: string,
+    eventDocumentFileName: string,
+    capturedEditorIsStateEditor: bool,
+    capturedDocumentIsStateDocument: bool,
+    eventDocumentIsStateDocument: bool,
+    capturedDocumentIsEventDocument: bool,
+  }
+
+  type rewriteApplication = {
+    targetDocumentFileName: string,
+    replacementCount: int,
+    applyEditResult: ApplyEditResult.t,
+  }
+
+  type t =
+    | EngineLog(IM.Log.t)
+    | TextChangeRouting(textChangeRouting)
+    | RewriteApplication(rewriteApplication)
+
+  let toString = event =>
+    switch event {
+    | EngineLog(kinds) => "EngineLog(" ++ string_of_int(Array.length(kinds)) ++ " events)"
+    | TextChangeRouting(r) =>
+      "TextChangeRouting: capturedEditor=" ++
+      r.capturedEditorDocumentFileName ++
+      " stateEditor=" ++
+      r.stateEditorDocumentFileName ++
+      " event=" ++
+      r.eventDocumentFileName ++
+      " capturedIsStateEditor=" ++
+      string_of_bool(r.capturedEditorIsStateEditor) ++
+      " capturedDocIsStateDoc=" ++
+      string_of_bool(r.capturedDocumentIsStateDocument) ++
+      " eventDocIsStateDoc=" ++
+      string_of_bool(r.eventDocumentIsStateDocument) ++
+      " capturedDocIsEventDoc=" ++
+      string_of_bool(r.capturedDocumentIsEventDocument)
+    | RewriteApplication(r) =>
+      "RewriteApplication: target=" ++
+      r.targetDocumentFileName ++
+      " count=" ++
+      string_of_int(r.replacementCount) ++
+      " result=" ++
+      switch r.applyEditResult {
+      | Succeeded => "Succeeded"
+      | Failed => "Failed"
+      | Threw(msg) => "Threw(" ++ msg ++ ")"
+      }
+    }
+}
+
 type t =
   | CommandDispatched(Command.t)
   | CommandHandled(Command.t)
@@ -292,6 +353,7 @@ type t =
   | Connection(Connection.t) // Connection event
   | Config(Config.t) // Configuration event
   | DownloadTrace(Connection__Download__Trace.t) // low-level download trace event
+  | InputMethod(InputMethod.t) // input method diagnostics
   | Others(string) // generic string
 
 let toString = log =>
@@ -306,6 +368,7 @@ let toString = log =>
   | Connection(event) => "[ Connection       ] " ++ Connection.toString(event)
   | Config(event) => "[ Config           ] " ++ Config.toString(event)
   | DownloadTrace(event) => "[ DownloadTrace    ] " ++ Connection__Download__Trace.toString(event)
+  | InputMethod(event) => "[ InputMethod      ] " ++ InputMethod.toString(event)
   | Others(str) => str
   }
 
