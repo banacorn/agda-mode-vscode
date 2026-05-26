@@ -9,8 +9,9 @@ let sendRequest = async (
     request,
     handler: Response.t => promise<unit>,
   ) => {
+    let composedHandler = state.middlewares->Array.reduceRight(handler, (h, mw) => mw(h))
     let onResponse = async response => {
-      let _ = await Registry__Connection.withOwnerContext(state.id, () => handler(response))
+      let _ = await Registry__Connection.withOwnerContext(state.id, () => composedHandler(response))
       state.channels.log->Chan.emit(ResponseHandled(response))
     }
 
