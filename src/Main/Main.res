@@ -425,19 +425,26 @@ let activateWithoutContext = (
   channels
 }
 
+type activationExports = {
+  channels: State.channels,
+  memento: Memento.t,
+}
+
 // this function is the entry point of the whole extension
 let activate = (platformDeps, context) => {
   let subscriptions = VSCode.ExtensionContext.subscriptions(context)
   let extensionUri = VSCode.ExtensionContext.extensionUri(context)
   let globalStorageUri = VSCode.ExtensionContext.globalStorageUri(context)
+  let memento = Memento.make(Some(VSCode.ExtensionContext.workspaceState(context)))
 
-  activateWithoutContext(
+  let channels = activateWithoutContext(
     platformDeps,
     subscriptions,
     extensionUri,
     globalStorageUri,
-    Memento.make(Some(VSCode.ExtensionContext.workspaceState(context))),
+    memento,
   )
+  {channels, memento}
 }
 
 let deactivate = () => ()
