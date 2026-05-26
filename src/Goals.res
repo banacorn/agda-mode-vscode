@@ -848,7 +848,10 @@ module Module: Module = {
         let originalCursorPosition = Editor.Cursor.get(editor)
         // set busy
         setBusy(self)
-        let _ = await Editor.Text.batchReplace(document, rewrites)
+        let applied = await Editor.Text.batchReplace(document, rewrites)
+        if !applied {
+          setNotBusy(self)
+        }
 
         // place the cursor inside a hole if it was there before the rewrite
         let cursorWasWithinRewrites =
