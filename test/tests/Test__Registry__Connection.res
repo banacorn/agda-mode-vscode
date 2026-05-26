@@ -412,34 +412,32 @@ describe("Registry__Connection", () => {
 
     Async.it("should share a single connection mechanism between two different Agda files", async () => {
       await setup()
-      
+
       // Load first file
       let agdaA = await AgdaMode.makeAndLoad("GotoDefinition.agda")
-      
-      // VERIFY Internal: Registry should show 1 process was made
-      let view1 = Registry__Connection.inspect()
-      Assert.deepStrictEqual(view1.makeCount, 1)
-      Assert.deepStrictEqual(view1.userCount, 1)
-      
+
+      let listener = Log.collect(agdaA.channels.log)
+
       // Load second file
       let agdaB = await AgdaMode.makeAndLoad("Lib.agda")
-      
-      // VERIFY Internal: makeCount stays at 1 (Internal Proof of sharing mechanism)
-      let view2 = Registry__Connection.inspect()
-      Assert.deepStrictEqual(view2.makeCount, 1)
-      Assert.deepStrictEqual(view2.userCount, 2)
-      Assert.deepStrictEqual(view2.status, "Active")
-      
-      // TODO: Implement a robust, cross-platform external observation (e.g., filtered pgrep)
-      // to mathematically prove that exactly 1 OS process was spawned throughout the system,
-      // immune to zombie processes from previous test runs.
 
-      // Cleanup
+      let activationEvents =
+        listener()
+        ->Array.filterMap(log =>
+          switch log {
+          | Log.Connection(Log.Connection.ActivationFlow(event)) => Some(event)
+          | _ => None
+          }
+        )
+
+      Assert.deepStrictEqual(activationEvents, [
+        Log.Connection.ActivationFlow.ActivationStarted,
+        Log.Connection.ActivationFlow.ExistingConnectionReused,
+        Log.Connection.ActivationFlow.ActivationSucceeded,
+      ])
+
       await AgdaMode.quit(agdaA)
-      Assert.deepStrictEqual(Registry__Connection.inspect().userCount, 1)
-      
       await AgdaMode.quit(agdaB)
-      Assert.deepStrictEqual(Registry__Connection.inspect().status, "Empty")
     })
   })
 })

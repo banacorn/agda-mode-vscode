@@ -162,23 +162,14 @@ let activationSingleton = ref(None)
 let activateExtension = async (candidate): State.channels => {
   switch activationSingleton.contents {
   | None =>
-    let platformDeps = Desktop.make()
-    // activate the extension
-    let disposables = []
-    let extensionUri = Path.extensionUri
-    let globalStorageUri = Path.globalStorageUri
-    let memento = Memento.make(None)
-    await memento->Memento.PreferredCandidate.set(candidate)
-    let channels = Main.activateWithoutContext(
-      platformDeps,
-      disposables,
-      extensionUri,
-      globalStorageUri,
-      memento,
-    )
-    // store the singleton of activation
-    activationSingleton := Some(channels)
-    channels
+    let extension = switch VSCode.Extensions.getExtension("banacorn.agda-mode") {
+    | None => raise(Failure("Extension banacorn.agda-mode not found"))
+    | Some(ext) => ext
+    }
+    let exports: Main.activationExports = await extension->VSCode.Extension.activate
+    await exports.memento->Memento.PreferredCandidate.set(candidate)
+    activationSingleton := Some(exports.channels)
+    exports.channels
   | Some(channels) => channels
   }
 }
@@ -439,7 +430,27 @@ module AgdaMode = {
     }
   }
 
-  let quit = async (self: t) => await Registry.removeAndDestroy(self.state.document)
+  let quit = async (self: t) => {
+    let _ = await File.open_(self.filepath)
+    let destroyCompleted = Log.on(
+      self.channels.log,
+      log =>
+        switch log {
+        | Log.Others("State.destroy: Connection released, destruction complete") => true
+        | _ => false
+        },
+    )
+
+    switch await executeCommand("agda-mode.quit") {
+    | None => ()
+    | Some(Ok(_)) => ()
+    | Some(Error(error)) =>
+      let (header, body) = Connection.Error.toString(error)
+      raise(Failure(header ++ "\n" ++ body))
+    }
+
+    await destroyCompleted
+  }
 
   let case = async (self, ~cursor, ~payload) => {
     let editor = await File.open_(self.filepath)

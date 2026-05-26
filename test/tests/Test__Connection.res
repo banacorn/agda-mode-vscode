@@ -1104,7 +1104,7 @@ describe("Connection", () => {
         let ctx = await AgdaMode.makeAndLoad("GoalTypeAndContext.agda")
         let listener = Log.collect(ctx.channels.log)
 
-        let _ = await ctx.state->State__Connection.sendRequestAndCollectResponses(Request.Load)
+        await ctx->AgdaMode.execute(Load)
         let activationEvents = collectActivationFlow(listener)
 
         Assert.deepStrictEqual(activationEvents, [

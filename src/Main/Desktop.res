@@ -81,7 +81,7 @@ module Desktop: Platform.PlatformOps = {
 let make = (): Platform.t => module(Desktop)
 
 // this function is the entry point for the desktop extension bundle
-let activate = context => {
+let activate = (context): Main.activationExports => {
   // Delegate to common activation logic
   Main.activate(make(), context)
 }

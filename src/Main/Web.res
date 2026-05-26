@@ -39,7 +39,7 @@ module Web: Platform.PlatformOps = {
 let make = (): Platform.t => module(Web)
 
 // this function is the entry point for the web extension bundle
-let activate = context => {
+let activate = (context): Main.activationExports => {
   // Delegate to common activation logic
   Main.activate(make(), context)
 }
