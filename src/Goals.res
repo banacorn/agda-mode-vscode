@@ -815,6 +815,15 @@ module Module: Module = {
       ->Array.filterMap(((index, state)) => {
         switch state {
         | IsQuestionMark(offset) =>
+          switch getInternalGoalByIndex(self, index) {
+          | None => ()
+          | Some(goal) =>
+            if goal.start != offset {
+              self.positions->AVLTree.remove(goal.start)->ignore
+              self.positions->AVLTree.insert(offset, index)
+              self.goals->Map.set(index, {...goal, start: offset, end: offset + 1})
+            }
+          }
           Some(
             VSCode.Range.make(
               VSCode.TextDocument.positionAt(document, offset),
@@ -832,20 +841,25 @@ module Module: Module = {
       })
 
     if Array.length(rewrites) != 0 {
-      let originalCursorPosition = Editor.Cursor.get(editor)
-      // set busy
-      setBusy(self)
-      let _ = await Editor.Text.batchReplace(document, rewrites)
+      if isBusy(self) {
+        // another scanAllGoals is already widening, skip duplicate rewrites
+        ()
+      } else {
+        let originalCursorPosition = Editor.Cursor.get(editor)
+        // set busy
+        setBusy(self)
+        let _ = await Editor.Text.batchReplace(document, rewrites)
 
-      // place the cursor inside a hole if it was there before the rewrite
-      let cursorWasWithinRewrites =
-        rewrites->Array.some(((range, _)) => VSCode.Range.contains(range, originalCursorPosition))
-      if cursorWasWithinRewrites {
-        switch getGoalAtCursor(self, editor) {
-        | None => () // no goal at cursor, do nothing
-        | Some(goal) =>
-          // set the cursor to the goal
-          setCursorByIndex(self, editor, goal.index)
+        // place the cursor inside a hole if it was there before the rewrite
+        let cursorWasWithinRewrites =
+          rewrites->Array.some(((range, _)) => VSCode.Range.contains(range, originalCursorPosition))
+        if cursorWasWithinRewrites {
+          switch getGoalAtCursor(self, editor) {
+          | None => () // no goal at cursor, do nothing
+          | Some(goal) =>
+            // set the cursor to the goal
+            setCursorByIndex(self, editor, goal.index)
+          }
         }
       }
     } else {
