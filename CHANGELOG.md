@@ -5,20 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## v0.9.1 - 2026-05-01
-### Fixed
-- #301: Downloading GitHub Release assets in browsers will fail due to CORS restrictions
-- Reverting globalStorageUri normalization because it is incorrect in VS Code for the Web
+## v0.9.2 - 2026-05-28
 
-## v0.9.0 - 2026-04-29
 ### Added
-- #282: Overhaul connection management, switch-version UI, and ALS download handling
+- Connection lifecycle observability: structured events for establishment, probing, and download flows by [@banacorn](https://github.com/banacorn)
 
 ### Changed
-- #291: Update semantic token definitions to allow styling more token types
+- #309: Disable E2E compilation testing on Windows (avoid flakiness on CI) by [@banacorn](https://github.com/banacorn)
 
 ### Fixed
-- #297: Allow WASM-based ALS connections can be forcefully terminated
+- #264: Prevent infinite goals multiplication upon reload when edits occur during case-split by [@banacorn](https://github.com/banacorn)
+- #292: Preserve GHC compile backend selection by [@banacorn](https://github.com/banacorn)
+- #305: Restore ALS WASM stdlib fallback when managed library list is empty by [@banacorn](https://github.com/banacorn)
+- #259: Use layout-independent Backslash for input method activation (fixes `ISO_Level3_Shift` triggering) by [@banacorn](https://github.com/banacorn)
+- #234: Suppress unsafe input method previews (e.g., unsafe newline symbols mid-input) by [@banacorn](https://github.com/banacorn)
+- #314: Prevent double activation in test harness by routing through live extension activation by [@banacorn](https://github.com/banacorn)
+- Input method: Filter out non-leaf newline sequences like `\par` (but accept leaf-node ones like `\newline`) by [@banacorn](https://github.com/banacorn)
+
+## v0.9.1 - 2026-05-01
+
+### Fixed
+- #301: Hardcode ALS WASM download URL to workaround CORS restrictions by [@andy0130tw](https://github.com/andy0130tw)
+
+## v0.9.0 - 2026-04-29
+
+### Added
+- #282: Overhauled connection management with channel-based download flow and native-to-WASM fallback on desktop by [@banacorn](https://github.com/banacorn)
+- #297: Allow WASM-based ALS connections to be forcefully terminated by [@andy0130tw](https://github.com/andy0130tw)
+- #298: Integrate ALS WASM Loader library management API by [@andy0130tw](https://github.com/andy0130tw)
+
+### Changed
+- #291: Update semantic token definitions to allow styling more token types by [@andy0130tw](https://github.com/andy0130tw)
+- Switch Version UI overhauled: downloads are now variant-based (native/WASM), active channel is shown in the download header, and native download options are hidden on VS Code for the Web by [@banacorn](https://github.com/banacorn)
+- "Delete Downloads" now removes downloaded paths from `agdaMode.connection.paths` by [@banacorn](https://github.com/banacorn)
+
+### Fixed
+- Windows: Normalize connection candidate paths and URI handling by [@banacorn](https://github.com/banacorn)
+- Download robustness: verify binary exists after unzip, clean up orphaned in-flight files on startup and on "Delete Downloads" by [@banacorn](https://github.com/banacorn)
+- #297: Switch Version UI robustness — re-show QuickPick after channel selection, fix stale `onDidHide` destroying the view, always show "Select other channel" in picker by [@andy0130tw](https://github.com/andy0130tw)
 
 ## v0.8.0 - 2026-03-23
 ### Added
