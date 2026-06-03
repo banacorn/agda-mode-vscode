@@ -17,10 +17,14 @@ let extensionDevelopmentPath = NodeJs.Path.resolve([NodeJs.Global.dirname, "../.
 // The path to the extension test script
 // Passed to --extensionTestsPath
 let extensionTestsPath = NodeJs.Path.resolve([NodeJs.Global.dirname, testSuiteAdapterFileName])
+
+// Keep the per-run temp root short. VS Code creates IPC socket paths under
+// `--user-data-dir`, and long test directory names can exceed the Unix socket
+// path limit and abort the test run before the extension host is usable.
 let tempRunId = {
-  let timestamp = Js.Date.now()->Float.toString
-  let random = Js.Math.random()->Float.toString->Js.String2.sliceToEnd(~from=2)
-  "agda-mode-vscode-test-" ++ timestamp ++ "-" ++ random
+  let timestamp = Js.Date.now()->Float.toString->Js.String2.slice(~from=0, ~to_=10)
+  let random = Js.Math.random()->Float.toString->Js.String2.slice(~from=2, ~to_=8)
+  "agda-" ++ timestamp ++ "-" ++ random
 }
 
 // VS Code creates IPC sockets below --user-data-dir. On Unix-like systems,
