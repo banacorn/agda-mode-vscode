@@ -48,6 +48,9 @@ module type Module = {
   let getHolePositionsFromLoad: t => Resource.t<Map.t<int, int>>
   let getHoles: t => Map.t<int, Token.t<vscodeOffset>>
   let getHolesSorted: t => array<Token.t<vscodeOffset>>
+
+  // For testing: number of Replace nodes accumulated in the deltas structure
+  let deltasLength: t => int
 }
 
 module Module: Module = {
@@ -503,6 +506,8 @@ module Module: Module = {
     ->Map.values
     ->Iterator.toArray
     ->Array.toSorted((x, y) => Int.compare(x.start, y.start))
+
+  let deltasLength = self => TokenIntervals.length(self.deltas)
 }
 
 include Module

@@ -698,3 +698,68 @@ describe("Input Method (Editor)", () => {
     )
   })
 })
+
+describe("Input Method — deltas growth regression", () => {
+  let setup = ref(None)
+
+  Async.before(async () => {
+    let (editor, channels) = await activateExtensionAndOpenFile(Path.asset("InputMethod.agda"), None)
+    setup := Some({editor, channels})
+  })
+
+  Async.afterEach(async () => {
+    let setup = acquire(setup)
+    await cleanup(setup)
+  })
+
+  Async.it(
+    "deltas length should not grow across IM uses",
+    async () => {
+      let setup = acquire(setup)
+
+      // Activate the IM and capture the State so we can read deltasLength.
+      // Subsequent sessions use IM.activate which reuses the same state.
+      let imActivatePromise = IM.waitMany(setup, 1)
+      let stateResult = await executeCommand("agda-mode.input-symbol[Activate]")
+      let state = switch stateResult {
+      | Some(Ok(state)) => state
+      | _ => raise(Js.Exn.raiseError("Could not get State.t from activate command"))
+      }
+      let _ = await imActivatePromise
+
+      // Session 1 (IM already active from above): "bn" → 𝕟, auto-deactivates
+      let _ = await IM.insertChar(setup, "b")
+      let _ = await IM.insertChar(setup, "n")
+      let l1 = state.tokens->Tokens.deltasLength
+
+      // Session 2
+      let _ = await IM.activate(setup, ())
+      let _ = await IM.insertChar(setup, "b")
+      let _ = await IM.insertChar(setup, "n")
+      let l2 = state.tokens->Tokens.deltasLength
+
+      // Session 3
+      let _ = await IM.activate(setup, ())
+      let _ = await IM.insertChar(setup, "b")
+      let _ = await IM.insertChar(setup, "n")
+      let l3 = state.tokens->Tokens.deltasLength
+
+      // Session 4
+      let _ = await IM.activate(setup, ())
+      let _ = await IM.insertChar(setup, "b")
+      let _ = await IM.insertChar(setup, "n")
+      let l4 = state.tokens->Tokens.deltasLength
+
+      // Session 5
+      let _ = await IM.activate(setup, ())
+      let _ = await IM.insertChar(setup, "b")
+      let _ = await IM.insertChar(setup, "n")
+      let l5 = state.tokens->Tokens.deltasLength
+
+      // Every session types the same two characters and produces the same symbol.
+      // deltasLength should be identical after each one.
+      // In practice it keeps climbing, demonstrating the progressive slowdown.
+      Assert.deepStrictEqual([l1, l2, l3, l4, l5], [l1, l1, l1, l1, l1])
+    },
+  )
+})

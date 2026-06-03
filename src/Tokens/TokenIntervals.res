@@ -104,6 +104,13 @@ let debugIsValid = xs => {
   }
 }
 
+// For testing: number of Replace nodes in the structure
+let rec length = xs =>
+  switch xs {
+  | EOF => 0
+  | Replace(_, _, _, tail) => 1 + length(tail)
+  }
+
 // For testing: the last delta should be the total delta
 let rec totalDelta = xs =>
   switch xs {
