@@ -42,87 +42,71 @@ A `deltasLength` function was added to expose the internal node count:
 
 The test in `test/tests/Test__EditorIM.res` ("Input Method — deltas growth regression") runs five back-to-back IM sessions. Each session does exactly the same work: activate the IM, type `b` then `n` (which translates to `𝕟` and auto-deactivates), then record `deltasLength`. The assertion is that all five values are equal.
 
-The test **fails**:
+The test **fails** with linear growth:
 
 ```
 AssertionError: Expected values to be strictly deep-equal:
 
-actual:   [ 2, 3, 4, 5, 6 ]
-expected: [ 2, 2, 2, 2, 2 ]
+actual:   [ 2, 3, 4, 5, 6 ]  // or [3, 4, 5, 6, 7], depending on earlier edits in the suite
+expected: [ 2, 2, 2, 2, 2 ]  // or the same first value repeated
 ```
 
 `deltasLength` increases by one with every IM session, even though each session types the same two characters. No Agda reload (`ClearHighlighting`) happened between sessions, so the edit history is never reset. Since `generateHighlighting` traverses the full list on every subsequent keystroke, a session that has gone through twenty IM uses is processing a list ten times longer than one that has gone through two — which is exactly the "gradually getting slower" shape users are reporting.
 
-## Handoff: regression guards before rebasing
+## Regression guard baseline
 
-Before implementing any rebasing, add tests that lock down the observable behavior that `Tokens.applyEdit` and `generateHighlighting` already provide. The fix should change how much stale edit history is retained, not what users see after edits.
+The guard suite is now in place. It locks down both behavior that must continue to work during rebasing and behavior that the rebasing fix is expected to correct.
 
-### Executor checklist
+Current pre-rebase baseline:
 
-The executor/coder owns this checklist. Update it while working: use `[ ]` for not started, `[~]` for in progress, and `[x]` for done. Keep status notes short but concrete: test filename, test name, and observed pass/fail status.
+- `npm test` has exactly four intentional failures: Guards 1, 5, 7, and 9.
+- Guards 2, 3, 4, 6, and 8 pass and must stay green.
+- After rebasing, all guards should pass.
+- Do not weaken `Tokens.deltasLength` or replace concrete position/range assertions with weaker non-empty checks.
 
-- [ ] **Guard 1: keep the IM accumulation reproducer**
-  - File: `test/tests/Test__EditorIM.res`
-  - Status note:
-  - Test shape: run five consecutive IM sessions in one editor session. Each session activates the IM, types `b`, types `n`, and records `Tokens.deltasLength`.
-  - Current-code expectation: this test fails with actual `[2, 3, 4, 5, 6]` vs expected `[2, 2, 2, 2, 2]`.
-  - Post-fix expectation: this test passes because `deltas` no longer accumulates across IM sessions.
+| Guard | Test file | Purpose | Pre-rebase expectation |
+|------:|-----------|---------|------------------------|
+| 1 | `test/tests/Test__EditorIM.res` | Reproduce IM `deltas` accumulation across repeated IM sessions. | Fails with linear `deltasLength` growth. |
+| 2 | `test/tests/Test__TokenBookkeeping.res` | Keep semantic-token positions correct after repeated ordinary inserts. | Passes. |
+| 3 | `test/tests/Test__TokenBookkeeping.res` | Remove deleted highlighted tokens and keep remaining token positions correct. | Passes. |
+| 4 | `test/tests/Test__Tokens.res` | Keep hole start/end offsets correct after repeated edits before the hole. | Passes. |
+| 5 | `test/tests/Test__Tokens.res` | Keep go-to-definition source ranges correct after a positive-delta edit before the referenced token. | Fails: source range is stale by one column. |
+| 6 | `test/tests/Test__TokenBookkeeping.res` | Confirm `Command.Load` clears deltas and does not retain old decorations. | Passes. |
+| 7 | `test/tests/Test__Tokens.res` | Ensure `Tokens.toTokenArray` reports current positions after positive-delta edits. | Fails: the `data` token maps to `(1,0)` instead of `(3,0)`. |
+| 8 | `test/tests/Test__TokenBookkeeping.res` | Keep decoration ranges correct after ordinary edits. | Passes. |
+| 9 | `test/tests/Test__Tokens.res` | Ensure `Tokens.toTokenArray` and go-to-definition handle negative-delta edits. | Fails: the moved `f` token maps to `(11,27)` instead of `(11,26)`. |
 
-- [ ] **Guard 2: semantic-token and decoration positions after repeated ordinary edits**
-  - File: `test/tests/Test__TokenBookkeeping.res` or `test/tests/Test__Tokens.res`
-  - Status note:
-  - Test shape: load an existing fixture such as `Issue180.agda`, make one edit before known highlighted tokens, wait for token update, assert `Highlighting__SemanticToken.toString` output, then make a second edit before the same region and assert translated token output again. If the fixture produces decorations, also assert `Tokens.toDecorations` ranges after both edits.
-  - Current-code expectation: this guard passes before rebasing starts.
-  - Post-fix expectation: this guard still passes.
+## Handoff: implement rebasing
 
-- [ ] **Guard 3: token removal after deleting highlighted source**
-  - File: `test/tests/Test__TokenBookkeeping.res` or `test/tests/Test__Tokens.res`
-  - Status note:
-  - Test shape: load a fixture with known highlighted tokens, delete a line or range containing those tokens, assert removed tokens no longer appear in `Tokens.getVSCodeTokens`, then make another edit after the deletion and assert remaining tokens still have correct positions.
-  - Current-code expectation: this guard passes before rebasing starts.
-  - Post-fix expectation: this guard still passes.
+Goal: stop `deltas` from accumulating across ordinary edits and IM edits while preserving every visible token, decoration, hole, and go-to-definition position.
 
-- [ ] **Guard 4: hole positions after repeated edits**
-  - File: `test/tests/Test__Tokens.res`, `test/tests/Test__TokenBookkeeping.res`, or an existing goal-position test file if that fits better.
-  - Status note:
-  - Test shape: load a fixture with a hole, such as `GotoDefinition.agda` or another existing goal fixture; make an edit before the hole; read `Tokens.getHolePositionsFromLoad`; assert the hole start/end offsets moved to current editor positions; make a second edit before the hole and assert the positions move exactly once again.
-  - Current-code expectation: this guard passes before rebasing starts.
-  - Post-fix expectation: this guard still passes.
+Recommended invariant after each edit:
 
-- [ ] **Guard 5: go-to-definition after edits before the referenced token**
-  - File: `test/tests/Test__Tokens.res`
-  - Status note:
-  - Test shape: extend the existing `goToDefinition` coverage. Load `Lib.agda`, insert text before the token used by the current go-to-definition test, call `Tokens.goToDefinition` at the token's new editor position, and assert it still returns the same source filepath and definition position. Also assert the returned source range is at the token's new editor range.
-  - Current-code expectation: this guard passes before rebasing starts.
-  - Post-fix expectation: this guard still passes.
+- `agdaTokens` are stored in current VSCode offsets.
+- `holes` is keyed by current VSCode offsets.
+- `deltas == TokenIntervals.empty`.
+- `generateHighlighting`, `toTokenArray`, and `goToDefinition` read current offsets and do not apply already-consumed deltas again.
 
-- [ ] **Guard 6: load/reset behavior**
-  - File: `test/tests/Test__TokenBookkeeping.res`
-  - Status note:
-  - Test shape: keep or extend the existing `Command.Load` test. Confirm `Command.Load` still clears old deltas via `ClearHighlighting`, highlighting after a load is based on fresh Agda tokens, and decorations from a previous load do not survive into the next load.
-  - Current-code expectation: this guard passes before rebasing starts.
-  - Post-fix expectation: this guard still passes.
+Suggested implementation shape:
 
-- [ ] **Guard 7: token tree structure after rebasing-sensitive edits**
-  - File: `test/tests/Test__Tokens.res`
-  - Status note:
-  - Test shape: load a fixture with multiple tokens on the same and following lines; make two edits before those tokens; read `Tokens.toTokenArray`; assert token starts are sorted, unique, and match current editor positions; assert `Tokens.goToDefinition` still finds a token whose start moved because of those edits.
-  - Current-code expectation: this guard passes before rebasing starts.
-  - Post-fix expectation: this guard still passes.
+1. Add a small helper near `traverseIntervals`, for example `rebaseTokens(self)`.
+2. In `applyEdit`, keep the existing `TokenIntervals.applyChanges` call to incorporate the latest document changes.
+3. Immediately call `rebaseTokens(self)` before `generateHighlighting`.
+4. In `rebaseTokens`, traverse `self->toTokenArray` with `self.deltas`.
+5. For `Remove`, omit the token from the rebuilt tree.
+6. For `Translate(delta)`, insert `{...token, start: token.start + delta, end: token.end + delta}` into a fresh `agdaTokens` tree.
+7. Rebuild `self.holes` from the translated tokens at the same time, using translated starts as keys.
+8. Set `self.deltas = TokenIntervals.empty` after rebuilding tokens and holes.
+9. Then call `generateHighlighting(self, editor)`.
 
-### Reviewer/investigator checklist
+Main risk: double-applying deltas. If tokens are rebased to current offsets but `deltas` is left non-empty, `generateHighlighting` will shift the same edit again. If `deltas` is cleared before tokens are rebased, removed tokens and shifted ranges can be lost. Keep the boundary explicit: consume `deltas` once, rebuild current-offset token state, then clear `deltas`.
 
-The reviewer/investigator owns this checklist. The executor/coder should not mark these items complete; it should leave enough test output and status notes for the reviewer to evaluate them.
+Expected result:
 
-- [ ] **Baseline review before rebasing**
-  - `npm test` should have exactly one expected failure: the IM accumulation reproducer.
-  - All newly added guards except the IM accumulation reproducer should pass on current code.
-  - If any non-IM guard fails before rebasing, fix the guard or explain why the current behavior is already broken before proceeding.
-
-- [ ] **Post-rebase review**
-  - `npm test` should pass.
-  - The IM accumulation reproducer must pass without deleting or weakening `Tokens.deltasLength`.
-  - The non-IM guards must still assert concrete positions/ranges, not only non-empty outputs.
+- Guards 1, 5, 7, and 9 turn green.
+- Guards 2, 3, 4, 6, and 8 stay green.
+- `npm test` passes.
+- `Tokens.deltasLength` remains available and meaningful as a regression probe; do not delete or weaken it.
 
 ## Relevant files
 
