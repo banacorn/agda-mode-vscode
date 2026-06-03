@@ -1,0 +1,3 @@
+name: cache-hole
+include: .
+flags: --allow-unsolved-metas
