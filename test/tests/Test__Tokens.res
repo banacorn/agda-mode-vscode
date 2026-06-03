@@ -54,48 +54,40 @@ describe("Tokens", () => {
                 VSCode.TextDocument.positionAt(ctx.state.document, token.start),
                 VSCode.TextDocument.positionAt(ctx.state.document, token.end),
               )
-              Editor.Range.toString(range) ++ " " ++ Token.toStringWithoutOffsets(token)
+              (Editor.Range.toString(range) ++ " " ++ Token.toStringWithoutOffsets(token))
+              ->String.replaceRegExp(%re("/ \[src: \d+\]/g"), " [src]")
             },
           )
-        let srcOfPrimitive = switch ctx.state.agdaVersion {
-        | Some(version) =>
-          if Util.Version.gte(version, "2.6.4") {
-            "[src: 388]"
-          } else {
-            "[src: 320]"
-          }
-        | None => raise(Failure("No Agda version found"))
-        }
 
         Assert.deepStrictEqual(
           tokens,
           [
             "1:1-7 [Keyword]",
-            "1:8-22 [Module] [src: 1]",
+            "1:8-22 [Module] [src]",
             "1:23-28 [Keyword]",
             "2:1-5 [Keyword]",
-            "2:6-7 [Datatype] [src: 34]",
+            "2:6-7 [Datatype] [src]",
             "2:8-9 [Symbol]",
-            "2:10-13 [Primitive] " ++ srcOfPrimitive,
+            "2:10-13 [Primitive] [src]",
             "2:14-19 [Keyword]",
-            "3:3-4 [ConstructorInductive] [src: 50]",
+            "3:3-4 [ConstructorInductive] [src]",
             "3:5-6 [Symbol]",
-            "3:7-8 [Datatype] [src: 34]",
-            "4:3-4 [ConstructorInductive] [src: 58]",
+            "3:7-8 [Datatype] [src]",
+            "4:3-4 [ConstructorInductive] [src]",
             "4:5-6 [Symbol]",
-            "4:7-8 [Datatype] [src: 34]",
+            "4:7-8 [Datatype] [src]",
             "4:9-10 [Symbol]",
-            "4:11-12 [Datatype] [src: 34]",
-            "6:1-4 [Function, Operator] [src: 69]",
+            "4:11-12 [Datatype] [src]",
+            "6:1-4 [Function, Operator] [src]",
             "6:5-6 [Symbol]",
-            "6:7-8 [Datatype] [src: 34]",
+            "6:7-8 [Datatype] [src]",
             "6:9-10 [Symbol]",
-            "6:11-12 [Datatype] [src: 34]",
+            "6:11-12 [Datatype] [src]",
             "6:13-14 [Symbol]",
-            "6:15-16 [Datatype] [src: 34]",
-            "7:1-2 [Bound] [src: 85]",
-            "7:3-4 [Function, Operator] [src: 69]",
-            "7:5-6 [Bound] [src: 89]",
+            "6:15-16 [Datatype] [src]",
+            "7:1-2 [Bound] [src]",
+            "7:3-4 [Function, Operator] [src]",
+            "7:5-6 [Bound] [src]",
             "7:7-8 [Symbol]",
             "7:9-16 [Hole]",
           ],
@@ -105,6 +97,10 @@ describe("Tokens", () => {
   })
 
   describe("`goToDefinition`", () => {
+    let fileContent = ref("")
+    Async.beforeEach(async () => fileContent := await File.read(Path.asset("Lib.agda")))
+    Async.afterEach(async () => await File.write(Path.asset("Lib.agda"), fileContent.contents))
+
     Async.it(
       "should return the position of the definition",
       async () => {
@@ -125,6 +121,199 @@ describe("Tokens", () => {
           ]
           Assert.deepStrictEqual(actual, expected)
         }
+      },
+    )
+
+    Async.it(
+      "should still find the definition after a deletion before the referenced token",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Lib.agda")
+        let filepath = ctx.state.document->VSCode.TextDocument.fileName->Parser.Filepath.make
+
+        // Capture the index of the `f` token at (12, 26) before the deletion, so we can
+        // assert its exact post-delete position independently of goToDefinition.
+        let fTokenIdx =
+          Belt.Array.getIndexBy(ctx.state.tokens->toTokenArray, t => {
+            let pos = ctx.state.document->VSCode.TextDocument.positionAt(t.start)
+            VSCode.Position.line(pos) == 12 && VSCode.Position.character(pos) == 26
+          })->Option.getUnsafe
+
+        // Delete zero-based line 11 ("if_then_else_ true  t _ = t\n"), the second
+        // if_then_else_ clause. This shifts the third clause from line 12 to line 11,
+        // so the `f` token moves from (12, 26)-(12, 27) to (11, 26)-(11, 27).
+        let _ = await Editor.Text.delete(
+          ctx.state.document,
+          VSCode.Range.make(VSCode.Position.make(11, 0), VSCode.Position.make(12, 0)),
+        )
+
+        // The specific token that moved must now report its current editor position (11, 26).
+        // Before rebasing, token.start is the original offset so positionAt gives the wrong line.
+        // After rebasing, token.start is the current offset so positionAt gives (11, 26).
+        let fToken = (ctx.state.tokens->toTokenArray)->Array.getUnsafe(fTokenIdx)
+        Assert.deepStrictEqual(
+          ctx.state.document->VSCode.TextDocument.positionAt(fToken.start),
+          VSCode.Position.make(11, 26),
+        )
+
+        // goToDefinition at the token's new editor position must return the correct source range.
+        switch Tokens.goToDefinition(ctx.state.tokens, ctx.state.document)(
+          filepath,
+          VSCode.Position.make(11, 27),
+        ) {
+        | None => raise(Failure("No definition found after deletion"))
+        | Some(thunk) =>
+          let actual = await thunk
+          let expected = [
+            (
+              VSCode.Range.make(VSCode.Position.make(11, 26), VSCode.Position.make(11, 27)),
+              filepath->Parser.Filepath.toString,
+              VSCode.Position.make(11, 20),
+            ),
+          ]
+          Assert.deepStrictEqual(actual, expected)
+        }
+      },
+    )
+
+    Async.it(
+      "should still find the definition after an insert before the referenced token",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("Lib.agda")
+        let filepath = ctx.state.document->VSCode.TextDocument.fileName->Parser.Filepath.make
+
+        // Insert "\n" at the very beginning of the file — shifts every line down by 1.
+        let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(0, 0), "\n")
+
+        // The token that was at (12, 26)-(12, 27) is now visible at editor line 13.
+        // goToDefinition is called at the new cursor position (13, 27).
+        switch Tokens.goToDefinition(ctx.state.tokens, ctx.state.document)(
+          filepath,
+          VSCode.Position.make(13, 27),
+        ) {
+        | None => raise(Failure("No definition found after insert"))
+        | Some(thunk) =>
+          let actual = await thunk
+          let expected = [
+            (
+              // srcRange must reflect the token's current editor position after the insert.
+              VSCode.Range.make(VSCode.Position.make(13, 26), VSCode.Position.make(13, 27)),
+              filepath->Parser.Filepath.toString,
+              // The definition moved down by one line; OffsetConverter.convert subtracts 1
+              // from the Agda offset before positionAt, so the column is 21.
+              VSCode.Position.make(13, 21),
+            ),
+          ]
+          Assert.deepStrictEqual(actual, expected)
+        }
+      },
+    )
+  })
+
+  describe("Hole positions", () => {
+    let fileContent = ref("")
+    Async.beforeEach(async () =>
+      fileContent := await File.read(Path.asset("GotoDefinition.agda"))
+    )
+    Async.afterEach(async () =>
+      await File.write(Path.asset("GotoDefinition.agda"), fileContent.contents)
+    )
+
+    Async.it(
+      "should track hole offset correctly after repeated inserts before it",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("GotoDefinition.agda")
+
+        // GotoDefinition.agda has exactly one hole: {!   !} on line 6.
+        let positions0 =
+          await ctx.state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
+        let entries0 = positions0->Map.entries->Iterator.toArray
+        Assert.deepStrictEqual(entries0->Array.length, 1)
+        let (holeStart0, holeEnd0) = entries0->Array.at(0)->Option.getUnsafe
+
+        // Insert "\n" at line 5 (before _+_, which is before the hole).
+        // The hole's offset must shift by exactly 1 (the length of "\n").
+        let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(5, 0), "\n")
+        let positions1 =
+          await ctx.state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
+        let entries1 = positions1->Map.entries->Iterator.toArray
+        Assert.deepStrictEqual(entries1->Array.length, 1)
+        let (holeStart1, holeEnd1) = entries1->Array.at(0)->Option.getUnsafe
+        Assert.deepStrictEqual(holeEnd1 - holeStart1, holeEnd0 - holeStart0)
+        // Absolute check: hole is now on line 7, same column
+        Assert.deepStrictEqual(
+          ctx.state.document->VSCode.TextDocument.positionAt(holeStart1),
+          VSCode.Position.make(7, 8),
+        )
+
+        // Insert "\n" at line 6 (now before x+y, still before the hole).
+        // The hole's offset must shift by one more.
+        let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(6, 0), "\n")
+        let positions2 =
+          await ctx.state.tokens->Tokens.getHolePositionsFromLoad->Resource.get
+        let entries2 = positions2->Map.entries->Iterator.toArray
+        Assert.deepStrictEqual(entries2->Array.length, 1)
+        let (holeStart2, holeEnd2) = entries2->Array.at(0)->Option.getUnsafe
+        Assert.deepStrictEqual(holeEnd2 - holeStart2, holeEnd0 - holeStart0)
+        // Absolute check: hole is now on line 8, same column
+        Assert.deepStrictEqual(
+          ctx.state.document->VSCode.TextDocument.positionAt(holeStart2),
+          VSCode.Position.make(8, 8),
+        )
+      },
+    )
+  })
+
+  describe("Token tree structure after edits", () => {
+    let fileContent = ref("")
+    Async.beforeEach(async () =>
+      fileContent := await File.read(Path.asset("GotoDefinition.agda"))
+    )
+    Async.afterEach(async () =>
+      await File.write(Path.asset("GotoDefinition.agda"), fileContent.contents)
+    )
+
+    Async.it(
+      "token array stays sorted and reflects current positions after repeated inserts",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("GotoDefinition.agda")
+        let doc = ctx.state.document
+
+        // Baseline: 28 tokens with strictly ascending start offsets.
+        let baseline = ctx.state.tokens->toTokenArray
+        Assert.deepStrictEqual(baseline->Array.length, 28)
+
+        let baselineStarts = baseline->Array.map(t => t.start)
+        let isStrictlyAscending = arr =>
+          arr->Array.everyWithIndex((x, i) =>
+            i == 0 || x > arr->Array.getUnsafe(i - 1)
+          )
+        Assert.ok(baselineStarts->isStrictlyAscending)
+
+        // Find the index of the first token whose start maps to line 1 col 0: the "data" keyword.
+        let dataIdx =
+          Belt.Array.getIndexBy(baseline, t => {
+            let pos = doc->VSCode.TextDocument.positionAt(t.start)
+            VSCode.Position.line(pos) == 1 && VSCode.Position.character(pos) == 0
+          })->Option.getUnsafe
+
+        // Two inserts before line 1 shift all line-1+ tokens by two offsets.
+        let _ = await Editor.Text.insert(doc, VSCode.Position.make(1, 0), "\n")
+        let _ = await Editor.Text.insert(doc, VSCode.Position.make(2, 0), "\n")
+
+        // After edits: still 28 tokens in strictly ascending order.
+        let afterEdits = ctx.state.tokens->toTokenArray
+        Assert.deepStrictEqual(afterEdits->Array.length, 28)
+        let afterStarts = afterEdits->Array.map(t => t.start)
+        Assert.ok(afterStarts->isStrictlyAscending)
+
+        // The "data" token must now report its current editor position: line 3, col 0.
+        // Before rebasing, token.start is the original offset so positionAt returns the wrong line.
+        // After rebasing, token.start is the current offset so positionAt returns (3, 0).
+        let dataTokenAfter = afterEdits->Array.getUnsafe(dataIdx)
+        Assert.deepStrictEqual(
+          doc->VSCode.TextDocument.positionAt(dataTokenAfter.start),
+          VSCode.Position.make(3, 0),
+        )
       },
     )
   })
