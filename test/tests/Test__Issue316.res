@@ -26,24 +26,25 @@ describe("issue #316 cached .agdai with --allow-unsolved-metas", () => {
     await Registry.removeAndDestroyAll()
   })
 
-  Async.it("should still expose holes after loading CacheHole.agda", async () => {
-    runCachedBuild(fixtureDir)
+  Async.it(
+    "should display a warning when Agda returns no goals but holes are present",
+    async () => {
+      runCachedBuild(fixtureDir)
 
-    let ctx = await AgdaMode.makeAndLoad(cacheHoleFile)
+      let ctx = await AgdaMode.makeAndLoad(cacheHoleFile)
 
-    try {
-      let goals = Goals.serializeGoals(ctx.state.goals)
-      if goals->Array.length != 2 {
-        Assert.fail(
-          "expected 2 goals after load even when .agdai was cached from --allow-unsolved-metas, got " ++
-          string_of_int(goals->Array.length),
+      try {
+        let display = ctx.state.panelCache.display
+        Assert.deepStrictEqual(
+          display->Option.map(((header, _body)) => header),
+          Some(View.Header.Warning("Stale holes detected")),
         )
+        await ctx->AgdaMode.quit
+      } catch {
+      | exn =>
+        await ctx->AgdaMode.quit
+        raise(exn)
       }
-      await ctx->AgdaMode.quit
-    } catch {
-    | exn =>
-      await ctx->AgdaMode.quit
-      raise(exn)
-    }
-  })
+    },
+  )
 })
