@@ -22,7 +22,15 @@ let tempRunId = {
   let random = Js.Math.random()->Float.toString->Js.String2.sliceToEnd(~from=2)
   "agda-mode-vscode-test-" ++ timestamp ++ "-" ++ random
 }
-let tempTestRoot = NodeJs.Path.join([NodeJs.Os.tmpdir(), tempRunId])
+
+// VS Code creates IPC sockets below --user-data-dir. On Unix-like systems,
+// os.tmpdir() can be long enough to exceed the socket path limit, so prefer /tmp.
+let tempRootBase = if OS.onUnix && NodeJs.Fs.existsSync("/tmp") {
+  "/tmp"
+} else {
+  NodeJs.Os.tmpdir()
+}
+let tempTestRoot = NodeJs.Path.join([tempRootBase, tempRunId])
 let testUserDataDir = NodeJs.Path.join([tempTestRoot, "user-data"])
 let testExtensionsDir = NodeJs.Path.join([tempTestRoot, "extensions"])
 
