@@ -210,18 +210,27 @@ module Module: Module = {
     let document = editor->VSCode.TextEditor.document
     let text = Editor.Text.getAll(document)
     let offsetConverter = Agda.OffsetConverter.make(text)
-    
+    let currentFilepath = document->VSCode.TextDocument.fileName->Parser.Filepath.make
+
     tokens->Array.forEach(token => {
       let start = Agda.OffsetConverter.convert(offsetConverter, token.start)
       let end = Agda.OffsetConverter.convert(offsetConverter, token.end)
-      
-      
+      // Same-file source: convert to VSCode now so rebaseTokens can apply VSCode deltas directly.
+      // Cross-file source: keep as Agda offset; lookupSrcLoc will convert with the source file's text.
+      let source = token.source->Option.map(((filepath, agdaOffset)) =>
+        if filepath == currentFilepath {
+          (filepath, Agda.OffsetConverter.convert(offsetConverter, agdaOffset - 1))
+        } else {
+          (filepath, agdaOffset)
+        }
+      )
       insertWithVSCodeOffsets(
         self,
         {
           ...token,
           start,
           end,
+          source,
         },
       )
     })
@@ -271,6 +280,7 @@ module Module: Module = {
   let lookupSrcLoc = (self, document, offset): option<
     promise<array<(VSCode.Range.t, string, VSCode.Position.t)>>,
   > => {
+    let currentFilepath = document->VSCode.TextDocument.fileName->Parser.Filepath.make
     self.agdaTokens
     ->AVLTree.lowerBound(offset)
     ->Option.flatMap(token => {
@@ -278,19 +288,23 @@ module Module: Module = {
         VSCode.TextDocument.positionAt(document, token.start),
         VSCode.TextDocument.positionAt(document, token.end),
       )
-      token.source->Option.map(((filepath, offset)) => (
-        srcRange,
-        Parser.Filepath.toString(filepath),
-        offset,
-      ))
+      // Keep filepath as Parser.Filepath.t so we can compare it with currentFilepath below.
+      token.source->Option.map(((filepath, srcOffset)) => (srcRange, filepath, srcOffset))
     })
-    ->Option.map(((srcRange, filepath, offset)) => {
-      VSCode.Workspace.openTextDocumentWithFileName(filepath)->Promise.thenResolve(document => {
-        let text = Editor.Text.getAll(document)
-        let offsetConverter = Agda.OffsetConverter.make(text)
-        let offset = Agda.OffsetConverter.convert(offsetConverter, offset - 1)
-        let position = VSCode.TextDocument.positionAt(document, offset)
-        [(srcRange, filepath, position)]
+    ->Option.map(((srcRange, filepath, srcOffset)) => {
+      let filepathStr = Parser.Filepath.toString(filepath)
+      VSCode.Workspace.openTextDocumentWithFileName(filepathStr)->Promise.thenResolve(sourceDoc => {
+        let position = if filepath == currentFilepath {
+          // Same-file: srcOffset is a VSCode 0-based offset (converted at load, rebased on edits)
+          VSCode.TextDocument.positionAt(sourceDoc, srcOffset)
+        } else {
+          // Cross-file: srcOffset is an Agda 1-based offset; convert with the source file's text
+          let text = Editor.Text.getAll(sourceDoc)
+          let offsetConverter = Agda.OffsetConverter.make(text)
+          let vscodeOffset = Agda.OffsetConverter.convert(offsetConverter, srcOffset - 1)
+          VSCode.TextDocument.positionAt(sourceDoc, vscodeOffset)
+        }
+        [(srcRange, filepathStr, position)]
       })
     })
   }
@@ -413,6 +427,63 @@ module Module: Module = {
     traverse(init, 0, deltas, 0)
   }
 
+  // Consume self.deltas once: update every token to its current VSCode offset,
+  // drop removed tokens, rebuild holes, then clear deltas.
+  // editingFilepath is used to rebase token.source offsets that live in the same file.
+  let rebaseTokens = (self, editingFilepath) => {
+    // Apply self.deltas to a VSCode 0-based source offset, returning its updated position.
+    // Both self.deltas and source offsets are in VSCode (UTF-16) units, so this is exact for
+    // all text — ASCII, CRLF, and non-BMP Unicode alike.
+    let translateSourceOffset = vscodeOffset => {
+      let rec go = (intervals, deltaBefore) =>
+        switch intervals {
+        | TokenIntervals.EOF => vscodeOffset + deltaBefore
+        | Replace(removalStart, removeEnd, deltaAfter, tail) =>
+          if vscodeOffset < removalStart {
+            vscodeOffset + deltaBefore
+          } else if vscodeOffset < removeEnd {
+            removalStart + deltaBefore
+          } else {
+            go(tail, deltaAfter)
+          }
+        }
+      go(self.deltas, 0)
+    }
+
+    let newAgdaTokens = AVLTree.make()
+    let newHoles = Map.make()
+    traverseIntervals(
+      self->toTokenArray,
+      self.deltas,
+      ((), token, action) =>
+        switch action {
+        | Remove => ()
+        | Translate(delta) =>
+          let newSource = token.source->Option.map(((filepath, srcOffset)) =>
+            if filepath == editingFilepath {
+              (filepath, translateSourceOffset(srcOffset))
+            } else {
+              (filepath, srcOffset)
+            }
+          )
+          let rebased = {
+            ...token,
+            start: token.start + delta,
+            end: token.end + delta,
+            source: newSource,
+          }
+          if rebased.aspects->Array.some(x => x == Aspect.Hole) {
+            newHoles->Map.set(rebased.start, rebased)
+          }
+          newAgdaTokens->AVLTree.insert(rebased.start, rebased)->ignore
+        },
+      (),
+    )
+    self.agdaTokens = newAgdaTokens
+    self.holes = newHoles
+    self.deltas = TokenIntervals.empty
+  }
+
   // Generate highlighting from the deltas and agdaTokens
   let generateHighlighting = (self, editor) => {
     let document = editor->VSCode.TextEditor.document
@@ -464,6 +535,8 @@ module Module: Module = {
 
   // Update the deltas and generate new tokens
   let applyEdit = (self, editor, event) => {
+    let document = editor->VSCode.TextEditor.document
+    let editingFilepath = document->VSCode.TextDocument.fileName->Parser.Filepath.make
     let changes =
       event
       ->VSCode.TextDocumentChangeEvent.contentChanges
@@ -471,6 +544,7 @@ module Module: Module = {
 
     // update the deltas
     self.deltas = TokenIntervals.applyChanges(self.deltas, changes->Array.toReversed)
+    rebaseTokens(self, editingFilepath)
     let _ = generateHighlighting(self, editor)
   }
 

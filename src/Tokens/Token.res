@@ -10,12 +10,17 @@ type vscodeOffset
 type filepath = string
 
 type t<'a> = {
-  start: int, // agda offset
-  end: int, // agda offset
+  // start/end are VSCode (UTF-16) offsets after insertTokens converts them from Agda offsets.
+  // They are kept current by rebaseTokens after every edit.
+  start: int,
+  end: int,
   aspects: array<Aspect.t>, // a list of names of aspects
   isTokenBased: bool,
   note: option<string>,
-  source: option<(Parser.Filepath.t, int)>, // The defining module and the position in that module
+  // The defining module and offset of the definition.
+  // Same-file definitions: offset is a VSCode (UTF-16) offset (converted at load, rebased on edit).
+  // Cross-file definitions: offset is an Agda 1-based offset (converted at use time in lookupSrcLoc).
+  source: option<(Parser.Filepath.t, int)>,
 }
 
 let toStringWithoutOffsets = self =>

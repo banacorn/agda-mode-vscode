@@ -130,13 +130,18 @@ describe("Tokens", () => {
         let ctx = await AgdaMode.makeAndLoad("Lib.agda")
         let filepath = ctx.state.document->VSCode.TextDocument.fileName->Parser.Filepath.make
 
-        // Capture the index of the `f` token at (12, 26) before the deletion, so we can
-        // assert its exact post-delete position independently of goToDefinition.
-        let fTokenIdx =
-          Belt.Array.getIndexBy(ctx.state.tokens->toTokenArray, t => {
+        // Capture the `f` token at (12, 26) and record its raw start offset.
+        // We also compute the length of line 11 (the line we are about to delete)
+        // so we can assert the exact new offset after rebasing.
+        let fTokenBefore =
+          Belt.Array.getBy(ctx.state.tokens->toTokenArray, t => {
             let pos = ctx.state.document->VSCode.TextDocument.positionAt(t.start)
             VSCode.Position.line(pos) == 12 && VSCode.Position.character(pos) == 26
           })->Option.getUnsafe
+        let fStartBefore = fTokenBefore.start
+        let deletedLength =
+          ctx.state.document->VSCode.TextDocument.offsetAt(VSCode.Position.make(12, 0)) -
+          ctx.state.document->VSCode.TextDocument.offsetAt(VSCode.Position.make(11, 0))
 
         // Delete zero-based line 11 ("if_then_else_ true  t _ = t\n"), the second
         // if_then_else_ clause. This shifts the third clause from line 12 to line 11,
@@ -146,14 +151,15 @@ describe("Tokens", () => {
           VSCode.Range.make(VSCode.Position.make(11, 0), VSCode.Position.make(12, 0)),
         )
 
-        // The specific token that moved must now report its current editor position (11, 26).
-        // Before rebasing, token.start is the original offset so positionAt gives the wrong line.
-        // After rebasing, token.start is the current offset so positionAt gives (11, 26).
-        let fToken = (ctx.state.tokens->toTokenArray)->Array.getUnsafe(fTokenIdx)
-        Assert.deepStrictEqual(
-          ctx.state.document->VSCode.TextDocument.positionAt(fToken.start),
-          VSCode.Position.make(11, 26),
-        )
+        // After rebasing, the f token at its new position (11, 26) must have its start
+        // offset updated to exactly fStartBefore - deletedLength (not the old stale offset).
+        // We find it by position search (index-based lookup is invalid after removals shift the array).
+        let fToken =
+          Belt.Array.getBy(ctx.state.tokens->toTokenArray, t => {
+            let pos = ctx.state.document->VSCode.TextDocument.positionAt(t.start)
+            VSCode.Position.line(pos) == 11 && VSCode.Position.character(pos) == 26
+          })->Option.getUnsafe
+        Assert.deepStrictEqual(fToken.start, fStartBefore - deletedLength)
 
         // goToDefinition at the token's new editor position must return the correct source range.
         switch Tokens.goToDefinition(ctx.state.tokens, ctx.state.document)(
@@ -167,7 +173,9 @@ describe("Tokens", () => {
             (
               VSCode.Range.make(VSCode.Position.make(11, 26), VSCode.Position.make(11, 27)),
               filepath->Parser.Filepath.toString,
-              VSCode.Position.make(11, 20),
+              // Source rebasing shifts the Agda source offset by −deletedLength, so the
+              // definition resolves to its actual current position (11, 22).
+              VSCode.Position.make(11, 22),
             ),
           ]
           Assert.deepStrictEqual(actual, expected)
@@ -198,9 +206,9 @@ describe("Tokens", () => {
               // srcRange must reflect the token's current editor position after the insert.
               VSCode.Range.make(VSCode.Position.make(13, 26), VSCode.Position.make(13, 27)),
               filepath->Parser.Filepath.toString,
-              // The definition moved down by one line; OffsetConverter.convert subtracts 1
-              // from the Agda offset before positionAt, so the column is 21.
-              VSCode.Position.make(13, 21),
+              // Source rebasing updates the Agda source offset by the same delta as the insert,
+              // so the definition resolves to its actual current position (13, 22).
+              VSCode.Position.make(13, 22),
             ),
           ]
           Assert.deepStrictEqual(actual, expected)
