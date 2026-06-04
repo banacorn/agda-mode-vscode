@@ -182,9 +182,9 @@ describe(
       // Immediately after load, deltas must be empty.
       Assert.deepStrictEqual(ctx.state.tokens->Tokens.deltasLength, 0)
 
-      // An edit grows deltas.
+      // An edit is immediately rebased, so deltas stay at zero even after edits.
       let _ = await Editor.Text.insert(ctx.state.document, VSCode.Position.make(6, 0), "\n")
-      Assert.ok(ctx.state.tokens->Tokens.deltasLength > 0)
+      Assert.deepStrictEqual(ctx.state.tokens->Tokens.deltasLength, 0)
 
       // Loading again sends ClearHighlighting which calls Tokens.reset, wiping deltas.
       await ctx->AgdaMode.execute(Load)
