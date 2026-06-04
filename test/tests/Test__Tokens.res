@@ -215,6 +215,72 @@ describe("Tokens", () => {
         }
       },
     )
+
+    Async.it(
+      "should resolve cross-file go-to-definition correctly when source file contains non-BMP Unicode",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("CrossFileUnicodeReference.agda")
+        let filepath = ctx.state.document->VSCode.TextDocument.fileName->Parser.Filepath.make
+        // CrossFileUnicodeSource.agda has "-- 𝐀𝐁" on line 1 before "data MyBool".
+        // Each non-BMP char (𝐀, 𝐁) occupies 2 UTF-16 code units but is 1 Agda code point.
+        // This shifts VSCode offsets by +2 relative to Agda 1-based offsets for MyBool.
+        // Agda stores 1-based offset 48; correct conversion gives VSCode offset 49 → (2, 5).
+        // A buggy impl using the referencing doc's converter gives offset 47 → (2, 3) instead.
+        let sourceFilepathStr = Path.asset("CrossFileUnicodeSource.agda")
+
+        switch Tokens.goToDefinition(ctx.state.tokens, ctx.state.document)(
+          filepath,
+          VSCode.Position.make(4, 8),
+        ) {
+        | None => raise(Failure("No definition found for MyBool in cross-file reference"))
+        | Some(thunk) =>
+          let actual = await thunk
+          let expected = [
+            (
+              VSCode.Range.make(VSCode.Position.make(4, 7), VSCode.Position.make(4, 13)),
+              sourceFilepathStr,
+              // line 2 (0-indexed) of CrossFileUnicodeSource.agda: "data MyBool : Set where"
+              // "MyBool" starts at col 5 (after "data ")
+              VSCode.Position.make(2, 5),
+            ),
+          ]
+          Assert.deepStrictEqual(actual, expected)
+        }
+      },
+    )
+
+    Async.it(
+      "should resolve cross-file go-to-definition correctly when source file has CRLF line endings",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad("CrossFileCRLFReference.agda")
+        let filepath = ctx.state.document->VSCode.TextDocument.fileName->Parser.Filepath.make
+        // CrossFileCRLFSource.agda has CRLF line endings. Lines 0 and 1 each end with \r\n,
+        // which Agda counts as 1 code point but VSCode counts as 2 UTF-16 code units.
+        // This shifts VSCode offsets by +2 relative to Agda 1-based offsets for MyCRLFBool.
+        // Agda stores 1-based offset 40; correct conversion gives VSCode offset 41 → (2, 5).
+        // A buggy impl using the referencing doc's converter gives offset 39 → (2, 3) instead.
+        let sourceFilepathStr = Path.asset("CrossFileCRLFSource.agda")
+
+        switch Tokens.goToDefinition(ctx.state.tokens, ctx.state.document)(
+          filepath,
+          VSCode.Position.make(4, 8),
+        ) {
+        | None => raise(Failure("No definition found for MyCRLFBool in cross-file reference"))
+        | Some(thunk) =>
+          let actual = await thunk
+          let expected = [
+            (
+              VSCode.Range.make(VSCode.Position.make(4, 7), VSCode.Position.make(4, 17)),
+              sourceFilepathStr,
+              // line 2 (0-indexed) of CrossFileCRLFSource.agda: "data MyCRLFBool : Set where"
+              // "MyCRLFBool" starts at col 5 (after "data ")
+              VSCode.Position.make(2, 5),
+            ),
+          ]
+          Assert.deepStrictEqual(actual, expected)
+        }
+      },
+    )
   })
 
   describe("Hole positions", () => {
