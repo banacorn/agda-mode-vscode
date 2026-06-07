@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.10.0 - 2026-06-07
+
+### Changed
+- #319: Publish the fixes from the 0.9.x pre-release line on the stable channel, including the fixed ALS download flow for stable users by [@banacorn](https://github.com/banacorn)
+- #318: Shorten VS Code test runner temp paths on Unix to avoid IPC socket limits during local test runs by [@banacorn](https://github.com/banacorn)
+
+### Fixed
+- #316/#317: Show a panel warning when a cached Agda load reports no goals even though the source file still contains holes by [@banacorn](https://github.com/banacorn)
+- #318: Fix input method slowdown by rebasing token offsets after document edits, including cross-file definition offsets for Unicode and CRLF files by [@banacorn](https://github.com/banacorn)
+
 ## v0.9.2 - 2026-05-28
 
 ### Added
