@@ -27,7 +27,25 @@ module DisplayInfo = {
     | Constraints(Some(body)) =>
       let items = Emacs__Parser2.parseOutputs(body)
       await State__View.Panel.display(state, Plain("Constraints"), items)
-    | AllGoalsWarnings(header, "nil") => await State__View.Panel.display(state, Success(header), [])
+    | AllGoalsWarnings(_, "nil") =>
+      if state.tokens->Tokens.getHoles->Map.size > 0 {
+        await State__View.Panel.display(
+          state,
+          Warning("Stale holes detected"),
+          [
+            Item.warning(
+              RichText.string(
+                "Agda returned no interaction points, but holes are still present in the file. " ++
+                "This is a known Agda bug (agda/agda#2475, agda/agda#6871) that can occur with cached .agdai files built under --allow-unsolved-metas. " ++
+                "To recover: delete the _build directory and reload, or make a small edit inside a hole and reload.",
+              ),
+              None,
+            ),
+          ],
+        )
+      } else {
+        await State__View.Panel.display(state, Success("*All Done*"), [])
+      }
     | AllGoalsWarnings(header, body) =>
       let items = Emacs__Parser2.parseAllGoalsWarnings(header, body)->Emacs__Parser2.render
       await State__View.Panel.display(state, Plain(header), items)
