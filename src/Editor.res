@@ -31,8 +31,9 @@ module Decoration = {
   type color = string
 
   // to remove the decoration, apply it with an empty array of ranges
-  let apply = (editor: TextEditor.t, decoration: t, ranges: array<VSRange.t>) =>
+  let apply = (editor: TextEditor.t, decoration: t, ranges: array<VSRange.t>) => {
     editor->TextEditor.setDecorations(decoration, ranges)
+  }
 
   let createBackgroundPrim = (backgroundColor: VSCode.StringOr.t<ThemeColor.t>) => {
     let rangeBehavior = DecorationRangeBehavior.ClosedClosed
