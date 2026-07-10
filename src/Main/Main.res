@@ -428,6 +428,7 @@ let activateWithoutContext = (
 type activationExports = {
   channels: State.channels,
   memento: Memento.t,
+  logUri: VSCode.Uri.t,
 }
 
 // this function is the entry point of the whole extension
@@ -436,6 +437,7 @@ let activate = (platformDeps, context) => {
   let extensionUri = VSCode.ExtensionContext.extensionUri(context)
   let globalStorageUri = VSCode.ExtensionContext.globalStorageUri(context)
   let memento = Memento.make(Some(VSCode.ExtensionContext.workspaceState(context)))
+  let logUri = VSCode.ExtensionContext.logUri(context)
 
   let channels = activateWithoutContext(
     platformDeps,
@@ -444,7 +446,7 @@ let activate = (platformDeps, context) => {
     globalStorageUri,
     memento,
   )
-  {channels, memento}
+  {channels, memento, logUri}
 }
 
 let deactivate = () => ()
