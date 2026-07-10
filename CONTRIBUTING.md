@@ -106,3 +106,23 @@ This project includes several npm scripts for development and building:
 **Run test suite**
 - Executes project test suite
 - Tests are written in ReScript using the test framework
+
+#### Focused test runs
+
+`npm test` runs the full suite. To load only matching compiled test files, set
+`AGDA_TEST_GLOB`:
+
+```bash
+AGDA_TEST_GLOB="Test__StaleEditorDecorationWarning*.js" npm test
+AGDA_TEST_GLOB="Connection/Test__Connection__Config*.js" npm test
+```
+
+The glob is relative to `lib/js/test/tests` after ReScript compilation.
+Selecting one file is useful for fast integration-test iteration because each
+`npm test` invocation launches a fresh VS Code Extension Host.
+
+This is file-level selection before Mocha starts. It is different from Mocha
+helpers like `it_only` / `describe_only`: those are useful for temporary local
+debugging inside a test file, but they require editing source and should not be
+committed. `AGDA_TEST_GLOB` keeps source unchanged and controls which test
+files are added to Mocha.
