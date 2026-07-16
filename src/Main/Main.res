@@ -112,31 +112,44 @@ let initialize = (
   ->subscribe
   // register event listeners for the input method
   VSCode.Window.onDidChangeTextEditorSelection(event => {
-    let document = VSCode.TextEditor.document(editor)
-    let intervals =
-      event
-      ->VSCode.TextEditorSelectionChangeEvent.selections
-      ->Array.map(selection => (
-        VSCode.TextDocument.offsetAt(document, VSCode.Selection.start(selection)),
-        VSCode.TextDocument.offsetAt(document, VSCode.Selection.end_(selection)),
-      ))
+    // only handle selection events that belong to this state's document
+    let eventEditor = VSCode.TextEditorSelectionChangeEvent.textEditor(event)
+    let document = VSCode.TextEditor.document(eventEditor)
+    if VSCode.TextDocument.fileName(document) == id {
+      let intervals =
+        event
+        ->VSCode.TextEditorSelectionChangeEvent.selections
+        ->Array.map(selection => (
+          VSCode.TextDocument.offsetAt(document, VSCode.Selection.start(selection)),
+          VSCode.TextDocument.offsetAt(document, VSCode.Selection.end_(selection)),
+        ))
 
-    State__InputMethod.select(state, intervals)->ignore
+      State__InputMethod.select(state, intervals)->ignore
+    }
   })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(event => {
-    // update the input method accordingly
-    let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
-    State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
-    // updates positions of semantic highlighting tokens accordingly
-    state.tokens->Tokens.applyEdit(editor, event)
-    // updates positions of goals accordingly
-    let changes =
-      event
-      ->VSCode.TextDocumentChangeEvent.contentChanges
-      ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
-      ->Array.toReversed
-    if Array.length(changes) != 0 {
-      state.goals->Goals.scanAllGoals(editor, changes)->Promise.done
+    // only handle change events that belong to this state's document,
+    // and only when the current state editor still points at that document,
+    // so that we never call editor-dependent APIs on a stale captured editor
+    let eventDocument = VSCode.TextDocumentChangeEvent.document(event)
+    if VSCode.TextDocument.fileName(eventDocument) == id {
+      let currentEditor = state.editor
+      if currentEditor->VSCode.TextEditor.document->VSCode.TextDocument.fileName == id {
+        // update the input method accordingly
+        let changes = IM.Input.fromTextDocumentChangeEvent(currentEditor, event)
+        State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
+        // updates positions of semantic highlighting tokens accordingly
+        state.tokens->Tokens.applyEdit(currentEditor, event)
+        // updates positions of goals accordingly
+        let changes =
+          event
+          ->VSCode.TextDocumentChangeEvent.contentChanges
+          ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
+          ->Array.toReversed
+        if Array.length(changes) != 0 {
+          state.goals->Goals.scanAllGoals(currentEditor, changes)->Promise.done
+        }
+      }
     }
 
     // state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done

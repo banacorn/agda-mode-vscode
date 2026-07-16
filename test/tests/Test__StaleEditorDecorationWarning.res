@@ -6,16 +6,17 @@ type typeArgs = {"text": string}
 external typeCommand: (@as("type") _, typeArgs) => promise<unit> = "executeCommand"
 
 // Deterministic regression test for #300 ("TextEditor is closed/disposed"
-// warnings). Reproduces the smallest known automatic trigger: load a real
-// Agda file (giving `Tokens` non-empty decorations), make its captured
-// editor stale by switching away and back (VS Code hands the extension a
-// fresh `TextEditor` on switch-back, while the old one stays captured by
-// that state's listener closures), then make one small text edit. The real
-// `onDidChangeTextDocument` listener calls `Editor.Decoration.apply` with
-// the stale captured editor, producing the exact warning.
+// warnings). Runs the smallest sequence that used to trigger the warning:
+// load a real Agda file (giving `Tokens` non-empty decorations), make its
+// captured editor stale by switching away and back (VS Code hands the
+// extension a fresh `TextEditor` on switch-back, while the old one stays
+// captured by that state's listener closures), then make one small text
+// edit. The `onDidChangeTextDocument` listener is now document-scoped and
+// uses the current `state.editor` instead of the initialization-time
+// captured editor, so the sequence no longer produces the exact warning.
 //   AGDA_TEST_GLOB="Test__StaleEditorDecorationWarning*.js" npm test
 describe("stale editor decoration warning (#300)", () => {
-  Async.it("a text edit after staling the captured editor produces the exact warning", async () => {
+  Async.it("a text edit after staling the captured editor produces no warning", async () => {
     let warningPhrase = "TextEditor is closed/disposed"
 
     // open a file and trigger `Main.initialize` for it without a real
@@ -40,12 +41,12 @@ describe("stale editor decoration warning (#300)", () => {
 
     let before = ExtHostLog.countLinesContaining(warningPhrase)
 
-    // smallest known reproducing stimulus: one character typed, then deleted
+    // smallest stimulus that used to reproduce: one character typed, then deleted
     let _ = await typeCommand({"text": "x"})
     let _ = await VSCode.Commands.executeCommand0("deleteLeft")
 
     let after = ExtHostLog.countLinesContaining(warningPhrase)
 
-    Assert.ok(after - before > 0)
+    Assert.equal(0, after - before)
   })
 })
