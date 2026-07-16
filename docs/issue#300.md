@@ -2,74 +2,42 @@
 
 ## Summary
 
-#300 ("TextEditor is closed/disposed" warnings flooding the log, IM degrading
-over a session) and #318 ("IM gradually getting slower" via accumulated
-`Tokens.deltas`) have **overlapping symptoms but distinct root causes** — one
-fix does not cover the other:
+#300 is now reproducible automatically and deterministically.
 
-- #318's root cause is that `Tokens.deltas` accumulated across IM sessions and
-  was never rebased/cleared. This is now fixed on `master`: `applyEdit`
-  (`src/Tokens.res:537-547`) calls `rebaseTokens`, which clears `self.deltas`
-  (`src/Tokens.res:484`) after every edit.
-- #300's candidate mechanism is that `initialize` registers *global* change
-  listeners that operate on a captured/stale `editor` without checking
-  whether the event actually belongs to that state's document. Status:
-  **confirmed, naturally and synchronously, when real Agda highlighting data
-  is involved** — H19 automatically reproduced the exact
-  `TextEditor is closed/disposed` warning once in exthost.log via the H8
-  tab-switch stale-capture path; H20 then isolated `setDecorations` on a
-  tab-switch-disposed handle from every other operation and reproduced the
-  warning deterministically (40/40 calls across two independent runs), with
-  0/40 on the live handle. H21 then tried to explain why the *real* listener
-  path stayed quiet in H19/H20's tests and concluded it was about synchronous
-  vs. decoupled calling — but H22 found that conclusion rested on an
-  incomplete setup: none of H19–H21's tests ever loaded a real Agda file, so
-  `Tokens`'s decoration map was always empty and its (stale-editor-using)
-  `Editor.Decoration.apply` calls never actually fired; what H21 captured and
-  replayed was all from `IM.res`'s underline decoration, which always uses the
-  *live* editor. Once H22 loaded a real Agda file, staled it via tab-switch,
-  and typed, the real listener reproduced the exact warning **synchronously**,
-  inside its own call stack, 5/5 times across two independent runs — no
-  test-only replay needed. The "hundreds of warnings per keypress" flooding
-  behaviour has still not been reproduced: the stale-call count stayed fixed
-  at 5 regardless of cycle count or repeated tab-switching (see below).
+The retained reproduction is `test/tests/Test__StaleEditorDecorationWarning.res`.
+It runs as part of normal `npm test`, and can be isolated with:
 
-So #318 helps the gradual-slowdown symptom caused by delta accumulation, but
-it leaves the stale-captured-editor routing path untouched. The current
-status is: stale captured-editor *use* is reproducible on `master`, and the
-exact disposed-editor warning is now confirmed to reproduce naturally and
-synchronously, on `master`, from the real `onDidChangeTextDocument` listener,
-whenever a real Agda file's highlighting data is present and the captured
-editor has gone stale via a tab switch (H22). H21's "synchronous listener
-calls never warn" conclusion does not hold once real highlighting data is in
-play; it only held for the payload-free (no real Agda load) tests H19–H21
-happened to run. The reported "hundreds per keypress" flooding behaviour
-remains unproven — the stale-call count did not grow with 100 IM cycles or 10
-repeated tab switches in H22 — and a second, structurally different,
-unexplained source of the exact warning (no corresponding decoration call at
-all) also surfaced in H22. H23 attempted to attribute that second source to a
-concrete non-decoration `TextEditor`/`TextDocument` operation, but its
-reconstruction of H22 phase E (the original test file no longer existed to
-replay) did not reproduce the warning across two independent runs plus a
-second, more literal variant, even while exercising the leading candidate
-(the selection listener's captured-document read) hundreds of times; the
-source remains unattributed. H24 then ran a fresh, reduced rediscovery matrix
-(six variants varying file count, switch primitive, and churn shape, since the
-full requested matrix was combinatorially infeasible) and also did not
-reproduce the warning, despite exercising genuinely stale editors thousands of
-times. Substantial parts of the requested matrix (multiple editor groups,
-explicit editor-retention-limit configuration, several switch primitives,
-stimulus levels, and timing delays) remain untested. The repeated cost of
-H20-H24 was not just experiment design: each round rebuilt the same lab
-plumbing (test filters, log capture, temporary commands, stale-editor
-telemetry) and then tore it down. H25 should persist that infrastructure in a
-test-gated form before another reproduction search. H13 found that no
-tested editor-lifecycle / close-action combination ever produces a disposed
-`TextEditor` handle for the harness to observe through that probe; H19's
-tab-switch path is what first surfaced the warning naturally (without real
-highlighting data), H20's isolation test demonstrated the mechanism could be
-forced deterministically, and H22 is what showed the real, un-forced listener
-path reproduces it on its own once real highlighting data is involved.
+```sh
+AGDA_TEST_GLOB="Test__StaleEditorDecorationWarning*.js" npm test
+```
+
+The reproduction sequence is intentionally small:
+
+1. activate the extension and open a real Agda file;
+2. let the real Agda load populate token/decorations data;
+3. switch tabs in the same editor group so the per-file listener closure keeps
+   an old captured `TextEditor` while `state.editor` moves to the current one;
+4. perform one type-then-delete text edit;
+5. count the exact `TextEditor is closed/disposed` line in `exthost.log`.
+
+The test currently asserts that the warning count increases. That makes it a
+reproducer. The fix handoff below must convert the same test into a regression
+test by keeping the same sequence and asserting that the warning count does not
+increase after the product fix.
+
+The candidate mechanism is still the same: `Main.initialize` registers global
+workspace/window listeners per Agda file, and those listener closures use an
+`editor` captured at initialization time without first checking that the event
+belongs to that state's document. Once a tab switch makes that captured editor
+stale, the real text-change listener can call decoration code with the stale
+editor and make VS Code emit the disposed-editor warning.
+
+#318 addressed a separate gradual-slowdown path in `Tokens.deltas`; it does not
+address this stale-editor listener routing path. The current branch has kept
+only reusable test infrastructure: `AGDA_TEST_GLOB` file selection,
+`Test__Util.ExtHostLog`, and the behavior-named stale-editor warning
+reproducer. The issue-specific probe, issue-specific harness, and env-based log
+path plumbing are gone.
 
 ## Candidate mechanism behind #300: unfiltered global change listeners
 
@@ -92,15 +60,18 @@ VSCode.Workspace.onDidChangeTextDocument(event => {
 })
 ```
 
-There is no check that `event`'s document matches `state.document` /
-`state.editor`. When the event belongs to a different (possibly
-closed/disposed) editor, calling VS Code APIs on the stale captured `editor`
-can trigger the "TextEditor is closed/disposed" warnings. H20 confirmed this
-causally in isolation for `setDecorations` specifically (deterministic 40/40
-reproduction vs. 0/40 on a live handle, see below); whether this is what
-produced any *particular* naturally-occurring warning (such as H19's) remains
-correlational, since exthost.log warning lines carry no stack trace tying them
-to a specific call.
+There is no check that the event belongs to this state's document before doing
+work, and there is no check that the editor used for editor-dependent work is
+the current/live editor for that document. The retained reproducer exercises
+the same-document form of the bug: the text-change event belongs to
+`Goals.agda`, but the listener still passes the old initialization-time
+captured editor after same-group tab switching has moved `state.editor` to a
+fresh current editor for the same document. Calling VS Code APIs such as
+`setDecorations` on that stale captured editor can trigger the
+"TextEditor is closed/disposed" warning. H20 confirmed this causally in
+isolation for `setDecorations` specifically (deterministic 40/40 reproduction
+vs. 0/40 on a live handle, see below), and the retained test now reproduces the
+warning through the real listener path.
 
 It also means `Tokens.applyEdit` gets invoked on every keystroke in *every*
 open Agda file, not just the relevant one — wasted/wrong work on irrelevant
@@ -111,33 +82,18 @@ slowdown the way they might have before that fix landed.
 
 ## Current working model
 
-The investigation no longer needs a long flat list of hypotheses. H1-H28 have
-narrowed the search enough that the active theory can be tracked as a few
-prioritized workstreams. H23's targeted attribution experiment for H22's
-unexplained non-decoration warning source is complete but inconclusive: the
-warning did not reproduce, so the source remains unattributed. H24 followed up
-by trying to rediscover that phase-E/non-decoration warning from scratch with a
-reduced, high-likelihood subset of the requested rediscovery matrix (the full
-matrix was combinatorially infeasible); it is also complete, and also did not
-reproduce the warning. H25-H27 built, then reduced, a discovery-era lab
-(env-based test filters, a dormant-unless-flagged extension-side telemetry
-probe, and a reusable test-side harness) to establish and characterize a
-deterministic automatic reproduction of the exact warning (H26: real-load +
-H8 stale tab-switch + IM-cycle stimulus, 40/40/40 across three runs; H27: a
-single type-then-revert edit reproduces it too, smaller than H26's stimulus,
-and the warning count scales roughly linearly with stimulus size rather than
-staying bounded as H22 had concluded). H28 then consolidated that whole
-discovery-era surface into a maintainable, behavior-named permanent test:
-`test/tests/Test__StaleEditorDecorationWarning.res` is now the only retained
-reproduction test, using only a generic extension-host log helper
-(`Test__Util.ExtHostLog`) and normal `npm test`/`AGDA_TEST_GLOB` selection --
-no probe, no harness module, no H-numbered names. Stale-`Decoration.apply`
-attribution and warning-count scaling remain historical evidence in the
-H26/H27 records below, not exercised by any permanent test going forward. The
-reported "hundreds per keypress" flooding is still not directly observed
-(H27's near-linear scaling means it isn't clearly ruled out either, but no
-round has run long/hard enough to approach it). The individual experiment
-records below remain the provenance.
+The investigation has moved from reproduction search to fix work. H1-H24 are
+the historical search record. H25-H29 reduced the discovery-era scaffolding into
+the small permanent surface now on the branch: one focused reproducer, generic
+extension-host log lookup through `ExtensionContext.logUri`, and
+`AGDA_TEST_GLOB` for focused test runs. H30 is the first fix handoff.
+
+Stale `Decoration.apply` attribution and warning-count scaling remain
+historical evidence in the H26/H27 records below, not permanent test
+requirements. The reported "hundreds per keypress" flooding is still not
+directly observed; the retained reproduction only proves the exact warning on
+the real listener path. The individual experiment records below remain the
+provenance.
 
 1. **Diagnostics authority — confirmed by H5.**
    Future reproduction attempts must use extension-side evidence:
@@ -358,11 +314,11 @@ records below remain the provenance.
     `Issue300Harness`, issue-specific runner environment names) not suited to
     permanent test design. H28 completed the cleanup: `Issue300Harness` and
     `Issue300Probe` are gone entirely (removed from both test and production
-    code), `AGDA_TEST_GREP`/`AGDA_TEST_TIMEOUT` were removed, and
-    `AGDA_ISSUE300_USER_DATA_DIR` was renamed to the generic
-    `AGDA_TEST_USER_DATA_DIR`. What remains permanently: `AGDA_TEST_GLOB`
-    file selection, a generic `Test__Util.ExtHostLog` log helper, and one
-    behavior-named reproduction test. See the H28 Results section below.
+    code), `AGDA_TEST_GREP`/`AGDA_TEST_TIMEOUT` were removed, and the remaining
+    useful surface was reduced to `AGDA_TEST_GLOB` file selection, a generic
+    `Test__Util.ExtHostLog` log helper, and one behavior-named reproduction
+    test. H29 then removed the last env-based log-path contract. See the H28
+    and H29 Results sections below.
 
 13. **Reproduction consolidation — H26 complete, confirmed deterministic.**
     H22's recipe (real Agda load → H8 tab-switch staling → text-change
@@ -421,6 +377,13 @@ records below remain the provenance.
     (exported as `Main.activationExports.logUri`, cached in `Test__Util` on
     activation), with no environment variable and no `/tmp` globbing. See the
     H29 Results section below.
+
+18. **Fix stale captured-editor routing — H30 complete.**
+    Both `Main.initialize` listeners are now document-scoped and the
+    `onDidChangeTextDocument` handler uses the current `state.editor` instead
+    of the initialization-time captured editor. The retained reproduction
+    sequence was inverted into a regression test asserting a zero warning
+    delta, and it passes. See the H30 Results section below.
 
 Deprioritized or resolved branches:
 
@@ -5400,11 +5363,181 @@ Working tree after this round contains only: `docs/issue#300.md`,
 `test/tests/Test__Util.res` (+ compiled). No other files changed;
 `test/tests/Test__StaleEditorDecorationWarning.res` itself needed no edits.
 
+### H30: fix stale captured-editor listener routing
+
+Hypothesis: the retained #300 reproducer fails because `Main.initialize`
+registers per-state global listeners that process events for every document
+with the `editor` captured when that state was initialized. Filtering each
+listener to its own document and using the event/current editor for the
+matching event should stop VS Code from receiving `setDecorations` calls on
+the stale captured `TextEditor`, without changing the reproduction sequence.
+
+This is the first fix handoff. Do not search for a new reproduction. Do not add
+manual UI steps. Do not add a new issue-specific harness, probe, environment
+variable, or H-numbered test file. Do not catch, suppress, or filter the VS Code
+warning in tests or logs. The fix must make the warning stop by preventing the
+stale-editor call path.
+
+Lab assistant task:
+
+1. Start on the current `issue#300-new` branch after H29. Confirm the baseline
+   reproducer still passes as a reproducer before changing code:
+   ```sh
+   AGDA_TEST_GLOB="Test__StaleEditorDecorationWarning*.js" npm test
+   ```
+   Record the result here. If it does not pass, stop and record the failure;
+   do not start the fix from a broken baseline.
+2. In `src/Main/Main.res`, make the
+   `VSCode.Window.onDidChangeTextEditorSelection` listener document-scoped:
+   - get the event editor with
+     `VSCode.TextEditorSelectionChangeEvent.textEditor(event)`;
+   - get its document/file name from that event editor;
+   - compare it to the `id` computed at the top of `initialize`;
+   - if it does not match, return without calling
+     `State__InputMethod.select`;
+   - if it matches, compute selection offsets against the event editor's
+     document, not against the initialization-time captured `editor`.
+3. In `src/Main/Main.res`, make the
+   `VSCode.Workspace.onDidChangeTextDocument` listener document-scoped:
+   - get the event document with
+     `VSCode.TextDocumentChangeEvent.document(event)`;
+   - compare its file name to the same `id`;
+   - if it does not match, return without calling `IM.Input`,
+     `State__InputMethod.keyUpdateEditorIM`, `Tokens.applyEdit`, or
+     `Goals.scanAllGoals`;
+   - if it matches, read the current state editor (`state.editor`) and verify
+     that its document file name still equals `id`;
+   - if the current state editor does not match `id`, return without doing the
+     editor-dependent calls for this event;
+   - if it matches, use that current state editor for the existing
+     editor-based calls instead of the initialization-time captured `editor`.
+4. Keep the existing listener behavior for matching-document events:
+   - preserve `IM.Input.fromTextDocumentChangeEvent`;
+   - preserve `State__InputMethod.keyUpdateEditorIM`;
+   - preserve `Tokens.applyEdit`;
+   - preserve goal-change mapping and `Goals.scanAllGoals`;
+   - preserve the existing subscription structure.
+5. Do not change `src/Editor.res` to swallow `setDecorations` warnings. The
+   product fix belongs in event routing / editor selection in `Main.initialize`.
+6. Rebuild generated ReScript output after editing source:
+   ```sh
+   npx rescript build
+   ```
+   Then rebuild the desktop extension bundle before any extension-host test
+   run, because `npm test` loads `dist/app.bundle.js`, not `lib/js` directly:
+   ```sh
+   npx webpack --mode development
+   ```
+7. Convert `test/tests/Test__StaleEditorDecorationWarning.res` from a
+   reproducer into a regression test:
+   - keep the same file name;
+   - keep the same describe block;
+   - keep the same open/load/tab-switch/type/delete sequence;
+   - update comments and the `it` title so they say the sequence no longer
+     produces the exact warning;
+   - change the assertion from `Assert.ok(after - before > 0)` to an exact
+     zero-delta assertion, e.g. `Assert.equal(0, after - before)`.
+8. Rebuild again if the test source changed, and rebuild the desktop bundle
+   again if `src/Main/Main.res` changed after step 6:
+   ```sh
+   npx rescript build
+   npx webpack --mode development
+   ```
+9. Verify the focused regression:
+   ```sh
+   AGDA_TEST_GLOB="Test__StaleEditorDecorationWarning*.js" npm test
+   ```
+   The test must pass only because `after - before == 0`. If warnings still
+   increase, record the before/after counts and stop; do not weaken the
+   assertion.
+10. Verify normal coverage and bundles:
+    ```sh
+    npm test
+    npx webpack --mode development
+    npx webpack --env target=web --mode development
+    git diff --check
+    git diff --cached --check
+    ```
+11. Search for accidental reintroduced cleanup targets:
+    ```sh
+    rg "AGDA_TEST_USER_DATA_DIR|AGDA_ISSUE300_USER_DATA_DIR|AGDA_ISSUE300_PROBE|Issue300Harness|Issue300Probe" src test lib/js
+    ```
+    Expected: no matches in source/test/generated code. Historical matches in
+    this document are okay and should not be removed just to satisfy this
+    source/test check.
+12. Update this section with:
+    - baseline focused reproducer result before the fix;
+    - files changed;
+    - the exact routing guard implemented in both listeners;
+    - focused regression result and observed warning delta;
+    - full `npm test` result;
+    - build/bundle/check results;
+    - any transient failure and its rerun result.
+13. Cleanup the lab:
+    - remove temporary logging or diagnostics;
+    - leave `test/tests/assets/Goals.agda` and other fixtures unmodified;
+    - leave only intentional source/test/docs and generated-output changes in
+      the working tree.
+
+### H30 Results (2026-07-11)
+
+Executed as specified; the fix works and the reproducer is now a regression
+test.
+
+- **Baseline before the fix**: the focused reproducer passed as a reproducer
+  (`AGDA_TEST_GLOB="Test__StaleEditorDecorationWarning*.js" npm test`,
+  1 passing, `after - before > 0` held), confirming a valid starting point.
+- **Files changed**:
+  - `src/Main/Main.res` — routing guards in both listeners;
+  - `test/tests/Test__StaleEditorDecorationWarning.res` — inverted into the
+    regression test;
+  - generated output (`lib/js/src/Main/Main.bs.js`,
+    `lib/js/test/tests/Test__StaleEditorDecorationWarning.bs.js`).
+    Recompilation also produced whitespace-only churn in
+    `lib/js/test/tests/Test__Util.bs.js`; that file was reverted to its
+    committed state since it has no H30 change.
+- **Routing guard implemented**:
+  - `onDidChangeTextEditorSelection`: reads the event editor via
+    `VSCode.TextEditorSelectionChangeEvent.textEditor(event)`, compares its
+    document file name to `id`, returns without calling
+    `State__InputMethod.select` on mismatch, and computes selection offsets
+    against the event editor's document instead of the captured `editor`.
+  - `onDidChangeTextDocument`: reads the event document via
+    `VSCode.TextDocumentChangeEvent.document(event)`, returns on file-name
+    mismatch with `id`; on match, reads `state.editor`, verifies its document
+    file name still equals `id`, returns if not, and otherwise uses that
+    current editor for `IM.Input.fromTextDocumentChangeEvent`,
+    `Tokens.applyEdit`, and `Goals.scanAllGoals`. All matching-document
+    behavior and the subscription structure are preserved; `src/Editor.res`
+    is untouched.
+- **Focused regression after the fix**: passes with the exact zero-delta
+  assertion `Assert.equal(0, after - before)` — observed warning delta 0.
+  The `it` title is now "a text edit after staling the captured editor
+  produces no warning".
+- **Full `npm test`**: 858 passing, 8 pending, 0 failing, exit 0.
+- **Builds/checks**: `npx rescript build` clean; desktop bundle
+  (`npx webpack --mode development`) and web bundle
+  (`npx webpack --env target=web --mode development`) both compiled
+  successfully. The ReScript compiler emits trailing whitespace in generated
+  `.bs.js` files; it was stripped from the two changed generated files, after
+  which both `git diff --check` and `git diff --cached --check` pass clean.
+- **Cleanup-target search**: `rg "AGDA_TEST_USER_DATA_DIR|
+  AGDA_ISSUE300_USER_DATA_DIR|AGDA_ISSUE300_PROBE|Issue300Harness|
+  Issue300Probe" src test lib/js` — no matches.
+- **Transient failures**: none; every step passed on its first run.
+- **Cleanup**: no temporary logging or diagnostics were added;
+  `test/tests/assets/Goals.agda` and other fixtures are unmodified; the
+  working tree contains only the intentional source/test/docs and
+  generated-output changes listed above.
+
 ## Relevant locations
 
 | File | What to look at |
 |------|-----------------|
-| `src/Main/Main.res:44` | `initialize` — registers per-file global listeners |
-| `src/Main/Main.res:114` | `onDidChangeTextEditorSelection` — uses captured `editor`, no document filter |
-| `src/Main/Main.res:126-140` | `onDidChangeTextDocument` — uses captured `editor`, no document filter, calls `Tokens.applyEdit` unconditionally |
-| `docs/im-performance-investigation.md` | #318 investigation — `deltas` accumulation mechanism |
+| `src/Main/Main.res:44` | `initialize` - registers per-file global listeners |
+| `src/Main/Main.res:114` | `onDidChangeTextEditorSelection` - gated by the event editor's document (H30); computes offsets against the event editor's document, ignores other documents' events |
+| `src/Main/Main.res:130-156` | `onDidChangeTextDocument` - gated by the event document (H30); verifies `state.editor` still points at this document and uses it, never the initialization-time captured `editor`, for editor-dependent calls |
+| `test/tests/Test__StaleEditorDecorationWarning.res` | #300 regression test (inverted from the reproducer by H30); same sequence, asserts a zero warning delta |
+| `test/tests/Test__Util.res` | `ExtHostLog` helper derives `exthost.log` from `ExtensionContext.logUri` |
+| `test/TestSuiteAdapter.res` | `AGDA_TEST_GLOB` focused test-file selection |
+| `docs/im-performance-investigation.md` | #318 investigation; separate `Tokens.deltas` accumulation mechanism |
