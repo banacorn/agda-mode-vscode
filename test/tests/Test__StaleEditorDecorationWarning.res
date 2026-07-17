@@ -16,6 +16,12 @@ external typeCommand: (@as("type") _, typeArgs) => promise<unit> = "executeComma
 // captured editor, so the sequence no longer produces the exact warning.
 //   AGDA_TEST_GLOB="Test__StaleEditorDecorationWarning*.js" npm test
 describe("stale editor decoration warning (#300)", () => {
+  // restore Goals.agda after each test: loading expands its "?" holes to
+  // "{!   !}" in the buffer, and a later `Load` would save that to disk
+  let fileContent = ref("")
+  Async.beforeEach(async () => fileContent := (await File.read(Path.asset("Goals.agda"))))
+  Async.afterEach(async () => await File.write(Path.asset("Goals.agda"), fileContent.contents))
+
   Async.it("a text edit after staling the captured editor produces no warning", async () => {
     let warningPhrase = "TextEditor is closed/disposed"
 
@@ -48,5 +54,56 @@ describe("stale editor decoration warning (#300)", () => {
     let after = ExtHostLog.countLinesContaining(warningPhrase)
 
     Assert.equal(0, after - before)
+  })
+})
+
+// Cross-talk regression for #300: with a state loaded for one Agda file,
+// edits made in a *different* file must not touch that state's bookkeeping.
+// Before the fix, the `onDidChangeTextDocument` listener in `Main.initialize`
+// was unfiltered, so an edit in any document would shift this state's token
+// positions and goal ranges by the other document's change deltas.
+describe("cross-document event routing (#300)", () => {
+  // same restoration as above: this describe also loads Goals.agda
+  let fileContent = ref("")
+  Async.beforeEach(async () => fileContent := (await File.read(Path.asset("Goals.agda"))))
+  Async.afterEach(async () => await File.write(Path.asset("Goals.agda"), fileContent.contents))
+
+  Async.it("an edit in another file leaves this state's tokens and goals untouched", async () => {
+    // a real load gives the state non-empty token and goal bookkeeping
+    let ctx = await AgdaMode.makeAndLoad("Goals.agda")
+
+    // snapshot by value: serialized tokens, goal offsets, and delta count.
+    // NOTE: goals are snapshotted as offsets via `getGoalPositionByIndex`
+    // instead of `serializeGoals`, because the latter renders offsets against
+    // `VSCode.Window.activeTextEditor` -- which this test changes on purpose
+    let snapshotGoals = () =>
+      Array.fromInitializer(~length=Goals.size(ctx.state.goals), index =>
+        Goals.getGoalPositionByIndex(ctx.state.goals, index)
+      )
+    let tokensBefore = ctx.state.tokens->Tokens.toTokenArray->Array.map(Token.toString)
+    let goalsBefore = snapshotGoals()
+    Assert.deepStrictEqual(ctx.state.tokens->Tokens.deltasLength, 0)
+
+    // edit another Agda file: insert a line at the very start -- the stimulus
+    // with the largest blast radius, since it shifts every offset in that
+    // document -- then remove it to restore the buffer for other tests
+    let editorB = await File.open_(Path.asset("InputMethod.agda"))
+    let documentB = editorB->VSCode.TextEditor.document
+    let _ = await Editor.Text.insert(documentB, VSCode.Position.make(0, 0), "-- cross-talk\n")
+    let _ = await Editor.Text.delete(
+      documentB,
+      VSCode.Range.make(VSCode.Position.make(0, 0), VSCode.Position.make(1, 0)),
+    )
+    // goal rescanning runs asynchronously in the listener; give a misrouted
+    // event time to land before asserting
+    await wait(100)
+
+    // this state's bookkeeping must be untouched
+    Assert.deepStrictEqual(ctx.state.tokens->Tokens.deltasLength, 0)
+    Assert.deepStrictEqual(
+      ctx.state.tokens->Tokens.toTokenArray->Array.map(Token.toString),
+      tokensBefore,
+    )
+    Assert.deepStrictEqual(snapshotGoals(), goalsBefore)
   })
 })
