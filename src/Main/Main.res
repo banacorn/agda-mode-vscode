@@ -17,6 +17,11 @@ module ExtensionEvents: {
   let onTriggerCommand: (
     (Command.t, VSCode.TextEditor.t) => promise<option<result<State.t, Connection.Error.t>>>
   ) => array<VSCode.Disposable.t>
+  let registerDefinitionProvider: unit => VSCode.Disposable.t
+  let registerDocumentSemanticTokensProvider: option<
+    Editor.Provider.Mock.Event.t<unit>,
+  > => VSCode.Disposable.t
+  let registerInputMethodHintHoverProvider: unit => VSCode.Disposable.t
 } = {
   let onOpenEditor = callback => {
     VSCode.Window.activeTextEditor->Option.forEach(callback)
@@ -42,6 +47,124 @@ module ExtensionEvents: {
           },
         )
       })
+    )
+  }
+
+  let registerDefinitionProvider = () => {
+    Editor.Provider.registerDefinitionProvider((document, position) =>
+      switch Registry.get(document)->Option.flatMap(entry => entry.state) {
+      | None => None
+      | Some(state) =>
+        Tokens.goToDefinition(state.tokens, document)(
+          Parser.Filepath.make(document->VSCode.TextDocument.fileName),
+          position,
+        )
+      }
+    )
+  }
+
+  let registerDocumentSemanticTokensProvider = onDidChangeSemanticTokens => {
+    // these two arrays are called "legends"
+    let tokenTypes = Highlighting__SemanticToken.TokenType.enumurate
+    let tokenModifiers = Highlighting__SemanticToken.TokenModifier.enumurate
+
+    let provideDocumentSemanticTokens = (document, _cancel) => {
+      Registry.requestSemanticTokens(document)
+      ->Promise.thenResolve(tokens => {
+        open Editor.Provider.Mock
+
+        let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
+          tokenTypes,
+          tokenModifiers,
+        )
+        let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
+
+        tokens->Array.forEach(({range, type_, modifiers}) => {
+          SemanticTokensBuilder.pushLegend(
+            builder,
+            Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range),
+            Highlighting__SemanticToken.TokenType.toString(type_),
+            modifiers->Option.map(
+              xs => xs->Array.map(Highlighting__SemanticToken.TokenModifier.toString),
+            ),
+          )
+        })
+
+        SemanticTokensBuilder.build(builder)
+      })
+      ->(x => Some(x))
+    }
+
+    Editor.Provider.registerDocumentSemanticTokensProvider(
+      ~provideDocumentSemanticTokens,
+      ~onDidChangeSemanticTokens?,
+      (tokenTypes, tokenModifiers),
+    )
+  }
+
+  // provide hover text to tell how these symbols get type
+  let registerInputMethodHintHoverProvider = () => {
+    VSCode.Languages.registerHoverProvider(
+      [
+        VSCode.StringOr.make(String("agda")),
+        VSCode.StringOr.make(String("lagda-markdown")),
+        VSCode.StringOr.make(String("markdown")),
+        VSCode.StringOr.make(String("lagda-typst")),
+        VSCode.StringOr.make(String("typst")),
+        VSCode.StringOr.make(String("lagda-tex")),
+        VSCode.StringOr.make(String("lagda-rst")),
+        VSCode.StringOr.make(String("lagda-org")),
+        VSCode.StringOr.make(String("org")),
+        VSCode.StringOr.make(String("lagda-forester")),
+        VSCode.StringOr.make(String("forester")),
+      ],
+      {
+        provideHover: (document, position, _token) => {
+          let text =
+            VSCode.TextDocument.lineAt(document, position->VSCode.Position.line)->VSCode.TextLine.text
+          let char = text->String.charAt(position->VSCode.Position.character)
+          // don't answer for these characters
+          let ignoredChars = [" "]
+          let foundInputMethods: option<array<string>> = if Array.includes(ignoredChars, char) {
+            None
+          } else {
+            char
+            ->String.codePointAt(0)
+            ->Option.map(string_of_int)
+            ->Option.flatMap(Dict.get(rawTable, ...))
+          }
+          switch foundInputMethods {
+          // If found some methods, then pretty print these input sequences
+          | Some(methods) =>
+            // Sort methods by length (shortest first) for better UX
+            let sortedMethods =
+              methods->Array.toSorted((a, b) => Float.fromInt(String.length(a) - String.length(b)))
+            // Format with Oxford comma style
+            let methodsText = switch sortedMethods->Array.length {
+            | 1 => "`\\" ++ sortedMethods[0]->Option.getUnsafe ++ "`"
+            | 2 =>
+              "`\\" ++
+              sortedMethods[0]->Option.getUnsafe ++
+              "` or `\\" ++
+              sortedMethods[1]->Option.getUnsafe ++ "`"
+            | _ =>
+              let lastMethod = sortedMethods->Array.at(-1)->Option.getUnsafe
+              let otherMethods = sortedMethods->Array.slice(~start=0, ~end=-1)
+              otherMethods->Array.map(m => "`\\" ++ m ++ "`")->Array.join(", ") ++
+              ", or `\\" ++
+              lastMethod ++ "`"
+            }
+            let hoverText = "Input sequence: " ++ methodsText
+            Some(
+              Promise.make((resolve, _reject) =>
+                resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value=hoverText)]))
+              ),
+            )
+          // no input methods found, do nothing
+          | None => None
+          }
+        },
+      },
     )
   }
 }
@@ -118,124 +241,6 @@ let initialize = (
 
   // add this state to the Registry
   state
-}
-
-let registerDefinitionProvider = () => {
-  Editor.Provider.registerDefinitionProvider((document, position) =>
-    switch Registry.get(document)->Option.flatMap(entry => entry.state) {
-    | None => None
-    | Some(state) =>
-      Tokens.goToDefinition(state.tokens, document)(
-        Parser.Filepath.make(document->VSCode.TextDocument.fileName),
-        position,
-      )
-    }
-  )
-}
-
-let registerDocumentSemanticTokensProvider = onDidChangeSemanticTokens => {
-  // these two arrays are called "legends"
-  let tokenTypes = Highlighting__SemanticToken.TokenType.enumurate
-  let tokenModifiers = Highlighting__SemanticToken.TokenModifier.enumurate
-
-  let provideDocumentSemanticTokens = (document, _cancel) => {
-    Registry.requestSemanticTokens(document)
-    ->Promise.thenResolve(tokens => {
-      open Editor.Provider.Mock
-
-      let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
-        tokenTypes,
-        tokenModifiers,
-      )
-      let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
-
-      tokens->Array.forEach(({range, type_, modifiers}) => {
-        SemanticTokensBuilder.pushLegend(
-          builder,
-          Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range),
-          Highlighting__SemanticToken.TokenType.toString(type_),
-          modifiers->Option.map(
-            xs => xs->Array.map(Highlighting__SemanticToken.TokenModifier.toString),
-          ),
-        )
-      })
-
-      SemanticTokensBuilder.build(builder)
-    })
-    ->(x => Some(x))
-  }
-
-  Editor.Provider.registerDocumentSemanticTokensProvider(
-    ~provideDocumentSemanticTokens,
-    ~onDidChangeSemanticTokens?,
-    (tokenTypes, tokenModifiers),
-  )
-}
-
-// provide hover text to tell how these symbols get type
-let registerInputMethodHintHoverProvider = () => {
-  VSCode.Languages.registerHoverProvider(
-    [
-      VSCode.StringOr.make(String("agda")),
-      VSCode.StringOr.make(String("lagda-markdown")),
-      VSCode.StringOr.make(String("markdown")),
-      VSCode.StringOr.make(String("lagda-typst")),
-      VSCode.StringOr.make(String("typst")),
-      VSCode.StringOr.make(String("lagda-tex")),
-      VSCode.StringOr.make(String("lagda-rst")),
-      VSCode.StringOr.make(String("lagda-org")),
-      VSCode.StringOr.make(String("org")),
-      VSCode.StringOr.make(String("lagda-forester")),
-      VSCode.StringOr.make(String("forester")),
-    ],
-    {
-      provideHover: (document, position, _token) => {
-        let text =
-          VSCode.TextDocument.lineAt(document, position->VSCode.Position.line)->VSCode.TextLine.text
-        let char = text->String.charAt(position->VSCode.Position.character)
-        // don't answer for these characters
-        let ignoredChars = [" "]
-        let foundInputMethods: option<array<string>> = if Array.includes(ignoredChars, char) {
-          None
-        } else {
-          char
-          ->String.codePointAt(0)
-          ->Option.map(string_of_int)
-          ->Option.flatMap(Dict.get(rawTable, ...))
-        }
-        switch foundInputMethods {
-        // If found some methods, then pretty print these input sequences
-        | Some(methods) =>
-          // Sort methods by length (shortest first) for better UX
-          let sortedMethods =
-            methods->Array.toSorted((a, b) => Float.fromInt(String.length(a) - String.length(b)))
-          // Format with Oxford comma style
-          let methodsText = switch sortedMethods->Array.length {
-          | 1 => "`\\" ++ sortedMethods[0]->Option.getUnsafe ++ "`"
-          | 2 =>
-            "`\\" ++
-            sortedMethods[0]->Option.getUnsafe ++
-            "` or `\\" ++
-            sortedMethods[1]->Option.getUnsafe ++ "`"
-          | _ =>
-            let lastMethod = sortedMethods->Array.at(-1)->Option.getUnsafe
-            let otherMethods = sortedMethods->Array.slice(~start=0, ~end=-1)
-            otherMethods->Array.map(m => "`\\" ++ m ++ "`")->Array.join(", ") ++
-            ", or `\\" ++
-            lastMethod ++ "`"
-          }
-          let hoverText = "Input sequence: " ++ methodsText
-          Some(
-            Promise.make((resolve, _reject) =>
-              resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value=hoverText)]))
-            ),
-          )
-        // no input methods found, do nothing
-        | None => None
-        }
-      },
-    },
-  )
 }
 
 // TODO: rename `finalize`
@@ -446,9 +451,9 @@ let activateWithoutContext = (
     }
   })->subscribeMany
 
-  registerDefinitionProvider()->subscribe
-  registerDocumentSemanticTokensProvider(Some(onDidChangeSemanticTokens))->subscribe
-  registerInputMethodHintHoverProvider()->subscribe
+  ExtensionEvents.registerDefinitionProvider()->subscribe
+  ExtensionEvents.registerDocumentSemanticTokensProvider(Some(onDidChangeSemanticTokens))->subscribe
+  ExtensionEvents.registerInputMethodHintHoverProvider()->subscribe
 
   // expose the channel for testing
   channels
