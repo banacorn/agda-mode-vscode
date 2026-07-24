@@ -12,6 +12,7 @@ module Inputs: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
   let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
   let onSelectionChange: (VSCode.TextEditorSelectionChangeEvent.t => unit) => VSCode.Disposable.t
+  let onDocumentChange: (VSCode.TextDocumentChangeEvent.t => unit) => VSCode.Disposable.t
   let onTriggerCommand: (
     (Command.t, VSCode.TextEditor.t) => promise<option<result<State.t, Connection.Error.t>>>
   ) => array<VSCode.Disposable.t>
@@ -22,6 +23,7 @@ module Inputs: {
   }
   let onCloseDocument = callback => VSCode.Workspace.onDidCloseTextDocument(callback)
   let onSelectionChange = callback => VSCode.Window.onDidChangeTextEditorSelection(callback)
+  let onDocumentChange = callback => VSCode.Workspace.onDidChangeTextDocument(callback)
   // invoke the callback when:
   //  1. the triggered command has prefix "agda-mode."
   //  2. there's an active text edtior
@@ -112,33 +114,6 @@ let initialize = (
     }
   })
   ->subscribe
-  VSCode.Workspace.onDidChangeTextDocument(event => {
-    // only handle change events that belong to this state's document,
-    // and only when the current state editor still points at that document,
-    // so that we never call editor-dependent APIs on a stale captured editor
-    let eventDocument = VSCode.TextDocumentChangeEvent.document(event)
-    if VSCode.TextDocument.fileName(eventDocument) == id {
-      let currentEditor = state.editor
-      if currentEditor->VSCode.TextEditor.document->VSCode.TextDocument.fileName == id {
-        // update the input method accordingly
-        let changes = IM.Input.fromTextDocumentChangeEvent(currentEditor, event)
-        State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
-        // updates positions of semantic highlighting tokens accordingly
-        state.tokens->Tokens.applyEdit(currentEditor, event)
-        // updates positions of goals accordingly
-        let changes =
-          event
-          ->VSCode.TextDocumentChangeEvent.contentChanges
-          ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
-          ->Array.toReversed
-        if Array.length(changes) != 0 {
-          state.goals->Goals.scanAllGoals(currentEditor, changes)->Promise.done
-        }
-      }
-    }
-
-    // state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done
-  })->subscribe
 
   // definition provider for go-to-definition
   Editor.Provider.registerDefinitionProvider((filepath, position) =>
@@ -369,6 +344,34 @@ let activateWithoutContext = (
           VSCode.TextDocument.offsetAt(document, VSCode.Selection.end_(selection)),
         ))
       State__InputMethod.select(state, intervals)->ignore
+    }
+  })->subscribe
+
+  // on document change
+  Inputs.onDocumentChange(event => {
+    let eventDocument = VSCode.TextDocumentChangeEvent.document(event)
+    switch Registry.get(eventDocument)->Option.flatMap(entry => entry.state) {
+    | None => ()
+    | Some(state) =>
+      // only act when the current state editor still points at this state's document,
+      // so that we never call editor-dependent APIs on a stale captured editor
+      let currentEditor = state.editor
+      if currentEditor->VSCode.TextEditor.document->VSCode.TextDocument.fileName == state.id {
+        // update the input method accordingly
+        let changes = IM.Input.fromTextDocumentChangeEvent(currentEditor, event)
+        State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
+        // updates positions of semantic highlighting tokens accordingly
+        state.tokens->Tokens.applyEdit(currentEditor, event)
+        // updates positions of goals accordingly
+        let changes =
+          event
+          ->VSCode.TextDocumentChangeEvent.contentChanges
+          ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
+          ->Array.toReversed
+        if Array.length(changes) != 0 {
+          state.goals->Goals.scanAllGoals(currentEditor, changes)->Promise.done
+        }
+      }
     }
   })->subscribe
 
