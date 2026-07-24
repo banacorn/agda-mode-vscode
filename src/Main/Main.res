@@ -115,13 +115,21 @@ let initialize = (
   })
   ->subscribe
 
-  // definition provider for go-to-definition
-  Editor.Provider.registerDefinitionProvider((filepath, position) =>
-    Tokens.goToDefinition(state.tokens, state.document)(Parser.Filepath.make(filepath), position)
-  )->subscribe
-
   // add this state to the Registry
   state
+}
+
+let registerDefinitionProvider = () => {
+  Editor.Provider.registerDefinitionProvider((document, position) =>
+    switch Registry.get(document)->Option.flatMap(entry => entry.state) {
+    | None => None
+    | Some(state) =>
+      Tokens.goToDefinition(state.tokens, document)(
+        Parser.Filepath.make(document->VSCode.TextDocument.fileName),
+        position,
+      )
+    }
+  )
 }
 
 let registerDocumentSemanticTokensProvider = onDidChangeSemanticTokens => {
@@ -437,6 +445,7 @@ let activateWithoutContext = (
     }
   })->subscribeMany
 
+  registerDefinitionProvider()->subscribe
   registerDocumentSemanticTokensProvider(Some(onDidChangeSemanticTokens))->subscribe
   registerInputMethodHintHoverProvider()->subscribe
 

@@ -179,7 +179,7 @@ module Provider = {
       {
         provideDefinition: (textDocument, point, _) =>
           definitionProvider(
-            textDocument->TextDocument.fileName,
+            textDocument,
             point,
           )->ProviderResult.map(pairs =>
             LocationLinkOrLocation.locationLinks(
