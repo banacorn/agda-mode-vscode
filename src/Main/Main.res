@@ -11,6 +11,7 @@ let isAgda = (document): bool =>
 module Inputs: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
   let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
+  let onSelectionChange: (VSCode.TextEditorSelectionChangeEvent.t => unit) => VSCode.Disposable.t
   let onTriggerCommand: (
     (Command.t, VSCode.TextEditor.t) => promise<option<result<State.t, Connection.Error.t>>>
   ) => array<VSCode.Disposable.t>
@@ -20,6 +21,7 @@ module Inputs: {
     VSCode.Window.onDidChangeActiveTextEditor(next => next->Option.forEach(callback))
   }
   let onCloseDocument = callback => VSCode.Workspace.onDidCloseTextDocument(callback)
+  let onSelectionChange = callback => VSCode.Window.onDidChangeTextEditorSelection(callback)
   // invoke the callback when:
   //  1. the triggered command has prefix "agda-mode."
   //  2. there's an active text edtior
@@ -110,23 +112,6 @@ let initialize = (
     }
   })
   ->subscribe
-  // register event listeners for the input method
-  VSCode.Window.onDidChangeTextEditorSelection(event => {
-    // only handle selection events that belong to this state's document
-    let eventEditor = VSCode.TextEditorSelectionChangeEvent.textEditor(event)
-    let document = VSCode.TextEditor.document(eventEditor)
-    if VSCode.TextDocument.fileName(document) == id {
-      let intervals =
-        event
-        ->VSCode.TextEditorSelectionChangeEvent.selections
-        ->Array.map(selection => (
-          VSCode.TextDocument.offsetAt(document, VSCode.Selection.start(selection)),
-          VSCode.TextDocument.offsetAt(document, VSCode.Selection.end_(selection)),
-        ))
-
-      State__InputMethod.select(state, intervals)->ignore
-    }
-  })->subscribe
   VSCode.Workspace.onDidChangeTextDocument(event => {
     // only handle change events that belong to this state's document,
     // and only when the current state editor still points at that document,
@@ -369,6 +354,24 @@ let activateWithoutContext = (
       finalize(false)->ignore
     }
   })->subscribe
+
+  // on selection change
+  Inputs.onSelectionChange(event => {
+    let document = event->VSCode.TextEditorSelectionChangeEvent.textEditor->VSCode.TextEditor.document
+    switch Registry.get(document)->Option.flatMap(entry => entry.state) {
+    | None => ()
+    | Some(state) =>
+      let intervals =
+        event
+        ->VSCode.TextEditorSelectionChangeEvent.selections
+        ->Array.map(selection => (
+          VSCode.TextDocument.offsetAt(document, VSCode.Selection.start(selection)),
+          VSCode.TextDocument.offsetAt(document, VSCode.Selection.end_(selection)),
+        ))
+      State__InputMethod.select(state, intervals)->ignore
+    }
+  })->subscribe
+
   // on triggering commands
   Inputs.onTriggerCommand(async (command, editor) => {
     let document = editor->VSCode.TextEditor.document
