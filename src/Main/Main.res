@@ -8,7 +8,8 @@ external rawTable: Dict.t<array<string>> = "default"
 let isAgda = (document): bool =>
   RegExp.test(%re("/\.agda$|\.lagda/i"), document->VSCode.TextDocument.fileName)
 
-module Inputs: {
+// Every extension-wide VS Code source (editor, document, selection, command) registered exactly once here, routed to the right State via the Registry.
+module ExtensionEvents: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
   let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
   let onSelectionChange: (VSCode.TextEditorSelectionChangeEvent.t => unit) => VSCode.Disposable.t
@@ -291,7 +292,7 @@ let activateWithoutContext = (
   }
 
   // on open editor
-  Inputs.onOpenEditor(editor => {
+  ExtensionEvents.onOpenEditor(editor => {
     let document = editor->VSCode.TextEditor.document
 
     // filter out ".agda.git" files
@@ -331,7 +332,7 @@ let activateWithoutContext = (
   })->subscribe
 
   // on close editor
-  Inputs.onCloseDocument(document => {
+  ExtensionEvents.onCloseDocument(document => {
     if isAgda(document) {
       Registry.removeAndDestroy(document)->ignore
       finalize(false)->ignore
@@ -339,7 +340,7 @@ let activateWithoutContext = (
   })->subscribe
 
   // on selection change
-  Inputs.onSelectionChange(event => {
+  ExtensionEvents.onSelectionChange(event => {
     let document = event->VSCode.TextEditorSelectionChangeEvent.textEditor->VSCode.TextEditor.document
     switch Registry.get(document)->Option.flatMap(entry => entry.state) {
     | None => ()
@@ -356,7 +357,7 @@ let activateWithoutContext = (
   })->subscribe
 
   // on document change
-  Inputs.onDocumentChange(event => {
+  ExtensionEvents.onDocumentChange(event => {
     let eventDocument = VSCode.TextDocumentChangeEvent.document(event)
     switch Registry.get(eventDocument)->Option.flatMap(entry => entry.state) {
     | None => ()
@@ -384,7 +385,7 @@ let activateWithoutContext = (
   })->subscribe
 
   // on triggering commands
-  Inputs.onTriggerCommand(async (command, editor) => {
+  ExtensionEvents.onTriggerCommand(async (command, editor) => {
     let document = editor->VSCode.TextEditor.document
     // destroy
     switch command {
