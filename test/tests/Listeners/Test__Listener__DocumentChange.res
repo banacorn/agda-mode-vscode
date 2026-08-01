@@ -5,17 +5,17 @@ type typeArgs = {"text": string}
 @module("vscode") @scope("commands")
 external typeCommand: (@as("type") _, typeArgs) => promise<unit> = "executeCommand"
 
-// Deterministic regression test for #300 ("TextEditor is closed/disposed"
-// warnings). Runs the smallest sequence that used to trigger the warning:
-// load a real Agda file (giving `Tokens` non-empty decorations), make its
-// captured editor stale by switching away and back (VS Code hands the
-// extension a fresh `TextEditor` on switch-back, while the old one stays
-// captured by that state's listener closures), then make one small text
-// edit. The `onDidChangeTextDocument` listener is now document-scoped and
-// uses the current `state.editor` instead of the initialization-time
-// captured editor, so the sequence no longer produces the exact warning.
-//   AGDA_TEST_GLOB="Test__StaleEditorDecorationWarning*.js" npm test
-describe("stale editor decoration warning (#300)", () => {
+// Routing tests for `ExtensionEvents.onDocumentChange` (Main.res). Runs the
+// smallest sequence that used to trigger the #300 "TextEditor is
+// closed/disposed" warning: load a real Agda file (giving `Tokens`
+// non-empty decorations), make its captured editor stale by switching away
+// and back (VS Code hands the extension a fresh `TextEditor` on
+// switch-back, while the old one stays captured by that state's listener
+// closures), then make one small text edit. The listener is now
+// document-scoped and uses the current `state.editor` instead of the
+// initialization-time captured editor, so the sequence no longer produces
+// the exact warning.
+describe("onDocumentChange routing", () => {
   // restore Goals.agda after each test: loading expands its "?" holes to
   // "{!   !}" in the buffer, and a later `Load` would save that to disk
   let fileContent = ref("")
@@ -25,14 +25,6 @@ describe("stale editor decoration warning (#300)", () => {
   Async.it("a text edit after staling the captured editor produces no warning", async () => {
     let warningPhrase = "TextEditor is closed/disposed"
 
-    // open a file and trigger `Main.initialize` for it without a real
-    // `agda-mode.load`, via the input-method activate/escape round trip
-    let openNoLoad = async path => {
-      let (editor, _channels) = await activateExtensionAndOpenFile(Path.asset(path), None)
-      let _ = await VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
-      let _ = await VSCode.Commands.executeCommand0("agda-mode.escape")
-      editor
-    }
     let _ = await openNoLoad("InputMethod.agda")
 
     // real load gives `Tokens` non-empty decorations to apply
@@ -42,8 +34,7 @@ describe("stale editor decoration warning (#300)", () => {
     // back, so VS Code hands the extension a fresh `TextEditor` for
     // Goals.agda while the old one -- still captured by that state's
     // listener closures -- goes stale
-    let _ = await File.open_(Path.asset("InputMethod.agda"))
-    let _ = await File.open_(Path.asset("Goals.agda"))
+    let _ = await staleAndRefreshEditor("Goals.agda", "InputMethod.agda")
 
     let before = ExtHostLog.countLinesContaining(warningPhrase)
 
@@ -55,19 +46,12 @@ describe("stale editor decoration warning (#300)", () => {
 
     Assert.equal(0, after - before)
   })
-})
 
-// Cross-talk regression for #300: with a state loaded for one Agda file,
-// edits made in a *different* file must not touch that state's bookkeeping.
-// Before the fix, the `onDidChangeTextDocument` listener in `Main.initialize`
-// was unfiltered, so an edit in any document would shift this state's token
-// positions and goal ranges by the other document's change deltas.
-describe("cross-document event routing (#300)", () => {
-  // same restoration as above: this describe also loads Goals.agda
-  let fileContent = ref("")
-  Async.beforeEach(async () => fileContent := (await File.read(Path.asset("Goals.agda"))))
-  Async.afterEach(async () => await File.write(Path.asset("Goals.agda"), fileContent.contents))
-
+  // Cross-talk: with a state loaded for one Agda file, edits made in a
+  // *different* file must not touch that state's bookkeeping. Before the
+  // fix, the listener in `Main.initialize` was unfiltered, so an edit in
+  // any document would shift this state's token positions and goal ranges
+  // by the other document's change deltas.
   Async.it("an edit in another file leaves this state's tokens and goals untouched", async () => {
     // a real load gives the state non-empty token and goal bookkeeping
     let ctx = await AgdaMode.makeAndLoad("Goals.agda")
