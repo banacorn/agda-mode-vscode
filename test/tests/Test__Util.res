@@ -186,6 +186,26 @@ let activateExtensionAndOpenFile = async (fileName, candidate) => {
   (editor, channels)
 }
 
+// activates the extension and creates a `State` for `path` (an asset
+// filename, e.g. "InputMethod.agda") without a real `agda-mode.load`, via
+// the input-method activate/escape round trip -- much cheaper than a real
+// load when the test only needs a live state to route to, not a working
+// Agda connection.
+let openNoLoad = async path => {
+  let (editor, channels) = await activateExtensionAndOpenFile(Path.asset(path), None)
+  let _ = await VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
+  let _ = await VSCode.Commands.executeCommand0("agda-mode.escape")
+  (editor, channels)
+}
+
+// switches away from `path` to `awayPath` and back, so VS Code hands out a
+// fresh `TextEditor` for `path` on switch-back -- the old handle, if
+// captured by a closure instead of looked up fresh, goes stale.
+let staleAndRefreshEditor = async (path, awayPath) => {
+  let _ = await File.open_(Path.asset(awayPath))
+  await File.open_(Path.asset(path))
+}
+
 @module("vscode") @scope("commands")
 external executeCommand: string => promise<option<result<State.t, Connection.Error.t>>> =
   "executeCommand"
