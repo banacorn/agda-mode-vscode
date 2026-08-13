@@ -453,4 +453,170 @@ describe("Tokens", () => {
       },
     )
   })
+
+  // Aspect merging must not accumulate. `insertWithVSCodeOffsets` merges the
+  // aspect lists of two tokens at the same offset with `Array.concat`, which
+  // never replaces and never deduplicates, so annotations pile up. Observed
+  // in practice as tokens carrying `Function+Deadcode+Function` and
+  // `Symbol+Deadcode+Symbol+Symbol` -- Agda cannot have sent `Symbol` three
+  // times.
+  //
+  // WHY THIS MATTERS: Agda legitimately sends overlapping annotations, and
+  // how many it sends varies with its own session state. The same file was
+  // measured yielding 12 `Deadcode` annotations on a cold load and 132 on a
+  // warm one, with the extension faithfully receiving both. That volume is
+  // outside our control, so the merge must be insensitive to how many
+  // annotations arrive, and to the order they arrive in.
+  //
+  // SEMANTICS BEING PINNED -- union, not replace. When two annotations hit
+  // the same offset, the token keeps the *union* of their aspects, with no
+  // duplicates. The alternative (last annotation replaces) is rejected
+  // because `Tokens.reset` clears `agdaTokens` at the start of every load,
+  // so annotations arriving within one load are additive by construction,
+  // and a token genuinely can be both `Function` and `Deadcode`. Note the
+  // order-independence property below only holds under union; if replace
+  // were ever chosen instead, that property must be deleted, not "fixed".
+  describe("aspect merging", () => {
+    open FastCheck
+    open FastCheck.Arbitrary
+    open Property.Sync
+
+    let mkToken = (~start, ~end, ~aspects): Token.t<Tokens.vscodeOffset> => {
+      start,
+      end,
+      aspects,
+      isTokenBased: false,
+      note: None,
+      source: None,
+    }
+
+    // a small pool of real aspects, so generated inserts overlap often
+    let pool = [
+      Highlighting__AgdaAspect.Function,
+      Highlighting__AgdaAspect.Deadcode,
+      Highlighting__AgdaAspect.Symbol,
+      Highlighting__AgdaAspect.ConstructorInductive,
+      Highlighting__AgdaAspect.UnsolvedMeta,
+    ]
+    let aspectsOf = idxs =>
+      idxs->Array.filterMap(i => pool->Array.get(mod(abs(i), Array.length(pool))))
+
+    // no `array` combinator in this binding; build it recursively the way
+    // `TokenChange.arbitraryBatch` does
+    // Each insert is (offset, endBump, aspectBits). `aspectBits` is decoded
+    // into a multi-aspect list, because real Agda annotations carry several
+    // aspects at once (`[Function, Deadcode]`), and the merge's
+    // `old.aspects == token.aspects` shortcut behaves differently for lists
+    // than for singletons. `endBump` varies `end` so the `old.end ==
+    // token.end` branch is actually exercised.
+    let arbInserts = {
+      let rec aux = size =>
+        if size == 0 {
+          Combinators.constant([])
+        } else {
+          Combinators.tuple3(
+            integerRange(0, 3),
+            integerRange(1, 3),
+            integerRange(1, 31),
+          )->Derive.chain(triple => aux(size - 1)->Derive.map(rest => Array.concat([triple], rest)))
+        }
+      integerRange(1, 8)->Derive.chain(size => aux(size))
+    }
+
+    // decode a bitmask into a non-empty list of distinct aspects
+    let aspectsOfBits = bits => {
+      let picked = pool->Array.filterWithIndex((_, i) => land(bits, lsl(1, i)) != 0)
+      Array.length(picked) == 0 ? [Highlighting__AgdaAspect.Function] : picked
+    }
+
+    // build the token store from a generated list of (offset, aspect) inserts
+    let build = (inserts, ~reverse) => {
+      let tokens = Tokens.make(None)
+      let ordered = reverse ? inserts->Array.toReversed : inserts
+      ordered->Array.forEach(((offset, endBump, bits)) =>
+        tokens->Tokens.insertWithVSCodeOffsets(
+          mkToken(~start=offset, ~end=offset + endBump, ~aspects=aspectsOfBits(bits)),
+        )
+      )
+      tokens
+    }
+
+    // what the union semantics say the result must be, per offset
+    let expectedUnion = inserts => {
+      let acc = Map.make()
+      inserts->Array.forEach(((offset, _endBump, bits)) => {
+        let existing = switch acc->Map.get(offset) { | Some(xs) => xs | None => [] }
+        let merged = aspectsOfBits(bits)->Array.reduce(existing, (seen, a) => {
+          let name = Highlighting__AgdaAspect.toString(a)
+          seen->Array.includes(name) ? seen : Array.concat(seen, [name])
+        })
+        acc->Map.set(offset, merged)
+      })
+      acc
+      ->Map.entries
+      ->Iterator.toArray
+      ->Array.map(((k, v)) => (k, v->Array.toSorted(String.compare)))
+      ->Array.toSorted(((a, _), (b, _)) => Int.compare(a, b))
+    }
+
+    let aspectSets = tokens =>
+      tokens
+      ->Tokens.toTokenArray
+      ->Array.map(t => (
+        t.Token.start,
+        t.Token.aspects
+        ->Array.map(Highlighting__AgdaAspect.toString)
+        ->Array.toSorted(String.compare),
+      ))
+      ->Array.toSorted(((a, _), (b, _)) => Int.compare(a, b))
+
+    let hasDuplicate = xs =>
+      xs->Array.reduce((false, []), ((dup, seen), x) =>
+        seen->Array.includes(x) ? (true, seen) : (dup, Array.concat(seen, [x]))
+      ) |> fst
+
+    it("no token ever accumulates a duplicate aspect", () =>
+      assert_(
+        property1(arbInserts, inserts => {
+          let tokens = build(inserts, ~reverse=false)
+          tokens
+          ->Tokens.toTokenArray
+          ->Array.every(t =>
+            !hasDuplicate(t.Token.aspects->Array.map(Highlighting__AgdaAspect.toString))
+          )
+        }),
+      )
+    )
+
+    it("re-inserting the same annotations changes nothing (idempotence)", () =>
+      // A reload re-sends the same annotations. Applying a batch twice must
+      // equal applying it once, or every reload accumulates.
+      assert_(
+        property1(arbInserts, inserts =>
+          aspectSets(build(inserts, ~reverse=false)) ==
+            aspectSets(build(Array.concat(inserts, inserts), ~reverse=false))
+        ),
+      )
+    )
+
+    it("a token's aspects are exactly the union of what was inserted", () =>
+      // Stronger than "no duplicates": a `replace` implementation would pass
+      // the duplicate check while silently dropping aspects. This pins the
+      // union positively.
+      assert_(
+        property1(arbInserts, inserts =>
+          aspectSets(build(inserts, ~reverse=false)) == expectedUnion(inserts)
+        ),
+      )
+    )
+
+    it("the result does not depend on the order annotations arrive in", () =>
+      assert_(
+        property1(arbInserts, inserts =>
+          aspectSets(build(inserts, ~reverse=false)) ==
+            aspectSets(build(inserts, ~reverse=true))
+        ),
+      )
+    )
+  })
 })
