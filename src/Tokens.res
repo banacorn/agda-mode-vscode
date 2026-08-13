@@ -182,10 +182,21 @@ module Module: Module = {
         old.aspects == token.aspects && old.start == token.start && old.end == token.end
 
       if !areTheSameTokens {
-        // TODO: reexamine if we need to merge the aspects or not
-        // merge Aspects only when they are different (TODO: should be sets)
+        // Merge aspects as a set union, never by plain concatenation.
+        // Agda sends overlapping annotations, and the same offset can be
+        // written several times within a single load, so concatenating
+        // accumulates duplicates without bound -- observed in practice as
+        // `Function+Deadcode+Function` and `Symbol+Deadcode+Symbol+Symbol`.
+        // Union is the right semantics here (rather than replacing) because
+        // `reset` clears `agdaTokens` at the start of every load, so the
+        // annotations arriving within one load are additive, and a token
+        // genuinely can be both e.g. a `Function` and `Deadcode`.
         let newAspects =
-          old.aspects == token.aspects ? old.aspects : Array.concat(old.aspects, token.aspects)
+          old.aspects == token.aspects
+            ? old.aspects
+            : token.aspects->Array.reduce(old.aspects, (acc, aspect) =>
+                acc->Array.some(x => x == aspect) ? acc : Array.concat(acc, [aspect])
+              )
 
         let new = {
           ...old,
