@@ -2,6 +2,7 @@ open Mocha
 open Test__Util
 
 type typeArgs = {"text": string}
+type typingOutcome = Typed | TimedOut
 
 // Black-box regression test for #328: after loading and highlighting a large
 // Agda file with VSCodeVim installed, typing a character should stay responsive.
@@ -79,21 +80,28 @@ describe("issue #328: intercepted typing after highlighting", () => {
 
       let startedAt = Js.Date.now()
       let command = VSCode.Commands.executeCommand1("type", {"text": "x"})
-      await typed
+      let outcome = await Promise.race([
+        typed->Promise.thenResolve(_ => Typed),
+        Util.Promise_.setTimeout(5000)->Promise.thenResolve(_ => TimedOut),
+      ])
       let elapsedMilliseconds = Js.Date.now() -. startedAt
-      let _ = await command
       stopWatching->VSCode.Disposable.dispose->ignore
 
-      // Include the observation in the failure so the red test is also a
-      // reproducible measurement of #328.
-      Assert.equal(
-        elapsedMilliseconds < 100.0,
-        true,
-        ~message=
-          "Vim-intercepted typing took " ++
-          Float.toString(elapsedMilliseconds) ++
-          " ms after Agda highlighting",
-      )
+      switch outcome {
+      | TimedOut => Assert.fail("Typed character did not appear within 5000 ms")
+      | Typed =>
+        let _ = await command
+        // Include the observation in the failure so the red test is also a
+        // reproducible measurement of #328.
+        Assert.equal(
+          elapsedMilliseconds < 100.0,
+          true,
+          ~message=
+            "Vim-intercepted typing took " ++
+            Float.toString(elapsedMilliseconds) ++
+            " ms after Agda highlighting",
+        )
+      }
     },
   )
 })
