@@ -44,6 +44,23 @@ describe("edit during an in-flight load", () => {
     )
     ->Array.map(token => (token.Token.start, token.Token.end))
 
+  // Where go-to-definition would land. `insertTokens` puts same-file source
+  // offsets through the same conversion and the same shift as the token's own
+  // range, so they have to move with it. Cross-file sources are left as Agda
+  // offsets and converted against the other file, so they are excluded here.
+  let sameFileSourceOffsets = (tokens, document) => {
+    let currentFilepath = document->VSCode.TextDocument.fileName->Parser.Filepath.make
+    tokens
+    ->Tokens.toTokenArray
+    ->Array.filterMap(token =>
+      switch token.Token.source {
+      | Some((filepath, offset)) if filepath == currentFilepath => Some(offset)
+      | _ => None
+      }
+    )
+    ->Array.toSorted((a, b) => Int.toFloat(a - b))
+  }
+
   // Token offsets are one layer below what the reporter of #243 actually saw.
   // These are the ranges handed to VSCode, so they also cover the step from a
   // token to a painted range.
@@ -243,6 +260,84 @@ describe("edit during an in-flight load", () => {
       )
 
       Assert.deepStrictEqual(unsolvedMetaOffsets(ctx.state.tokens), [(removalStart, removalStart)])
+    },
+  )
+
+  Async.it(
+    "adds up two edits made in the same window",
+    async () => {
+      let ctx = await AgdaMode.makeAndLoad(asset)
+      let offsetsBefore = unsolvedMetaOffsets(ctx.state.tokens)
+      let rangesBefore = decorationRanges(ctx.state.tokens)
+      Assert.deepStrictEqual(Array.length(offsetsBefore), 1)
+      Assert.deepStrictEqual(Array.length(rangesBefore), 1)
+
+      // Two separate edits, at two different places, so the running total has
+      // to accumulate rather than record only the most recent one. Placing
+      // them apart also makes the walk pass through more than one interval.
+      let firstPadding = "-- first\n"
+      let secondPadding = "-- second\n"
+      let totalPadding = String.length(firstPadding) + String.length(secondPadding)
+
+      await reloadWithEditInFlight(ctx, async () => {
+        let first = await Editor.Text.insert(
+          ctx.state.document,
+          VSCode.Position.make(0, 0),
+          firstPadding,
+        )
+        // Read the line index after the first edit, since that one moved it.
+        let lines = Editor.Text.getAll(ctx.state.document)->String.split("\n")
+        let signatureLine = lines->Array.findIndex(line => line->String.startsWith("m : "))
+        if signatureLine < 0 {
+          Assert.fail("the asset no longer has the signature line this test inserts above")
+        }
+        let second = await Editor.Text.insert(
+          ctx.state.document,
+          VSCode.Position.make(signatureLine, 0),
+          secondPadding,
+        )
+        first && second
+      })
+
+      Assert.deepStrictEqual(
+        unsolvedMetaOffsets(ctx.state.tokens),
+        offsetsBefore->Array.map(((start, end)) => (start + totalPadding, end + totalPadding)),
+      )
+
+      // One whole line each, both above the meta.
+      Assert.deepStrictEqual(
+        decorationRanges(ctx.state.tokens),
+        rangesBefore->Array.map((((startLine, startChar, endLine, endChar)) => (
+          startLine + 2,
+          startChar,
+          endLine + 2,
+          endChar,
+        ))),
+      )
+    },
+  )
+
+  Async.it(
+    "shifts the go-to-definition offsets by the same edit",
+    async () => {
+      let ctx = await AgdaMode.makeAndLoad(asset)
+      let sourcesBefore = sameFileSourceOffsets(ctx.state.tokens, ctx.state.document)
+      // `m : ℕ` and the constructors refer to `ℕ` in this same file, so there
+      // is something to shift. Assert it, or a change to the asset could empty
+      // this list and leave the test passing on nothing.
+      Assert.deepStrictEqual(Array.length(sourcesBefore) > 0, true)
+
+      let padding = "-- padding\n"
+      let paddingLength = String.length(padding)
+
+      await reloadWithEditInFlight(ctx, () =>
+        Editor.Text.insert(ctx.state.document, VSCode.Position.make(0, 0), padding)
+      )
+
+      Assert.deepStrictEqual(
+        sameFileSourceOffsets(ctx.state.tokens, ctx.state.document),
+        sourcesBefore->Array.map(offset => offset + paddingLength),
+      )
     },
   )
 })
