@@ -384,4 +384,86 @@ describe("edit during an in-flight load", () => {
       Assert.deepStrictEqual(probeOffsets, [(0, 1)])
     },
   )
+
+  Async.it(
+    "keeps an edit made between the save and the snapshot",
+    async () => {
+      let ctx = await AgdaMode.makeAndLoad(asset)
+
+      // `save` is a no-op on a clean document and fires no event, so dirty the
+      // buffer first. This edit is made outside any load and is rebased by the
+      // ordinary path, so the offsets read below already account for it.
+      let dirtying = await Editor.Text.insert(
+        ctx.state.document,
+        VSCode.Position.make(0, 0),
+        "-- dirty\n",
+      )
+      if !dirtying {
+        raise(Failure("could not dirty the document"))
+      }
+
+      let offsetsBefore = unsolvedMetaOffsets(ctx.state.tokens)
+      Assert.deepStrictEqual(Array.length(offsetsBefore), 1)
+
+      // Typed through VSCode's own `type` command, which inserts at the
+      // cursor. `Editor.Text.insert` goes through `workspace.applyEdit`, which
+      // is slower than a keypress and lands after the snapshot, so the window
+      // closes before the edit arrives and the defect goes unseen.
+      //
+      // No newline, so nothing triggers auto indent. The cursor sits at the
+      // start of the file, so this extends the comment line already there.
+      let padding = "-- pad"
+      let paddingLength = String.length(padding)
+      Editor.Cursor.set(ctx.state.editor, VSCode.Position.make(0, 0))
+
+      // The other tests in this file edit on `ClearHighlighting`, which is
+      // well after the request goes out. This one reaches an earlier window.
+      //
+      // Load saves the document, awaits `showTextDocumentWithShowOptions`,
+      // and only then records the baseline. `onDidSaveTextDocument` fires
+      // inside that await. Agda reads what `save` wrote, so an edit here has
+      // to be corrected for exactly like any other, and the baseline has to
+      // be the saved text rather than the text this edit produces.
+      //
+      // The handler cannot await, so the edit is started and not waited on.
+      // That only decides whether the edit lands inside the window. If it
+      // lands late it is corrected by the ordinary path and the test passes,
+      // so this can miss the defect but cannot report one that is not there.
+      let editStarted = ref(false)
+      let typing = ref(None)
+      let saveDisposable = VSCode.Workspace.onDidSaveTextDocument(_ =>
+        if !editStarted.contents {
+          editStarted := true
+          typing := Some(VSCode.Commands.executeCommand1("type", {"text": padding}))
+        }
+      )
+
+      let (loadPromise, resolveLoad, _) = Util.Promise_.pending()
+      let disposable = ctx.channels.commandHandled->Chan.on(command =>
+        if command == Command.Load {
+          resolveLoad()
+        }
+      )
+      let _ = await VSCode.Commands.executeCommand0("agda-mode.load")
+      await loadPromise
+      disposable()
+      let _ = saveDisposable->VSCode.Disposable.dispose
+
+      if !editStarted.contents {
+        Assert.fail("the save event never fired, so no edit was made")
+      }
+
+      // The handler could not await, so the typing may still be in flight.
+      // Settle it here, or it lands during whichever test runs next.
+      switch typing.contents {
+      | Some(promise) => await promise
+      | None => ()
+      }
+
+      Assert.deepStrictEqual(
+        unsolvedMetaOffsets(ctx.state.tokens),
+        offsetsBefore->Array.map(((start, end)) => (start + paddingLength, end + paddingLength)),
+      )
+    },
+  )
 })
