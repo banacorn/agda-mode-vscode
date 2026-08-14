@@ -151,11 +151,15 @@ describe("edit during an in-flight load", () => {
       // where every following character sits. One whole line, so the expected
       // decoration range is the same columns one line further down.
       let padding = "-- padding\n"
-      let paddingLength = String.length(padding)
+      let documentLengthBefore = Editor.Text.getAll(ctx.state.document)->String.length
 
       await reloadWithEditInFlight(ctx, () =>
         Editor.Text.insert(ctx.state.document, VSCode.Position.make(0, 0), padding)
       )
+      // VSCode normalizes inserted newlines to the document's EOL convention.
+      // Measure the resulting edit instead of assuming the LF in `padding`
+      // occupies one UTF-16 unit (it is CRLF on Windows).
+      let paddingLength = Editor.Text.getAll(ctx.state.document)->String.length - documentLengthBefore
 
       // Offsets are in UTF-16 units, so both the table and the shift show up
       // here: the table is worth one unit, the shift the whole padding.
@@ -277,7 +281,7 @@ describe("edit during an in-flight load", () => {
       // them apart also makes the walk pass through more than one interval.
       let firstPadding = "-- first\n"
       let secondPadding = "-- second\n"
-      let totalPadding = String.length(firstPadding) + String.length(secondPadding)
+      let documentLengthBefore = Editor.Text.getAll(ctx.state.document)->String.length
 
       await reloadWithEditInFlight(ctx, async () => {
         let first = await Editor.Text.insert(
@@ -298,6 +302,7 @@ describe("edit during an in-flight load", () => {
         )
         first && second
       })
+      let totalPadding = Editor.Text.getAll(ctx.state.document)->String.length - documentLengthBefore
 
       Assert.deepStrictEqual(
         unsolvedMetaOffsets(ctx.state.tokens),
@@ -328,11 +333,12 @@ describe("edit during an in-flight load", () => {
       Assert.deepStrictEqual(Array.length(sourcesBefore) > 0, true)
 
       let padding = "-- padding\n"
-      let paddingLength = String.length(padding)
+      let documentLengthBefore = Editor.Text.getAll(ctx.state.document)->String.length
 
       await reloadWithEditInFlight(ctx, () =>
         Editor.Text.insert(ctx.state.document, VSCode.Position.make(0, 0), padding)
       )
+      let paddingLength = Editor.Text.getAll(ctx.state.document)->String.length - documentLengthBefore
 
       Assert.deepStrictEqual(
         sameFileSourceOffsets(ctx.state.tokens, ctx.state.document),
@@ -413,8 +419,8 @@ describe("edit during an in-flight load", () => {
       // No newline, so nothing triggers auto indent. The cursor sits at the
       // start of the file, so this extends the comment line already there.
       let padding = "-- pad"
-      let paddingLength = String.length(padding)
       Editor.Cursor.set(ctx.state.editor, VSCode.Position.make(0, 0))
+      let documentLengthBefore = Editor.Text.getAll(ctx.state.document)->String.length
 
       // The other tests in this file edit on `ClearHighlighting`, which is
       // well after the request goes out. This one reaches an earlier window.
@@ -459,6 +465,7 @@ describe("edit during an in-flight load", () => {
       | Some(promise) => await promise
       | None => ()
       }
+      let paddingLength = Editor.Text.getAll(ctx.state.document)->String.length - documentLengthBefore
 
       Assert.deepStrictEqual(
         unsolvedMetaOffsets(ctx.state.tokens),
