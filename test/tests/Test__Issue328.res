@@ -20,6 +20,8 @@ describe("issue #328: intercepted typing after highlighting", () => {
 
   let asset = "Issue328.agda"
   let fileContent = ref("")
+  let requestedVimMode =
+    NodeJs.Process.process->NodeJs.Process.env->Dict.get("AGDA_TEST_VIM")
 
   let largeModule = () => {
     let declarations = Array.fromInitializer(~length=800, i => {
@@ -42,6 +44,14 @@ describe("issue #328: intercepted typing after highlighting", () => {
   Async.it(
     "keeps an intercepted type command responsive after highlighting a large file",
     async () => {
+      let expectedVim = switch requestedVimMode {
+      | Some("on") => true
+      | Some("off") => false
+      | _ =>
+        This.skip()
+        false
+      }
+
       let hasVim = switch VSCode.Extensions.getExtension("vscodevim.vim") {
       | Some(vim) =>
         let config = VSCode.Workspace.getConfiguration(Some("vim"), None)
@@ -54,6 +64,7 @@ describe("issue #328: intercepted typing after highlighting", () => {
         true
       | None => false
       }
+      Assert.equal(hasVim, expectedVim, ~message="VSCodeVim test-profile mismatch")
 
       let ctx = await AgdaMode.makeAndLoad(asset)
       let semanticTokens = await ctx.state.tokens->Tokens.getVSCodeTokens->Resource.get

@@ -126,3 +126,29 @@ helpers like `it_only` / `describe_only`: those are useful for temporary local
 debugging inside a test file, but they require editing source and should not be
 committed. `AGDA_TEST_GLOB` keeps source unchanged and controls which test
 files are added to Mocha.
+
+#### Isolated VSCodeVim profile
+
+Tests that exercise VSCodeVim use `AGDA_TEST_VIM=on`. The test runner installs
+the pinned `vscodevim.vim@1.32.4` release with the VS Code test CLI, caches it
+under the ignored `.vscode-test` directory, and loads it with fresh temporary
+user data. It does not use or modify extensions installed in your normal VS
+Code profile.
+
+Use `AGDA_TEST_VIM=off` for the corresponding control run. Any other value is
+rejected. If the variable is omitted, VSCodeVim-specific tests are skipped.
+
+On macOS, Linux, and CI shells:
+
+```bash
+AGDA_TEST_VIM=on AGDA_TEST_GLOB="Test__Issue328*.js" npm test
+AGDA_TEST_VIM=off AGDA_TEST_GLOB="Test__Issue328*.js" npm test
+```
+
+On PowerShell:
+
+```powershell
+$env:AGDA_TEST_VIM="on"
+$env:AGDA_TEST_GLOB="Test__Issue328*.js"
+npm test
+```
