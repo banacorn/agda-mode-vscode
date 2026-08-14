@@ -104,6 +104,25 @@ let debugIsValid = xs => {
   }
 }
 
+// Move an offset in the original document to where it sits after these edits.
+// The counterpart to `Source.calculateOriginalOffset`, which goes the other way.
+// An offset inside a removed range collapses to the start of that range.
+let translateOffset = (xs, offset) => {
+  let rec go = (xs, deltaBefore) =>
+    switch xs {
+    | EOF => offset + deltaBefore
+    | Replace(removalStart, removalEnd, deltaAfter, tail) =>
+      if offset < removalStart {
+        offset + deltaBefore
+      } else if offset < removalEnd {
+        removalStart + deltaBefore
+      } else {
+        go(tail, deltaAfter)
+      }
+    }
+  go(xs, 0)
+}
+
 // For testing: number of Replace nodes in the structure
 let rec length = xs =>
   switch xs {
