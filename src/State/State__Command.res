@@ -20,13 +20,15 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     await State__View.Panel.display(state, Plain("Loading ..."), [])
     // save the document before loading
     let _ = await VSCode.TextDocument.save(state.document)
+    // Agda reads the file we just saved, so its offsets are offsets into this
+    // text. Record it here, with no await in between: an edit that arrives
+    // after this line reaches `editsSinceLoad` through `applyEdit` and is
+    // corrected for, but one that arrives before it would be baked into the
+    // baseline and lost.
+    Tokens.beginLoad(state.tokens, state.document)
     // Issue #26 - don't load the document in preview mode
     let options = Some(VSCode.TextDocumentShowOptions.make(~preview=false, ()))
     let _ = await VSCode.Window.showTextDocumentWithShowOptions(state.document, options)
-    // Agda reads the file we just saved, so its offsets are offsets into this
-    // text. Record it, so that highlighting still lands in the right place if
-    // the user types before the answers come back.
-    Tokens.beginLoad(state.tokens, state.document)
     await sendAgdaRequest(Load)
     Tokens.endLoad(state.tokens)
   | Quit =>
