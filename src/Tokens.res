@@ -51,6 +51,14 @@ module type Module = {
 
   // For testing: number of Replace nodes accumulated in the deltas structure
   let deltasLength: t => int
+
+  // For testing: decoration types created minus decoration types disposed.
+  // Must be 0 after `reset`. Guards against a `reset` that merely empties
+  // `decorations` without disposing the types: that would leave the
+  // decorations painted in every editor with nothing left holding a
+  // reference to remove them. VS Code offers no way to read decorations
+  // back, so this counter is the only mechanical check available.
+  let liveDecorationTypes: t => int
 }
 
 module Module: Module = {
@@ -121,6 +129,8 @@ module Module: Module = {
     // expected to be updated along with the deltas
     mutable vscodeTokens: Resource.t<array<Highlighting__SemanticToken.t>>,
     mutable decorations: Map.t<Editor.Decoration.t, array<VSCode.Range.t>>,
+    // created minus disposed; see `liveDecorationTypes`
+    mutable liveDecorations: int,
     // ranges of holes
     mutable holes: Map.t<int, Token.t<vscodeOffset>>,
     mutable holePositions: Resource.t<Map.t<int, int>>,
@@ -158,6 +168,7 @@ module Module: Module = {
     | Some(resource) => resource
     },
     decorations: Map.make(),
+    liveDecorations: 0,
     holes: Map.make(),
     holePositions: Resource.make(),
     onUpdate: Chan.make(),
@@ -536,6 +547,7 @@ module Module: Module = {
 
     // set the decorations
     removeDecorations(self, editor)
+    self.liveDecorations = self.liveDecorations + Map.size(decorations)
     self.decorations = decorations
     applyDecorations(self, editor)
     // set the holes positions
@@ -593,6 +605,8 @@ module Module: Module = {
     ->Array.toSorted((x, y) => Int.compare(x.start, y.start))
 
   let deltasLength = self => TokenIntervals.length(self.deltas)
+
+  let liveDecorationTypes = self => self.liveDecorations
 }
 
 include Module
