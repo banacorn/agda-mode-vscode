@@ -9,7 +9,7 @@ open Test__Util
 // the answer comes back, the document on screen is no longer that text.
 //
 // Two things have to be right for the token to land in the correct place, and
-// this test is built so that either one being wrong fails it.
+// the first test is built so that either one being wrong fails it.
 //
 //   The offset table. Agda counts code points, VSCode counts UTF-16 units.
 //   The table that reconciles them has to be built from the text Agda read.
@@ -20,6 +20,10 @@ open Test__Util
 //   The shift. `applyEdit` records each edit, but `rebaseTokens` consumes and
 //   clears that record in the same call, so a separate running total has to
 //   survive until the answer arrives. Losing it costs the whole padding.
+//
+// The remaining tests cover the other two branches of
+// `TokenIntervals.translateOffset`: a negative delta, and an offset inside a
+// removed range.
 //
 //   AGDA_TEST_GLOB="Test__EditDuringLoad*.js" npm test
 describe("edit during an in-flight load", () => {
@@ -59,8 +63,66 @@ describe("edit during an in-flight load", () => {
       Int.toFloat(aLine == bLine ? aChar - bChar : aLine - bLine)
     )
 
+  // Reload the asset and run `edit` inside the window between the request and
+  // its answer.
+  //
+  // `ClearHighlighting` is the first response of a load and precedes the
+  // highlighting responses, so it marks the start of that window. The
+  // middleware awaits the edit before it lets the response through, which
+  // keeps the ordering deterministic instead of leaving it to a timer.
+  //
+  // Fails rather than measuring nothing if the edit never ran, or if the
+  // ordering this relies on ever stops holding.
+  let reloadWithEditInFlight = async (ctx: AgdaMode.t, edit) => {
+    let editApplied = ref(false)
+    let responseOrder = []
+    ctx.state.middlewares
+    ->Array.push(handler => async response => {
+      responseOrder->Array.push(Response.toString(response))
+      switch response {
+      | Response.ClearHighlighting =>
+        await handler(response)
+        if !editApplied.contents {
+          let succeeded = await edit()
+          if !succeeded {
+            raise(Failure("the edit was rejected"))
+          }
+          editApplied := true
+        }
+      | _ => await handler(response)
+      }
+    })
+    ->ignore
+
+    let (loadPromise, resolveLoad, _) = Util.Promise_.pending()
+    let disposable = ctx.channels.commandHandled->Chan.on(command =>
+      if command == Command.Load {
+        resolveLoad()
+      }
+    )
+    let _ = await VSCode.Commands.executeCommand0("agda-mode.load")
+    await loadPromise
+    disposable()
+    // The state is shared between the tests in this file, so leave the
+    // middleware stack as it was found.
+    ctx.state.middlewares->Array.pop->ignore
+
+    if !editApplied.contents {
+      Assert.fail("ClearHighlighting was never observed, so no edit was made during the load")
+    }
+
+    let clearAt = responseOrder->Array.findIndex(name => name == "ClearHighlighting")
+    let highlightingAt =
+      responseOrder->Array.findIndex(name => name->String.startsWith("HighlightingInfo"))
+    switch (clearAt, highlightingAt) {
+    | (-1, _) => Assert.fail("no ClearHighlighting in " ++ responseOrder->Array.join(", "))
+    | (_, -1) => Assert.fail("no HighlightingInfo in " ++ responseOrder->Array.join(", "))
+    | (clear, highlighting) => Assert.deepStrictEqual(clear < highlighting, true)
+    }
+  }
+
   Async.it(
-    "shifts the highlighting by an edit made after the request was sent",
+    "shifts the highlighting forward by an insertion made after the request was sent",
     async () => {
       let ctx = await AgdaMode.makeAndLoad(asset)
       let offsetsBefore = unsolvedMetaOffsets(ctx.state.tokens)
@@ -74,63 +136,9 @@ describe("edit during an in-flight load", () => {
       let padding = "-- padding\n"
       let paddingLength = String.length(padding)
 
-      // `ClearHighlighting` is the first response of a load and precedes the
-      // highlighting responses, so this puts the edit inside the window
-      // between the request and its answer. The middleware awaits the edit
-      // before it lets the response through, which keeps the ordering
-      // deterministic instead of leaving it to a timer.
-      let editApplied = ref(false)
-      let responseOrder = []
-      ctx.state.middlewares
-      ->Array.push(handler => async response => {
-        responseOrder->Array.push(Response.toString(response))
-        switch response {
-        | Response.ClearHighlighting =>
-          await handler(response)
-          if !editApplied.contents {
-            let succeeded = await Editor.Text.insert(
-              ctx.state.document,
-              VSCode.Position.make(0, 0),
-              padding,
-            )
-            if !succeeded {
-              raise(Failure("could not insert the padding line"))
-            }
-            editApplied := true
-          }
-        | _ => await handler(response)
-        }
-      })
-      ->ignore
-
-      let (loadPromise, resolveLoad, _) = Util.Promise_.pending()
-      let disposable = ctx.channels.commandHandled->Chan.on(command =>
-        if command == Command.Load {
-          resolveLoad()
-        }
+      await reloadWithEditInFlight(ctx, () =>
+        Editor.Text.insert(ctx.state.document, VSCode.Position.make(0, 0), padding)
       )
-      let _ = await VSCode.Commands.executeCommand0("agda-mode.load")
-      await loadPromise
-      disposable()
-
-      // Without this the assertion could pass on a load that never edited
-      // anything, which is the one way it could be green while broken.
-      if !editApplied.contents {
-        Assert.fail("ClearHighlighting was never observed, so no edit was made during the load")
-      }
-
-      // The edit only sits inside the window if `ClearHighlighting` really did
-      // arrive before the highlighting. That ordering is relied on above, so
-      // assert it rather than assume it: if it ever changed, everything below
-      // would still pass while measuring nothing.
-      let clearAt = responseOrder->Array.findIndex(name => name == "ClearHighlighting")
-      let highlightingAt =
-        responseOrder->Array.findIndex(name => name->String.startsWith("HighlightingInfo"))
-      switch (clearAt, highlightingAt) {
-      | (-1, _) => Assert.fail("no ClearHighlighting in " ++ responseOrder->Array.join(", "))
-      | (_, -1) => Assert.fail("no HighlightingInfo in " ++ responseOrder->Array.join(", "))
-      | (clear, highlighting) => Assert.deepStrictEqual(clear < highlighting, true)
-      }
 
       // Offsets are in UTF-16 units, so both the table and the shift show up
       // here: the table is worth one unit, the shift the whole padding.
@@ -139,7 +147,6 @@ describe("edit during an in-flight load", () => {
         offsetsBefore->Array.map(((start, end)) => (start + paddingLength, end + paddingLength)),
       )
 
-      // The painted range moves down one line and keeps its columns.
       Assert.deepStrictEqual(
         decorationRanges(ctx.state.tokens),
         rangesBefore->Array.map((((startLine, startChar, endLine, endChar)) => (
@@ -149,6 +156,93 @@ describe("edit during an in-flight load", () => {
           endChar,
         ))),
       )
+    },
+  )
+
+  Async.it(
+    "shifts the highlighting back by a deletion made after the request was sent",
+    async () => {
+      let ctx = await AgdaMode.makeAndLoad(asset)
+      let offsetsBefore = unsolvedMetaOffsets(ctx.state.tokens)
+      let rangesBefore = decorationRanges(ctx.state.tokens)
+      Assert.deepStrictEqual(Array.length(offsetsBefore), 1)
+      Assert.deepStrictEqual(Array.length(rangesBefore), 1)
+
+      // Remove a whole comment line above the meta. Its length is read from
+      // the document rather than written down here, so rewording the asset's
+      // comments cannot silently change what this asserts.
+      let lines = Editor.Text.getAll(ctx.state.document)->String.split("\n")
+      let lineIndex = lines->Array.findIndex(line => line->String.startsWith("-- The astral"))
+      if lineIndex < 0 {
+        Assert.fail("the asset no longer has the comment line this test deletes")
+      }
+      let lineLength = switch lines->Array.get(lineIndex) {
+      | Some(line) => String.length(line)
+      | None => 0
+      }
+      // The line plus its newline.
+      let deletedLength = lineLength + 1
+
+      await reloadWithEditInFlight(ctx, () =>
+        Editor.Text.delete(
+          ctx.state.document,
+          VSCode.Range.make(
+            VSCode.Position.make(lineIndex, 0),
+            VSCode.Position.make(lineIndex + 1, 0),
+          ),
+        )
+      )
+
+      Assert.deepStrictEqual(
+        unsolvedMetaOffsets(ctx.state.tokens),
+        offsetsBefore->Array.map(((start, end)) => (start - deletedLength, end - deletedLength)),
+      )
+
+      Assert.deepStrictEqual(
+        decorationRanges(ctx.state.tokens),
+        rangesBefore->Array.map((((startLine, startChar, endLine, endChar)) => (
+          startLine - 1,
+          startChar,
+          endLine - 1,
+          endChar,
+        ))),
+      )
+    },
+  )
+
+  Async.it(
+    "collapses the highlighting when the edit removes the token itself",
+    async () => {
+      let ctx = await AgdaMode.makeAndLoad(asset)
+      let offsetsBefore = unsolvedMetaOffsets(ctx.state.tokens)
+      Assert.deepStrictEqual(Array.length(offsetsBefore), 1)
+      let (metaStart, metaEnd) = switch offsetsBefore->Array.get(0) {
+      | Some(pair) => pair
+      | None => (0, 0)
+      }
+
+      // Delete the `_` together with the space in front of it. Agda still
+      // reports a meta there, because it read the file before this happened,
+      // but the character it describes is gone.
+      //
+      // The removal has to start *before* the token, not at it. Both endpoints
+      // then land at the front of the removed range: the start through the
+      // branch that collapses an offset inside a removal, the end through the
+      // ordinary negative delta. Deleting only the `_` would leave the token
+      // start equal to the removal start, where collapsing and not collapsing
+      // give the same answer and the branch goes untested.
+      let removalStart = metaStart - 1
+      await reloadWithEditInFlight(ctx, () =>
+        Editor.Text.delete(
+          ctx.state.document,
+          VSCode.Range.make(
+            ctx.state.document->VSCode.TextDocument.positionAt(removalStart),
+            ctx.state.document->VSCode.TextDocument.positionAt(metaEnd),
+          ),
+        )
+      )
+
+      Assert.deepStrictEqual(unsolvedMetaOffsets(ctx.state.tokens), [(removalStart, removalStart)])
     },
   )
 })
