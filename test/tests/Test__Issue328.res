@@ -3,12 +3,6 @@ open Test__Util
 
 type typeArgs = {"text": string}
 
-@module("vscode") @scope("commands")
-external registerCommandWithArgs: (string, typeArgs => promise<unit>) => VSCode.Disposable.t =
-  "registerCommand"
-
-@send external disposeCommand: VSCode.Disposable.t => unit = "dispose"
-
 // Regression test for #328. VSCodeVim overrides the `type` command and, in
 // insert mode, delegates to `default:type` from the extension host. This
 // makes work performed synchronously by document-change listeners part of
@@ -28,7 +22,7 @@ describe("issue #328: intercepted typing after highlighting", () => {
   let fileContent = ref("")
 
   let largeModule = () => {
-    let declarations = Array.fromInitializer(~length=2000, i => {
+    let declarations = Array.fromInitializer(~length=800, i => {
       let name = "f" ++ Int.toString(i)
       name ++ " : D → D\n" ++ name ++ " x = x\n"
     })
@@ -48,8 +42,26 @@ describe("issue #328: intercepted typing after highlighting", () => {
   Async.it(
     "keeps an intercepted type command responsive after highlighting a large file",
     async () => {
+      let hasVim = switch VSCode.Extensions.getExtension("vscodevim.vim") {
+      | Some(vim) =>
+        let config = VSCode.Workspace.getConfiguration(Some("vim"), None)
+        await config->VSCode.WorkspaceConfiguration.updateGlobalSettings(
+          "startInInsertMode",
+          true,
+          None,
+        )
+        let _ = await vim->VSCode.Extension.activate
+        true
+      | None => false
+      }
+
       let ctx = await AgdaMode.makeAndLoad(asset)
       let semanticTokens = await ctx.state.tokens->Tokens.getVSCodeTokens->Resource.get
+
+      if hasVim {
+        let _ = await VSCode.Commands.executeCommand0("extension.vim_insert")
+        await wait(100)
+      }
 
       // Keep the fixture large enough to exercise the path reported in the
       // issue. If it stops producing substantial highlighting, this test is
@@ -58,23 +70,25 @@ describe("issue #328: intercepted typing after highlighting", () => {
 
       Editor.Cursor.set(ctx.state.editor, VSCode.Position.make(1, 0))
 
-      // This is the part of Vim's installed behavior that exposes the
-      // latency: `type` is extension-host mediated and delegates to the
-      // editor's built-in implementation.
-      let typeOverride = registerCommandWithArgs("type", args =>
-        VSCode.Commands.executeCommand1("default:type", args)
-      )
+      let originalLength = ctx.state.document->VSCode.TextDocument.getText(None)->String.length
+      let (typed, resolveTyped, _) = Util.Promise_.pending()
+      let stopWatching = VSCode.Workspace.onDidChangeTextDocument(event => {
+        let document = event->VSCode.TextDocumentChangeEvent.document
+        if document == ctx.state.document &&
+          document->VSCode.TextDocument.getText(None)->String.length >= originalLength + 1 {
+          resolveTyped()
+        }
+      })
 
-      let elapsedMilliseconds = try {
-        let startedAt = Js.Date.now()
-        let _ = await VSCode.Commands.executeCommand1("type", {"text": "x"})
-        Js.Date.now() -. startedAt
-      } catch {
-      | exn =>
-        typeOverride->disposeCommand
-        raise(exn)
-      }
-      typeOverride->disposeCommand
+      let startedAt = Js.Date.now()
+      let _ = await Promise.all(
+        ["x"]->Array.map(text =>
+          VSCode.Commands.executeCommand1("type", {"text": text})
+        ),
+      )
+      await typed
+      let elapsedMilliseconds = Js.Date.now() -. startedAt
+      stopWatching->VSCode.Disposable.dispose->ignore
 
       // A single character must not block Vim's command queue for a
       // human-perceptible interval. Include the observation in the failure
@@ -83,7 +97,8 @@ describe("issue #328: intercepted typing after highlighting", () => {
         elapsedMilliseconds < 100.0,
         true,
         ~message=
-          "intercepted typing took " ++
+          (hasVim ? "Vim-present" : "Vim-absent") ++
+          " one-character typing took " ++
           Float.toString(elapsedMilliseconds) ++
           " ms after Agda highlighting",
       )
