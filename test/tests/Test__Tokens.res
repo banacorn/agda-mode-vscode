@@ -498,9 +498,6 @@ describe("Tokens", () => {
       Highlighting__AgdaAspect.ConstructorInductive,
       Highlighting__AgdaAspect.UnsolvedMeta,
     ]
-    let aspectsOf = idxs =>
-      idxs->Array.filterMap(i => pool->Array.get(mod(abs(i), Array.length(pool))))
-
     // no `array` combinator in this binding; build it recursively the way
     // `TokenChange.arbitraryBatch` does
     // Each insert is (offset, endBump, aspectBits). `aspectBits` is decoded

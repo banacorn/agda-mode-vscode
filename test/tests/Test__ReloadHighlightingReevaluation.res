@@ -99,11 +99,9 @@ describe("reload highlighting reevaluation (#243)", () => {
       doneDisposable()
 
       switch (countRightAfterClear.contents, liveTypesRightAfterClear.contents) {
-      | (a, b) if a == None || b == None =>
+      | (None, _) | (_, None) =>
         Assert.fail(
-          "ClearHighlighting was never observed (count=" ++
-          (a == None ? "None" : "Some") ++
-          " liveTypes=" ++ (b == None ? "None" : "Some") ++ ")",
+          "ClearHighlighting was never observed",
         )
       | (Some(count), Some(liveTypes)) =>
         // v0.5.7 behavior: 0, immediately, unconditionally. Currently: still

@@ -340,4 +340,48 @@ describe("edit during an in-flight load", () => {
       )
     },
   )
+
+  Async.it(
+    "stops shifting once the load is over",
+    async () => {
+      let ctx = await AgdaMode.makeAndLoad(asset)
+
+      let padding = "-- padding\n"
+      await reloadWithEditInFlight(ctx, () =>
+        Editor.Text.insert(ctx.state.document, VSCode.Position.make(0, 0), padding)
+      )
+
+      // The load is finished, so the window is closed and the correction that
+      // belonged to it must not apply to anything else. What breaks otherwise
+      // is a response that arrives between two loads: `beginLoad` resets both
+      // pieces of state, so a missing `endLoad` is invisible to a reload and
+      // only shows up here.
+      //
+      // Rather than drive a second Agda command, this calls the same function
+      // a response would. Agda offsets 0 to 1 fall inside the padding, which
+      // Agda never saw and no token covers, so the result is unambiguous.
+      // A window left open would convert with the stale table and add the
+      // padding, landing the token at 11 instead.
+      let probe: Token.t<Tokens.agdaOffset> = {
+        start: 0,
+        end: 1,
+        aspects: [Tokens.Aspect.UnsolvedConstraint],
+        isTokenBased: false,
+        note: None,
+        source: None,
+      }
+      Tokens.insertTokens(ctx.state.tokens, ctx.state.editor, [probe])
+
+      let probeOffsets =
+        ctx.state.tokens
+        ->Tokens.toTokenArray
+        ->Array.filter(token =>
+          token.Token.aspects->Array.some(aspect =>
+            Tokens.Aspect.toString(aspect) == "UnsolvedConstraint"
+          )
+        )
+        ->Array.map(token => (token.Token.start, token.Token.end))
+      Assert.deepStrictEqual(probeOffsets, [(0, 1)])
+    },
+  )
 })
