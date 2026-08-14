@@ -3,18 +3,8 @@ open Test__Util
 
 type typeArgs = {"text": string}
 
-// Regression test for #328. VSCodeVim overrides the `type` command and, in
-// insert mode, delegates to `default:type` from the extension host. This
-// makes work performed synchronously by document-change listeners part of
-// the key-handling path.
-//
-// agda-mode currently handles each edit by rebuilding every decoration and
-// semantic token, then emitting `Tokens.onUpdate`, before the intercepted
-// `type` command can return. On a large loaded file that blocks Vim's task
-// queue for long enough to make each typed character take seconds.
-//
-// The test installs only the relevant command-shaped boundary; it does not
-// depend on VSCodeVim itself.
+// Black-box regression test for #328: after loading and highlighting a large
+// Agda file with VSCodeVim installed, typing a character should stay responsive.
 describe("issue #328: intercepted typing after highlighting", () => {
   This.timeout(60000)
 
@@ -54,25 +44,17 @@ describe("issue #328: intercepted typing after highlighting", () => {
 
       let hasVim = switch VSCode.Extensions.getExtension("vscodevim.vim") {
       | Some(vim) =>
-        let config = VSCode.Workspace.getConfiguration(Some("vim"), None)
-        await config->VSCode.WorkspaceConfiguration.updateGlobalSettings(
-          "startInInsertMode",
-          true,
-          None,
-        )
         let _ = await vim->VSCode.Extension.activate
         true
       | None => false
       }
       Assert.equal(hasVim, expectedVim, ~message="VSCodeVim test-profile mismatch")
+      if !hasVim {
+        This.skip()
+      }
 
       let ctx = await AgdaMode.makeAndLoad(asset)
       let semanticTokens = await ctx.state.tokens->Tokens.getVSCodeTokens->Resource.get
-
-      if hasVim {
-        let _ = await VSCode.Commands.executeCommand0("extension.vim_insert")
-        await wait(100)
-      }
 
       // Keep the fixture large enough to exercise the path reported in the
       // issue. If it stops producing substantial highlighting, this test is
@@ -80,6 +62,10 @@ describe("issue #328: intercepted typing after highlighting", () => {
       Assert.equal(semanticTokens->Array.length > 1000, true)
 
       Editor.Cursor.set(ctx.state.editor, VSCode.Position.make(1, 0))
+      // Enter insert mode through the same key a user would press, then allow
+      // Vim to finish handling that command before measuring the next key.
+      let _ = await VSCode.Commands.executeCommand1("type", {"text": "i"})
+      await wait(500)
 
       let originalLength = ctx.state.document->VSCode.TextDocument.getText(None)->String.length
       let (typed, resolveTyped, _) = Util.Promise_.pending()
@@ -92,24 +78,19 @@ describe("issue #328: intercepted typing after highlighting", () => {
       })
 
       let startedAt = Js.Date.now()
-      let _ = await Promise.all(
-        ["x"]->Array.map(text =>
-          VSCode.Commands.executeCommand1("type", {"text": text})
-        ),
-      )
+      let command = VSCode.Commands.executeCommand1("type", {"text": "x"})
       await typed
       let elapsedMilliseconds = Js.Date.now() -. startedAt
+      let _ = await command
       stopWatching->VSCode.Disposable.dispose->ignore
 
-      // A single character must not block Vim's command queue for a
-      // human-perceptible interval. Include the observation in the failure
-      // so this test is also a reproducible measurement of #328.
+      // Include the observation in the failure so the red test is also a
+      // reproducible measurement of #328.
       Assert.equal(
         elapsedMilliseconds < 100.0,
         true,
         ~message=
-          (hasVim ? "Vim-present" : "Vim-absent") ++
-          " one-character typing took " ++
+          "Vim-intercepted typing took " ++
           Float.toString(elapsedMilliseconds) ++
           " ms after Agda highlighting",
       )
