@@ -291,6 +291,26 @@ module Module: Module = {
     } else {
       self.vscodeTokens->Resource.set([])
     }
+
+    // Remove the decorations from the screen, immediately and
+    // unconditionally. Emptying `decorations` alone is not enough: that
+    // drops the only references to the decoration types while they are
+    // still rendered, so nothing could ever remove them afterwards.
+    //
+    // `dispose` is used rather than applying empty ranges because `reset`
+    // has no `TextEditor` to apply them to, and because disposing removes
+    // the decoration from every editor showing the document, not just from
+    // whichever editor `state.editor` happens to point at.
+    //
+    // Without this, decorations only disappear later as a side effect of
+    // `generateHighlighting`, so anything that stops that step leaves stale
+    // highlighting on screen until the file is closed. v0.5.7 disposed here
+    // and could not get stuck; commit 36e49e2c dropped it.
+    self.decorations->Map.forEachWithKey((_ranges, decoration) =>
+      Editor.Decoration.destroy(decoration)
+    )
+    self.decorations = Map.make()
+    self.liveDecorations = 0
   }
 
   let destroyUpdateChannel = self => self.onUpdate->Chan.destroy
