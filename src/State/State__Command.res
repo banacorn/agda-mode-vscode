@@ -23,7 +23,12 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     // Issue #26 - don't load the document in preview mode
     let options = Some(VSCode.TextDocumentShowOptions.make(~preview=false, ()))
     let _ = await VSCode.Window.showTextDocumentWithShowOptions(state.document, options)
+    // Agda reads the file we just saved, so its offsets are offsets into this
+    // text. Record it, so that highlighting still lands in the right place if
+    // the user types before the answers come back.
+    Tokens.beginLoad(state.tokens, state.document)
     await sendAgdaRequest(Load)
+    Tokens.endLoad(state.tokens)
   | Quit =>
     let _ = await State.destroy(state, true)
   | Restart =>
