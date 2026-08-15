@@ -19,9 +19,13 @@ type options = {key?: string}
 // Constructor
 ////////////////////////////////////////////////////////////////////////////////
 
+// `AvlTree` self-balances on insert. `BinarySearchTree` does not, and
+// `Tokens.rebaseTokens` reinserts every token in sorted order on each edit,
+// which degenerates an unbalanced tree into a linked list and makes the
+// rebuild O(n²). See issue #328.
 @module("@andy0130tw/binary-search-tree") @new
 external makeInner: (~compare: compareFunction<'a>=?, ~options: options=?, unit) => t<'a> =
-  "BinarySearchTree"
+  "AvlTree"
 
 let make = (): t<'a> => makeInner(~compare=((ka, _), (kb, _)) => ka - kb, ~options={key: "0"}, ())
 
