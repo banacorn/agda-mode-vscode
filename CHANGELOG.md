@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.10.1 - 2026-08-15
+
+### Fixed
+- #328: Stop token rebasing from degenerating into an O(n²) rebuild, fixing input method/typing latency that worsened over an editing session (including under VSCodeVim) by [@banacorn](https://github.com/banacorn)
+- #300: Route document, selection, and definition events through the current editor instead of registering per-file, fixing stale editor decoration warnings by [@banacorn](https://github.com/banacorn)
+- Place highlighting correctly when a file changes mid-load (edits, deletions, and CRLF-normalized files) by [@banacorn](https://github.com/banacorn)
+- Dispose decorations on `ClearHighlighting` by [@banacorn](https://github.com/banacorn)
+- Deduplicate merged token aspects to prevent accumulation by [@banacorn](https://github.com/banacorn)
+- Record the load baseline before any await to avoid a race that could lose an edit between save and snapshot by [@banacorn](https://github.com/banacorn)
+
+### Changed
+- Bump `@vscode/test-electron` to 3.1.0 to support VS Code's renamed Electron binary by [@banacorn](https://github.com/banacorn)
+
 ## v0.10.0 - 2026-06-07
 
 ### Changed
