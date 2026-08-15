@@ -106,3 +106,49 @@ This project includes several npm scripts for development and building:
 **Run test suite**
 - Executes project test suite
 - Tests are written in ReScript using the test framework
+
+#### Focused test runs
+
+`npm test` runs the full suite. To load only matching compiled test files, set
+`AGDA_TEST_GLOB`:
+
+```bash
+AGDA_TEST_GLOB="Test__StaleEditorDecorationWarning*.js" npm test
+AGDA_TEST_GLOB="Connection/Test__Connection__Config*.js" npm test
+```
+
+The glob is relative to `lib/js/test/tests` after ReScript compilation.
+Selecting one file is useful for fast integration-test iteration because each
+`npm test` invocation launches a fresh VS Code Extension Host.
+
+This is file-level selection before Mocha starts. It is different from Mocha
+helpers like `it_only` / `describe_only`: those are useful for temporary local
+debugging inside a test file, but they require editing source and should not be
+committed. `AGDA_TEST_GLOB` keeps source unchanged and controls which test
+files are added to Mocha.
+
+#### Isolated VSCodeVim profile
+
+Tests that exercise VSCodeVim use `AGDA_TEST_VIM=on`. The test runner installs
+the pinned `vscodevim.vim@1.32.4` release with the VS Code test CLI, caches it
+under the ignored `.vscode-test` directory, and loads it with fresh temporary
+user data. It does not use or modify extensions installed in your normal VS
+Code profile.
+
+Use `AGDA_TEST_VIM=off` for the corresponding control run. Any other value is
+rejected. If the variable is omitted, VSCodeVim-specific tests are skipped.
+
+On macOS, Linux, and CI shells:
+
+```bash
+AGDA_TEST_VIM=on AGDA_TEST_GLOB="Test__Issue328*.js" npm test
+AGDA_TEST_VIM=off AGDA_TEST_GLOB="Test__Issue328*.js" npm test
+```
+
+On PowerShell:
+
+```powershell
+$env:AGDA_TEST_VIM="on"
+$env:AGDA_TEST_GLOB="Test__Issue328*.js"
+npm test
+```

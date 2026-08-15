@@ -8,18 +8,28 @@ external rawTable: Dict.t<array<string>> = "default"
 let isAgda = (document): bool =>
   RegExp.test(%re("/\.agda$|\.lagda/i"), document->VSCode.TextDocument.fileName)
 
-module Inputs: {
+// Every extension-wide VS Code source (editor, document, selection, command) registered exactly once here, routed to the right State via the Registry.
+module ExtensionEvents: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
   let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
+  let onSelectionChange: (VSCode.TextEditorSelectionChangeEvent.t => unit) => VSCode.Disposable.t
+  let onDocumentChange: (VSCode.TextDocumentChangeEvent.t => unit) => VSCode.Disposable.t
   let onTriggerCommand: (
     (Command.t, VSCode.TextEditor.t) => promise<option<result<State.t, Connection.Error.t>>>
   ) => array<VSCode.Disposable.t>
+  let registerDefinitionProvider: unit => VSCode.Disposable.t
+  let registerDocumentSemanticTokensProvider: option<
+    Editor.Provider.Mock.Event.t<unit>,
+  > => VSCode.Disposable.t
+  let registerInputMethodHintHoverProvider: unit => VSCode.Disposable.t
 } = {
   let onOpenEditor = callback => {
     VSCode.Window.activeTextEditor->Option.forEach(callback)
     VSCode.Window.onDidChangeActiveTextEditor(next => next->Option.forEach(callback))
   }
   let onCloseDocument = callback => VSCode.Workspace.onDidCloseTextDocument(callback)
+  let onSelectionChange = callback => VSCode.Window.onDidChangeTextEditorSelection(callback)
+  let onDocumentChange = callback => VSCode.Workspace.onDidChangeTextDocument(callback)
   // invoke the callback when:
   //  1. the triggered command has prefix "agda-mode."
   //  2. there's an active text edtior
@@ -37,6 +47,124 @@ module Inputs: {
           },
         )
       })
+    )
+  }
+
+  let registerDefinitionProvider = () => {
+    Editor.Provider.registerDefinitionProvider((document, position) =>
+      switch Registry.get(document)->Option.flatMap(entry => entry.state) {
+      | None => None
+      | Some(state) =>
+        Tokens.goToDefinition(state.tokens, document)(
+          Parser.Filepath.make(document->VSCode.TextDocument.fileName),
+          position,
+        )
+      }
+    )
+  }
+
+  let registerDocumentSemanticTokensProvider = onDidChangeSemanticTokens => {
+    // these two arrays are called "legends"
+    let tokenTypes = Highlighting__SemanticToken.TokenType.enumurate
+    let tokenModifiers = Highlighting__SemanticToken.TokenModifier.enumurate
+
+    let provideDocumentSemanticTokens = (document, _cancel) => {
+      Registry.requestSemanticTokens(document)
+      ->Promise.thenResolve(tokens => {
+        open Editor.Provider.Mock
+
+        let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
+          tokenTypes,
+          tokenModifiers,
+        )
+        let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
+
+        tokens->Array.forEach(({range, type_, modifiers}) => {
+          SemanticTokensBuilder.pushLegend(
+            builder,
+            Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range),
+            Highlighting__SemanticToken.TokenType.toString(type_),
+            modifiers->Option.map(
+              xs => xs->Array.map(Highlighting__SemanticToken.TokenModifier.toString),
+            ),
+          )
+        })
+
+        SemanticTokensBuilder.build(builder)
+      })
+      ->(x => Some(x))
+    }
+
+    Editor.Provider.registerDocumentSemanticTokensProvider(
+      ~provideDocumentSemanticTokens,
+      ~onDidChangeSemanticTokens?,
+      (tokenTypes, tokenModifiers),
+    )
+  }
+
+  // provide hover text to tell how these symbols get type
+  let registerInputMethodHintHoverProvider = () => {
+    VSCode.Languages.registerHoverProvider(
+      [
+        VSCode.StringOr.make(String("agda")),
+        VSCode.StringOr.make(String("lagda-markdown")),
+        VSCode.StringOr.make(String("markdown")),
+        VSCode.StringOr.make(String("lagda-typst")),
+        VSCode.StringOr.make(String("typst")),
+        VSCode.StringOr.make(String("lagda-tex")),
+        VSCode.StringOr.make(String("lagda-rst")),
+        VSCode.StringOr.make(String("lagda-org")),
+        VSCode.StringOr.make(String("org")),
+        VSCode.StringOr.make(String("lagda-forester")),
+        VSCode.StringOr.make(String("forester")),
+      ],
+      {
+        provideHover: (document, position, _token) => {
+          let text =
+            VSCode.TextDocument.lineAt(document, position->VSCode.Position.line)->VSCode.TextLine.text
+          let char = text->String.charAt(position->VSCode.Position.character)
+          // don't answer for these characters
+          let ignoredChars = [" "]
+          let foundInputMethods: option<array<string>> = if Array.includes(ignoredChars, char) {
+            None
+          } else {
+            char
+            ->String.codePointAt(0)
+            ->Option.map(string_of_int)
+            ->Option.flatMap(Dict.get(rawTable, ...))
+          }
+          switch foundInputMethods {
+          // If found some methods, then pretty print these input sequences
+          | Some(methods) =>
+            // Sort methods by length (shortest first) for better UX
+            let sortedMethods =
+              methods->Array.toSorted((a, b) => Float.fromInt(String.length(a) - String.length(b)))
+            // Format with Oxford comma style
+            let methodsText = switch sortedMethods->Array.length {
+            | 1 => "`\\" ++ sortedMethods[0]->Option.getUnsafe ++ "`"
+            | 2 =>
+              "`\\" ++
+              sortedMethods[0]->Option.getUnsafe ++
+              "` or `\\" ++
+              sortedMethods[1]->Option.getUnsafe ++ "`"
+            | _ =>
+              let lastMethod = sortedMethods->Array.at(-1)->Option.getUnsafe
+              let otherMethods = sortedMethods->Array.slice(~start=0, ~end=-1)
+              otherMethods->Array.map(m => "`\\" ++ m ++ "`")->Array.join(", ") ++
+              ", or `\\" ++
+              lastMethod ++ "`"
+            }
+            let hoverText = "Input sequence: " ++ methodsText
+            Some(
+              Promise.make((resolve, _reject) =>
+                resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value=hoverText)]))
+              ),
+            )
+          // no input methods found, do nothing
+          | None => None
+          }
+        },
+      },
     )
   }
 }
@@ -110,150 +238,9 @@ let initialize = (
     }
   })
   ->subscribe
-  // register event listeners for the input method
-  VSCode.Window.onDidChangeTextEditorSelection(event => {
-    let document = VSCode.TextEditor.document(editor)
-    let intervals =
-      event
-      ->VSCode.TextEditorSelectionChangeEvent.selections
-      ->Array.map(selection => (
-        VSCode.TextDocument.offsetAt(document, VSCode.Selection.start(selection)),
-        VSCode.TextDocument.offsetAt(document, VSCode.Selection.end_(selection)),
-      ))
-
-    State__InputMethod.select(state, intervals)->ignore
-  })->subscribe
-  VSCode.Workspace.onDidChangeTextDocument(event => {
-    // update the input method accordingly
-    let changes = IM.Input.fromTextDocumentChangeEvent(editor, event)
-    State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
-    // updates positions of semantic highlighting tokens accordingly
-    state.tokens->Tokens.applyEdit(editor, event)
-    // updates positions of goals accordingly
-    let changes =
-      event
-      ->VSCode.TextDocumentChangeEvent.contentChanges
-      ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
-      ->Array.toReversed
-    if Array.length(changes) != 0 {
-      state.goals->Goals.scanAllGoals(editor, changes)->Promise.done
-    }
-
-    // state.highlighting->Highlighting.updateSemanticHighlighting(event)->Promise.done
-  })->subscribe
-
-  // definition provider for go-to-definition
-  Editor.Provider.registerDefinitionProvider((filepath, position) =>
-    Tokens.goToDefinition(state.tokens, state.document)(Parser.Filepath.make(filepath), position)
-  )->subscribe
 
   // add this state to the Registry
   state
-}
-
-let registerDocumentSemanticTokensProvider = onDidChangeSemanticTokens => {
-  // these two arrays are called "legends"
-  let tokenTypes = Highlighting__SemanticToken.TokenType.enumurate
-  let tokenModifiers = Highlighting__SemanticToken.TokenModifier.enumurate
-
-  let provideDocumentSemanticTokens = (document, _cancel) => {
-    Registry.requestSemanticTokens(document)
-    ->Promise.thenResolve(tokens => {
-      open Editor.Provider.Mock
-
-      let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
-        tokenTypes,
-        tokenModifiers,
-      )
-      let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
-
-      tokens->Array.forEach(({range, type_, modifiers}) => {
-        SemanticTokensBuilder.pushLegend(
-          builder,
-          Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range),
-          Highlighting__SemanticToken.TokenType.toString(type_),
-          modifiers->Option.map(
-            xs => xs->Array.map(Highlighting__SemanticToken.TokenModifier.toString),
-          ),
-        )
-      })
-
-      SemanticTokensBuilder.build(builder)
-    })
-    ->(x => Some(x))
-  }
-
-  Editor.Provider.registerDocumentSemanticTokensProvider(
-    ~provideDocumentSemanticTokens,
-    ~onDidChangeSemanticTokens?,
-    (tokenTypes, tokenModifiers),
-  )
-}
-
-// provide hover text to tell how these symbols get type
-let registerInputMethodHintHoverProvider = () => {
-  VSCode.Languages.registerHoverProvider(
-    [
-      VSCode.StringOr.make(String("agda")),
-      VSCode.StringOr.make(String("lagda-markdown")),
-      VSCode.StringOr.make(String("markdown")),
-      VSCode.StringOr.make(String("lagda-typst")),
-      VSCode.StringOr.make(String("typst")),
-      VSCode.StringOr.make(String("lagda-tex")),
-      VSCode.StringOr.make(String("lagda-rst")),
-      VSCode.StringOr.make(String("lagda-org")),
-      VSCode.StringOr.make(String("org")),
-      VSCode.StringOr.make(String("lagda-forester")),
-      VSCode.StringOr.make(String("forester")),
-    ],
-    {
-      provideHover: (document, position, _token) => {
-        let text =
-          VSCode.TextDocument.lineAt(document, position->VSCode.Position.line)->VSCode.TextLine.text
-        let char = text->String.charAt(position->VSCode.Position.character)
-        // don't answer for these characters
-        let ignoredChars = [" "]
-        let foundInputMethods: option<array<string>> = if Array.includes(ignoredChars, char) {
-          None
-        } else {
-          char
-          ->String.codePointAt(0)
-          ->Option.map(string_of_int)
-          ->Option.flatMap(Dict.get(rawTable, ...))
-        }
-        switch foundInputMethods {
-        // If found some methods, then pretty print these input sequences
-        | Some(methods) =>
-          // Sort methods by length (shortest first) for better UX
-          let sortedMethods =
-            methods->Array.toSorted((a, b) => Float.fromInt(String.length(a) - String.length(b)))
-          // Format with Oxford comma style
-          let methodsText = switch sortedMethods->Array.length {
-          | 1 => "`\\" ++ sortedMethods[0]->Option.getUnsafe ++ "`"
-          | 2 =>
-            "`\\" ++
-            sortedMethods[0]->Option.getUnsafe ++
-            "` or `\\" ++
-            sortedMethods[1]->Option.getUnsafe ++ "`"
-          | _ =>
-            let lastMethod = sortedMethods->Array.at(-1)->Option.getUnsafe
-            let otherMethods = sortedMethods->Array.slice(~start=0, ~end=-1)
-            otherMethods->Array.map(m => "`\\" ++ m ++ "`")->Array.join(", ") ++
-            ", or `\\" ++
-            lastMethod ++ "`"
-          }
-          let hoverText = "Input sequence: " ++ methodsText
-          Some(
-            Promise.make((resolve, _reject) =>
-              resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value=hoverText)]))
-            ),
-          )
-        // no input methods found, do nothing
-        | None => None
-        }
-      },
-    },
-  )
 }
 
 // TODO: rename `finalize`
@@ -310,7 +297,7 @@ let activateWithoutContext = (
   }
 
   // on open editor
-  Inputs.onOpenEditor(editor => {
+  ExtensionEvents.onOpenEditor(editor => {
     let document = editor->VSCode.TextEditor.document
 
     // filter out ".agda.git" files
@@ -350,14 +337,60 @@ let activateWithoutContext = (
   })->subscribe
 
   // on close editor
-  Inputs.onCloseDocument(document => {
+  ExtensionEvents.onCloseDocument(document => {
     if isAgda(document) {
       Registry.removeAndDestroy(document)->ignore
       finalize(false)->ignore
     }
   })->subscribe
+
+  // on selection change
+  ExtensionEvents.onSelectionChange(event => {
+    let document = event->VSCode.TextEditorSelectionChangeEvent.textEditor->VSCode.TextEditor.document
+    switch Registry.get(document)->Option.flatMap(entry => entry.state) {
+    | None => ()
+    | Some(state) =>
+      let intervals =
+        event
+        ->VSCode.TextEditorSelectionChangeEvent.selections
+        ->Array.map(selection => (
+          VSCode.TextDocument.offsetAt(document, VSCode.Selection.start(selection)),
+          VSCode.TextDocument.offsetAt(document, VSCode.Selection.end_(selection)),
+        ))
+      State__InputMethod.select(state, intervals)->ignore
+    }
+  })->subscribe
+
+  // on document change
+  ExtensionEvents.onDocumentChange(event => {
+    let eventDocument = VSCode.TextDocumentChangeEvent.document(event)
+    switch Registry.get(eventDocument)->Option.flatMap(entry => entry.state) {
+    | None => ()
+    | Some(state) =>
+      // only act when the current state editor still points at this state's document,
+      // so that we never call editor-dependent APIs on a stale captured editor
+      let currentEditor = state.editor
+      if currentEditor->VSCode.TextEditor.document->VSCode.TextDocument.fileName == state.id {
+        // update the input method accordingly
+        let changes = IM.Input.fromTextDocumentChangeEvent(currentEditor, event)
+        State__InputMethod.keyUpdateEditorIM(state, changes)->ignore
+        // updates positions of semantic highlighting tokens accordingly
+        state.tokens->Tokens.applyEdit(currentEditor, event)
+        // updates positions of goals accordingly
+        let changes =
+          event
+          ->VSCode.TextDocumentChangeEvent.contentChanges
+          ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
+          ->Array.toReversed
+        if Array.length(changes) != 0 {
+          state.goals->Goals.scanAllGoals(currentEditor, changes)->Promise.done
+        }
+      }
+    }
+  })->subscribe
+
   // on triggering commands
-  Inputs.onTriggerCommand(async (command, editor) => {
+  ExtensionEvents.onTriggerCommand(async (command, editor) => {
     let document = editor->VSCode.TextEditor.document
     // destroy
     switch command {
@@ -418,8 +451,9 @@ let activateWithoutContext = (
     }
   })->subscribeMany
 
-  registerDocumentSemanticTokensProvider(Some(onDidChangeSemanticTokens))->subscribe
-  registerInputMethodHintHoverProvider()->subscribe
+  ExtensionEvents.registerDefinitionProvider()->subscribe
+  ExtensionEvents.registerDocumentSemanticTokensProvider(Some(onDidChangeSemanticTokens))->subscribe
+  ExtensionEvents.registerInputMethodHintHoverProvider()->subscribe
 
   // expose the channel for testing
   channels
@@ -428,6 +462,7 @@ let activateWithoutContext = (
 type activationExports = {
   channels: State.channels,
   memento: Memento.t,
+  logUri: VSCode.Uri.t,
 }
 
 // this function is the entry point of the whole extension
@@ -436,6 +471,7 @@ let activate = (platformDeps, context) => {
   let extensionUri = VSCode.ExtensionContext.extensionUri(context)
   let globalStorageUri = VSCode.ExtensionContext.globalStorageUri(context)
   let memento = Memento.make(Some(VSCode.ExtensionContext.workspaceState(context)))
+  let logUri = VSCode.ExtensionContext.logUri(context)
 
   let channels = activateWithoutContext(
     platformDeps,
@@ -444,7 +480,7 @@ let activate = (platformDeps, context) => {
     globalStorageUri,
     memento,
   )
-  {channels, memento}
+  {channels, memento, logUri}
 }
 
 let deactivate = () => ()

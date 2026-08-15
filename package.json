@@ -23,7 +23,7 @@
 		"dry-run-publish": "npm run build && npm list --production --parseable --depth=99999 --loglevel=error"
 	},
 	"devDependencies": {
-		"@vscode/test-electron": "^2.3.8",
+		"@vscode/test-electron": "3.1.0",
 		"@vscode/test-web": "^0.0.80",
 		"buffer": "^6.0.3",
 		"copy-webpack-plugin": "^13.0.1",

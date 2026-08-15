@@ -159,6 +159,10 @@ module Path = {
 // to prevent an extension from being activated twice
 let activationSingleton = ref(None)
 
+// cached so `ExtHostLog` can derive the exthost.log path without an
+// environment variable, see `Main.activationExports.logUri`.
+let activatedLogUri: ref<option<VSCode.Uri.t>> = ref(None)
+
 let activateExtension = async (candidate): State.channels => {
   switch activationSingleton.contents {
   | None =>
@@ -169,6 +173,7 @@ let activateExtension = async (candidate): State.channels => {
     let exports: Main.activationExports = await extension->VSCode.Extension.activate
     await exports.memento->Memento.PreferredCandidate.set(candidate)
     activationSingleton := Some(exports.channels)
+    activatedLogUri := Some(exports.logUri)
     exports.channels
   | Some(channels) => channels
   }
@@ -181,11 +186,76 @@ let activateExtensionAndOpenFile = async (fileName, candidate) => {
   (editor, channels)
 }
 
+// activates the extension and creates a `State` for `path` (an asset
+// filename, e.g. "InputMethod.agda") without a real `agda-mode.load`, via
+// the input-method activate/escape round trip -- much cheaper than a real
+// load when the test only needs a live state to route to, not a working
+// Agda connection.
+let openNoLoad = async path => {
+  let (editor, channels) = await activateExtensionAndOpenFile(Path.asset(path), None)
+  let _ = await VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
+  let _ = await VSCode.Commands.executeCommand0("agda-mode.escape")
+  (editor, channels)
+}
+
+// switches away from `path` to `awayPath` and back, so VS Code hands out a
+// fresh `TextEditor` for `path` on switch-back -- the old handle, if
+// captured by a closure instead of looked up fresh, goes stale.
+let staleAndRefreshEditor = async (path, awayPath) => {
+  let _ = await File.open_(Path.asset(awayPath))
+  await File.open_(Path.asset(path))
+}
+
 @module("vscode") @scope("commands")
 external executeCommand: string => promise<option<result<State.t, Connection.Error.t>>> =
   "executeCommand"
 
 let wait = ms => Promise.make((resolve, _) => Js.Global.setTimeout(resolve, ms)->ignore)
+
+// Generic extension-host log helper for integration tests that need to
+// observe something the real extension host printed/logged (e.g. a warning
+// emitted by a production code path that isn't otherwise observable from the
+// test side). Derives the exthost.log path from the activated extension's
+// own `logUri` (see `Main.activationExports.logUri`, cached above in
+// `activatedLogUri`) rather than an environment variable.
+module ExtHostLog = {
+  // The activated extension's `logUri` points at
+  // `<user-data>/logs/<timestamp>/window1/exthost/<extension-id>`; the
+  // extension host's own log file is the sibling `exthost.log` in that same
+  // `exthost` directory.
+  let locate = (): string => {
+    switch activatedLogUri.contents {
+    | None =>
+      Assert.fail(
+        "Test__Util.ExtHostLog: extension has not been activated yet -- " ++
+        "call activateExtension (or activateExtensionAndOpenFile) first",
+      )
+      ""
+    | Some(logUri) =>
+      let logDir = VSCode.Uri.fsPath(logUri)
+      let candidate = NodeJs.Path.join([NodeJs.Path.dirname(logDir), "exthost.log"])
+      if NodeJs.Fs.existsSync(candidate) {
+        candidate
+      } else {
+        Assert.fail(
+          "Test__Util.ExtHostLog: could not find exthost.log -- observed logUri.fsPath: " ++
+          (logDir ++ (", expected candidate: " ++ candidate)),
+        )
+        ""
+      }
+    }
+  }
+
+  // count of lines in the extension-host log containing `phrase` as an exact
+  // substring (not a regex). Fails loudly instead of silently reporting 0
+  // when the log can't be located, since missing evidence isn't the same as
+  // a genuine zero count.
+  let countLinesContaining = (phrase: string): int => {
+    let path = locate()
+    let content = NodeJs.Fs.readFileSync(path)->NodeJs.Buffer.toString
+    content->String.split("\n")->Array.filter(line => line->String.includes(phrase))->Array.length
+  }
+}
 
 module Strings = {
   // trim and replace all occurrences of line breaks with "\n"

@@ -22,9 +22,25 @@ module Glob = {
 
 exception TestFailure(string)
 
+// Permanent, general test-runner feature: restrict which test files are
+// loaded for a given `npm test` invocation. Selecting a single test file
+// also gives that test its own fresh extension-host process, since
+// `npm test` spawns one VS Code instance per invocation.
+//   AGDA_TEST_GLOB -- glob restricting which test files are loaded, relative
+//                     to `test/tests` (default "**/*.js").
+let defaultTimeout = 4000
+
+let readTestGlob = () =>
+  switch NodeJs.Process.process->NodeJs.Process.env->Dict.get("AGDA_TEST_GLOB") {
+  | Some(glob) => glob
+  | None => "**/*.js"
+  }
+
 let run = () => {
+  let testGlob = readTestGlob()
+
   // Create the mocha test
-  let mocha = Mocha.make({ui: "bdd", color: true, timeout: 4000})
+  let mocha = Mocha.make({ui: "bdd", color: true, timeout: defaultTimeout})
 
   // dirname: ./lib/js/test
   // testsRoot: ./lib/js/test/tests
@@ -32,7 +48,7 @@ let run = () => {
   let testsRoot = NodeJs.Path.resolve([NodeJs.Global.dirname, "tests"])
 
   Promise.make((resolve, reject) =>
-    Glob.glob("**/*.js", {cwd: testsRoot}, (err, files) =>
+    Glob.glob(testGlob, {cwd: testsRoot}, (err, files) =>
       switch Nullable.toOption(err) {
       | Some(err) => reject(err)
       | None =>

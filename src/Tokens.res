@@ -21,6 +21,12 @@ module type Module = {
   let insertWithVSCodeOffsets: (t, Token.t<vscodeOffset>) => unit
   let insertTokens: (t, VSCode.TextEditor.t, array<Token.t<agdaOffset>>) => unit
 
+  // Mark the window in which Agda is answering about text that may no longer
+  // be on screen. `beginLoad` compiles the offset table for the document as it
+  // is sent; `endLoad` closes the window once every response has been handled.
+  let beginLoad: (t, VSCode.TextDocument.t) => unit
+  let endLoad: t => unit
+
   // Remove everything
   let reset: t => unit
   let destroyUpdateChannel: t => unit
@@ -51,6 +57,14 @@ module type Module = {
 
   // For testing: number of Replace nodes accumulated in the deltas structure
   let deltasLength: t => int
+
+  // For testing: decoration types created minus decoration types disposed.
+  // Must be 0 after `reset`. Guards against a `reset` that merely empties
+  // `decorations` without disposing the types: that would leave the
+  // decorations painted in every editor with nothing left holding a
+  // reference to remove them. VS Code offers no way to read decorations
+  // back, so this counter is the only mechanical check available.
+  let liveDecorationTypes: t => int
 }
 
 module Module: Module = {
@@ -117,10 +131,27 @@ module Module: Module = {
     mutable agdaTokens: AVLTree.t<Token.t<vscodeOffset>>,
     // Keep track of edits to the document
     mutable deltas: TokenIntervals.t,
+    // Everything needed to place an answer about the load currently in flight.
+    //
+    // Agda counts code points in the text it read; VSCode counts UTF-16 units
+    // in the text on screen. `loadConverter` is the code point => code unit
+    // table for the text that was sent, so the two counts stay comparable even
+    // after the document moves on. It is sparse: only surrogate pairs and CRLFs
+    // make the counts differ, so a plain LF file with no astral characters
+    // compiles to an empty table.
+    //
+    // `editsSinceLoad` then carries the answer forward over whatever was typed
+    // while Agda worked. `deltas` cannot serve for that: `rebaseTokens`
+    // consumes and clears it on every keystroke, long before the answer
+    // arrives. Both are cleared when the load ends.
+    mutable loadConverter: option<Agda.OffsetConverter.t>,
+    mutable editsSinceLoad: TokenIntervals.t,
     // Tokens with highlighting information and stuff for VSCode, generated from agdaTokens + deltas
     // expected to be updated along with the deltas
     mutable vscodeTokens: Resource.t<array<Highlighting__SemanticToken.t>>,
     mutable decorations: Map.t<Editor.Decoration.t, array<VSCode.Range.t>>,
+    // created minus disposed; see `liveDecorationTypes`
+    mutable liveDecorations: int,
     // ranges of holes
     mutable holes: Map.t<int, Token.t<vscodeOffset>>,
     mutable holePositions: Resource.t<Map.t<int, int>>,
@@ -153,11 +184,14 @@ module Module: Module = {
     tempFiles: [],
     agdaTokens: AVLTree.make(),
     deltas: TokenIntervals.empty,
+    loadConverter: None,
+    editsSinceLoad: TokenIntervals.empty,
     vscodeTokens: switch vscodeTokensResource {
     | None => Resource.make()
     | Some(resource) => resource
     },
     decorations: Map.make(),
+    liveDecorations: 0,
     holes: Map.make(),
     holePositions: Resource.make(),
     onUpdate: Chan.make(),
@@ -182,10 +216,21 @@ module Module: Module = {
         old.aspects == token.aspects && old.start == token.start && old.end == token.end
 
       if !areTheSameTokens {
-        // TODO: reexamine if we need to merge the aspects or not
-        // merge Aspects only when they are different (TODO: should be sets)
+        // Merge aspects as a set union, never by plain concatenation.
+        // Agda sends overlapping annotations, and the same offset can be
+        // written several times within a single load, so concatenating
+        // accumulates duplicates without bound -- observed in practice as
+        // `Function+Deadcode+Function` and `Symbol+Deadcode+Symbol+Symbol`.
+        // Union is the right semantics here (rather than replacing) because
+        // `reset` clears `agdaTokens` at the start of every load, so the
+        // annotations arriving within one load are additive, and a token
+        // genuinely can be both e.g. a `Function` and `Deadcode`.
         let newAspects =
-          old.aspects == token.aspects ? old.aspects : Array.concat(old.aspects, token.aspects)
+          old.aspects == token.aspects
+            ? old.aspects
+            : token.aspects->Array.reduce(old.aspects, (acc, aspect) =>
+                acc->Array.some(x => x == aspect) ? acc : Array.concat(acc, [aspect])
+              )
 
         let new = {
           ...old,
@@ -208,18 +253,27 @@ module Module: Module = {
   // merge Aspects with the existing Token that occupies the same Range
   let insertTokens = (self, editor, tokens: array<Token.t<agdaOffset>>) => {
     let document = editor->VSCode.TextEditor.document
-    let text = Editor.Text.getAll(document)
-    let offsetConverter = Agda.OffsetConverter.make(text)
+    // Agda's offsets count code points in the text Agda read, which is the text
+    // as it was when the request went out. If the user typed while the request
+    // was in flight, that is no longer the text on screen. Convert with the
+    // table built from the text that was sent, then move the result over the
+    // edits made since. Outside a load there is no table and no edits, so this
+    // is the plain conversion it always was.
+    let offsetConverter = switch self.loadConverter {
+    | Some(converter) => converter
+    | None => Agda.OffsetConverter.make(Editor.Text.getAll(document))
+    }
+    let shift = offset => TokenIntervals.translateOffset(self.editsSinceLoad, offset)
     let currentFilepath = document->VSCode.TextDocument.fileName->Parser.Filepath.make
 
     tokens->Array.forEach(token => {
-      let start = Agda.OffsetConverter.convert(offsetConverter, token.start)
-      let end = Agda.OffsetConverter.convert(offsetConverter, token.end)
+      let start = shift(Agda.OffsetConverter.convert(offsetConverter, token.start))
+      let end = shift(Agda.OffsetConverter.convert(offsetConverter, token.end))
       // Same-file source: convert to VSCode now so rebaseTokens can apply VSCode deltas directly.
       // Cross-file source: keep as Agda offset; lookupSrcLoc will convert with the source file's text.
       let source = token.source->Option.map(((filepath, agdaOffset)) =>
         if filepath == currentFilepath {
-          (filepath, Agda.OffsetConverter.convert(offsetConverter, agdaOffset - 1))
+          (filepath, shift(Agda.OffsetConverter.convert(offsetConverter, agdaOffset - 1)))
         } else {
           (filepath, agdaOffset)
         }
@@ -248,6 +302,20 @@ module Module: Module = {
     self.tempFiles = []
   }
 
+  // The load command saves the document and then sends the request, so the
+  // text passed here is exactly the text Agda reads. Note that `reset` runs
+  // in the middle of a load, on `ClearHighlighting`, and must leave both of
+  // these alone: they describe the load that is still in flight.
+  let beginLoad = (self, document) => {
+    self.loadConverter = Some(Agda.OffsetConverter.make(Editor.Text.getAll(document)))
+    self.editsSinceLoad = TokenIntervals.empty
+  }
+
+  let endLoad = self => {
+    self.loadConverter = None
+    self.editsSinceLoad = TokenIntervals.empty
+  }
+
   let reset = self => {
     // delete all unhandled temp files
     self.tempFiles->Array.forEach(format => {
@@ -269,6 +337,26 @@ module Module: Module = {
     } else {
       self.vscodeTokens->Resource.set([])
     }
+
+    // Remove the decorations from the screen, immediately and
+    // unconditionally. Emptying `decorations` alone is not enough: that
+    // drops the only references to the decoration types while they are
+    // still rendered, so nothing could ever remove them afterwards.
+    //
+    // `dispose` is used rather than applying empty ranges because `reset`
+    // has no `TextEditor` to apply them to, and because disposing removes
+    // the decoration from every editor showing the document, not just from
+    // whichever editor `state.editor` happens to point at.
+    //
+    // Without this, decorations only disappear later as a side effect of
+    // `generateHighlighting`, so anything that stops that step leaves stale
+    // highlighting on screen until the file is closed. v0.5.7 disposed here
+    // and could not get stuck; commit 36e49e2c dropped it.
+    self.decorations->Map.forEachWithKey((_ranges, decoration) =>
+      Editor.Decoration.destroy(decoration)
+    )
+    self.decorations = Map.make()
+    self.liveDecorations = 0
   }
 
   let destroyUpdateChannel = self => self.onUpdate->Chan.destroy
@@ -434,21 +522,8 @@ module Module: Module = {
     // Apply self.deltas to a VSCode 0-based source offset, returning its updated position.
     // Both self.deltas and source offsets are in VSCode (UTF-16) units, so this is exact for
     // all text — ASCII, CRLF, and non-BMP Unicode alike.
-    let translateSourceOffset = vscodeOffset => {
-      let rec go = (intervals, deltaBefore) =>
-        switch intervals {
-        | TokenIntervals.EOF => vscodeOffset + deltaBefore
-        | Replace(removalStart, removeEnd, deltaAfter, tail) =>
-          if vscodeOffset < removalStart {
-            vscodeOffset + deltaBefore
-          } else if vscodeOffset < removeEnd {
-            removalStart + deltaBefore
-          } else {
-            go(tail, deltaAfter)
-          }
-        }
-      go(self.deltas, 0)
-    }
+    let translateSourceOffset = vscodeOffset =>
+      TokenIntervals.translateOffset(self.deltas, vscodeOffset)
 
     let newAgdaTokens = AVLTree.make()
     let newHoles = Map.make()
@@ -525,6 +600,7 @@ module Module: Module = {
 
     // set the decorations
     removeDecorations(self, editor)
+    self.liveDecorations = self.liveDecorations + Map.size(decorations)
     self.decorations = decorations
     applyDecorations(self, editor)
     // set the holes positions
@@ -544,6 +620,14 @@ module Module: Module = {
 
     // update the deltas
     self.deltas = TokenIntervals.applyChanges(self.deltas, changes->Array.toReversed)
+    // `rebaseTokens` clears `deltas` below, so a load waiting on an answer
+    // keeps its own running total of the edits it has to catch up on.
+    if self.loadConverter->Option.isSome {
+      self.editsSinceLoad = TokenIntervals.applyChanges(
+        self.editsSinceLoad,
+        changes->Array.toReversed,
+      )
+    }
     rebaseTokens(self, editingFilepath)
     let _ = generateHighlighting(self, editor)
   }
@@ -582,6 +666,8 @@ module Module: Module = {
     ->Array.toSorted((x, y) => Int.compare(x.start, y.start))
 
   let deltasLength = self => TokenIntervals.length(self.deltas)
+
+  let liveDecorationTypes = self => self.liveDecorations
 }
 
 include Module
