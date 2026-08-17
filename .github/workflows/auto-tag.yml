@@ -19,13 +19,13 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v6
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: 🔍 Check whether the version changed
         id: version
         run: |
           CURRENT=$(node -p "require('./package.json').version")
-          git show HEAD~1:package.json > /tmp/previous-package.json
+          git show ${{ github.event.before }}:package.json > /tmp/previous-package.json
           PREVIOUS=$(node -p "require('/tmp/previous-package.json').version")
           echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
           if [ "$CURRENT" != "$PREVIOUS" ]; then
