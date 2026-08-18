@@ -36,6 +36,11 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
   | Restart =>
     // clear the RunningInfo log
     state.runningInfoLog = []
+    // Issue #335: no interaction point from the previous session may survive a
+    // restart, or the user is left with ranges that look usable but are not.
+    await state.goals->Goals.waitUntilNotBusy
+    state.goals->Goals.reset
+    state.tokens->Tokens.reset
     await dispatchCommand(Load)
   | Refresh =>
     State__View.Panel.restore(state)
@@ -86,7 +91,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
               await sendAgdaRequest(Give(goal))
               state.isInRefineOrGiveOperation = false
             } else {
-              await state.goals->Goals.modify(state.document, goal.index, _ => expr)
+              let _ = await state.goals->Goals.modify(state.document, goal.index, _ => expr)
               state.isInRefineOrGiveOperation = true
               await sendAgdaRequest(Give(goal))
               state.isInRefineOrGiveOperation = false
@@ -125,7 +130,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
               if expr == "" {
                 await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
               } else {
-                await state.goals->Goals.modify(state.document, goal.index, _ => expr)
+                let _ = await state.goals->Goals.modify(state.document, goal.index, _ => expr)
                 await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
               },
           )
@@ -163,7 +168,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
               await sendAgdaRequest(Case(goal))
             } else {
               // place the queried expression in the goal
-              await state.goals->Goals.modify(state.document, goal.index, _ => expr)
+              let _ = await state.goals->Goals.modify(state.document, goal.index, _ => expr)
               await sendAgdaRequest(Case(goal))
             },
         )

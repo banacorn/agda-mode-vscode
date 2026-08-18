@@ -309,6 +309,14 @@ module Module: Module = {
   let beginLoad = (self, document) => {
     self.loadConverter = Some(Agda.OffsetConverter.make(Editor.Text.getAll(document)))
     self.editsSinceLoad = TokenIntervals.empty
+    // Issue #335: `holePositions` stays resolved once it has been set, so
+    // without this the `InteractionPoints` handler of *this* load reads the
+    // hole positions of the *previous* one and hands Agda's indices to ranges
+    // that describe text which is no longer there. Going back to pending makes
+    // that handler wait for the highlighting of this load, which the scheduler
+    // always completes first.
+    self.holes = Map.make()
+    self.holePositions = Resource.make()
   }
 
   let endLoad = self => {

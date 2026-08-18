@@ -21,6 +21,7 @@ module type Module = {
   let make: unit => t
   let redecorate: t => unit
   let destroy: t => unit
+  let reset: t => unit
   let size: t => int
   let resetGoalIndicesOnLoad: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
   let resetGoalIndicesOnRefineOrGive: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
@@ -34,7 +35,10 @@ module type Module = {
 
   let getGoalByIndex: (t, index) => option<Goal.t>
 
-  let modify: (t, VSCode.TextDocument.t, index, string => string) => promise<unit>
+  // whether the text at a goal's recorded range still looks like that goal
+  let isIntact: (t, VSCode.TextDocument.t, index) => bool
+
+  let modify: (t, VSCode.TextDocument.t, index, string => string) => promise<bool>
   let removeBoundaryAndDestroy: (t, VSCode.TextDocument.t, index) => promise<bool>
   // get the goal at the cursor position
   let getGoalAtCursor: (t, VSCode.TextEditor.t) => option<Goal.t>
@@ -350,12 +354,58 @@ module Module: Module = {
     | Some(resource) => resource->Resource.get
     }
 
+  // Issue #335: `Restart` must not leave anything behind from the previous
+  // session. Goals, the positions still waiting for indices, the goal
+  // remembered across a case split and the busy semaphore all have to go, or
+  // the next load starts out with ranges that no longer describe the document.
+  let reset = self => {
+    destroy(self)
+    self.goalsWithoutIndices = Map.make()
+    self.recentlyCaseSplited = None
+    setNotBusy(self)
+  }
+
   let getInternalGoalByIndex = (self, index) => self.goals->Map.get(index)
 
   let read = (goal, document) => {
     let innerRange = InternalGoal.makeInnerRange(goal, document)
     Editor.Text.get(document, innerRange)->String.trim
   }
+
+  /*
+  Issue #335: a goal's offsets can fall out of step with the document — a case
+  split rewrites whole clauses, and the responses that re-register the goals
+  race with the edits that VSCode reports back. Acting on such a range deletes
+  text that belongs to a neighbouring clause, which the user cannot foresee.
+
+  So before any command edits a goal, check that the text still spelled out at
+  that range is the goal we think it is. A hole reads "{! ... !}", a question
+  mark reads "?". Anything else means the range is stale and the edit has to be
+  abandoned rather than applied somewhere arbitrary.
+
+  This deliberately does not delete the goal: the widening of "?" into
+  "{!   !}" leaves a goal briefly mismatched until the edit is scanned back in,
+  and that goal is still perfectly good.
+ */
+  let isGoalIntact = (goal: InternalGoal.t, document) => {
+    let documentEnd = VSCode.TextDocument.getText(document, None)->String.length
+    if goal.start < 0 || goal.end > documentEnd || goal.start >= goal.end {
+      false
+    } else {
+      let text = Editor.Text.get(document, InternalGoal.makeOuterRange(goal, document))
+      if goal.start + 1 == goal.end {
+        text == "?"
+      } else {
+        String.startsWith(text, "{!") && String.endsWith(text, "!}")
+      }
+    }
+  }
+
+  let isIntact = (self, document, index) =>
+    switch getInternalGoalByIndex(self, index) {
+    | None => false
+    | Some(goal) => isGoalIntact(goal, document)
+    }
 
   let getGoalByIndex = (self, index): option<Goal.t> =>
     self.goals
@@ -371,16 +421,18 @@ module Module: Module = {
 
   let modify = async (self, document, index, f) =>
     switch getInternalGoalByIndex(self, index) {
-    | Some(goal) =>
+    | Some(goal) if isGoalIntact(goal, document) =>
       let innerRange = InternalGoal.makeInnerRange(goal, document)
       let goalContent = read(goal, document)
-      let _ = await Editor.Text.replace(document, innerRange, " " ++ f(goalContent) ++ " ")
-    | None => ()
+      await Editor.Text.replace(document, innerRange, " " ++ f(goalContent) ++ " ")
+    | Some(_) => false // the recorded range no longer describes a goal, refuse to edit
+    | None => false
     }
 
   let removeBoundaryAndDestroy = async (self, document, index) =>
     switch getInternalGoalByIndex(self, index) {
     | None => true
+    | Some(goal) if !isGoalIntact(goal, document) => false
     | Some(goal) =>
       let outerRange = InternalGoal.makeOuterRange(goal, document)
 
@@ -875,7 +927,14 @@ module Module: Module = {
   let resetGoalIndicesOnLoad = async (self, editor, indices) => {
     clear(self)
 
-    let positionsArray = self.goalsWithoutIndices->Map.entries->Iterator.toArray
+    // Agda numbers the interaction points in source order, so the positions
+    // have to be sorted the same way. Map iteration order is insertion order,
+    // which is only incidentally sorted.
+    let positionsArray =
+      self.goalsWithoutIndices
+      ->Map.entries
+      ->Iterator.toArray
+      ->Array.toSorted(((start1, _), (start2, _)) => Int.compare(start1, start2))
     positionsArray->Array.forEachWithIndex(((start, end), i) => {
       switch indices[i] {
       | None => ()
