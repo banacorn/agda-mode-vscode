@@ -1,0 +1,44 @@
+name: Auto Tag Release
+
+# Watches master for merged version-bump PRs. When package.json's version
+# changes, creates and pushes the matching vX.Y.Z tag, which is what
+# release.yml listens for to publish to Open VSX and the Marketplace.
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'package.json'
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: 🔍 Check whether the version changed
+        id: version
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          git show ${{ github.event.before }}:package.json > /tmp/previous-package.json
+          PREVIOUS=$(node -p "require('/tmp/previous-package.json').version")
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          if [ "$CURRENT" != "$PREVIOUS" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 🏷️ Create and push tag
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          TAG="v${{ steps.version.outputs.current }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
