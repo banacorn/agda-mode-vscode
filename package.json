@@ -33,6 +33,7 @@
 		"less-watch-compiler": "^1.14.6",
 		"mocha": "^10.4.0",
 		"path-browserify": "^1.0.1",
+		"playwright": "^1.59.1",
 		"process": "^0.11.10",
 		"rescript-fast-check": "github:banacorn/rescript-fast-check",
 		"rescript-mocha": "github:DZakh-forks/rescript-mocha#uncurried",
