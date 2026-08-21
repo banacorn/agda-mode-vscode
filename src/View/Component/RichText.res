@@ -28,14 +28,13 @@ module Parens2 = {
     let onMouseOver = _ => setActivated(_ => true)
     let onMouseOut = _ => setActivated(_ => false)
     let onClick = _ => setContracted(x => !x)
-    // the opening parenthesis
-    let openParenClassName =
-      "component-horz-item component-parentheses" ++ (activated ? " activated" : "")
+    // the opening and closing parentheses hug `payload` with no space of
+    // their own -- any spacing within the group is decided by `payload`
+    // itself (see RichText.res's `PrHz` case)
+    let openParenClassName = "component-parentheses" ++ (activated ? " activated" : "")
     let openParen =
       <span className=openParenClassName onMouseOver onMouseOut onClick> {React.string("(")} </span>
-    // the closing parenthesis
-    let closeParenClassName =
-      "component-horz-item component-parentheses compact" ++ (activated ? " activated" : "")
+    let closeParenClassName = "component-parentheses" ++ (activated ? " activated" : "")
     let closeParen =
       <span className=closeParenClassName onMouseOver onMouseOut onClick>
         {React.string(")")}
@@ -187,7 +186,23 @@ module Module = {
     ->concatMany
 
 
-  let rec make = (~value: t) => {
+  // Renders `xs` as `.component-horz-item` spans, with a literal space
+  // character between consecutive items -- not a CSS margin, since margins
+  // never contribute to copied/selected text regardless of display mode.
+  // `compact(index)` marks an item that should hug its predecessor with no
+  // leading space (the first item overall, or e.g. the first token right
+  // after an opening parenthesis).
+  let rec horzItems = (xs: array<array<Inline.t>>, ~compact: int => bool) =>
+    xs
+    ->Array.mapWithIndex((element, index) => {
+      let item =
+        <span className="component-horz-item" key={string_of_int(index)}>
+          {make(~value=RichText(element))}
+        </span>
+      compact(index) ? [item] : [React.string(" "), item]
+    })
+    ->Array.flat
+  and make = (~value: t) => {
     let RichText(elements) = value
     <span>
       {elements
@@ -211,12 +226,7 @@ module Module = {
             {React.string("?" ++ string_of_int(index))}
           </Link>
         | Horz(elements) =>
-          let children =
-            elements->Array.mapWithIndex((element, j) =>
-              <span className="component-horz-item" key={string_of_int(j)}>
-                {make(~value=RichText(element))}
-              </span>
-            )
+          let children = horzItems(elements, ~compact=index => index == 0)
           <span className="component-horz" key={string_of_int(i)}> {React.array(children)} </span>
         | Vert(elements) =>
           let children =
@@ -228,15 +238,12 @@ module Module = {
           <span className="component-vert" key={string_of_int(i)}> {React.array(children)} </span>
         | Parn(element) => <Parens> {make(~value=RichText(element))} </Parens>
         | PrHz(elements) =>
-          let children =
-            elements->Array.mapWithIndex((element, index) =>
-              index == 0
-                ? <span className="component-horz-item compact">
-                    {make(~value=RichText(element))}
-                  </span>
-                : <span className="component-horz-item"> {make(~value=RichText(element))} </span>
-            )
-          <Parens2 payload=children />
+          // The first element hugs the opening parenthesis with no leading
+          // space (`compact`); Parens2 adds no space of its own around
+          // `payload`, so this is the only place spacing within the
+          // parenthesized group is decided.
+          let payload = horzItems(elements, ~compact=index => index == 0)
+          <Parens2 payload />
         }
       })
       ->React.array}
