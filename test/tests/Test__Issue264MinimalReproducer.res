@@ -100,6 +100,7 @@ describe("issue #264 minimal reproducer", () => {
       let (release, resolveRelease, _) = Util.Promise_.pending()
       let sawLoadDispatched = ref(false)
       let sawInteractionPointsHeld = ref(false)
+      let sawMakeCase = ref(false)
       let released = ref(false)
 
       let releaseOnce = () =>
@@ -108,10 +109,12 @@ describe("issue #264 minimal reproducer", () => {
           resolveRelease()
         }
 
-      // Log listener to detect Load command dispatch
+      // Log listener to detect Load command dispatch.
+      // Issue #335: a dirty document reloads before it splits, so only the load
+      // that comes after `MakeCase` is the one this test wants to interfere with.
       let disposeLog = ctx.state.channels.log->Chan.on(log => {
         switch log {
-        | CommandDispatched(Load) if !sawLoadDispatched.contents =>
+        | CommandDispatched(Load) if sawMakeCase.contents && !sawLoadDispatched.contents =>
           sawLoadDispatched := true
           resolveLoadDispatched()
         | _ => ()
@@ -120,6 +123,10 @@ describe("issue #264 minimal reproducer", () => {
 
       // Middleware to hold InteractionPoints response, then release on command
       ctx.state.middlewares->Array.push(handler => async response => {
+        switch response {
+        | Response.MakeCase(_, _) => sawMakeCase := true
+        | _ => ()
+        }
         switch response {
         | Response.InteractionPoints(_) if sawLoadDispatched.contents && !sawInteractionPointsHeld.contents =>
           sawInteractionPointsHeld := true

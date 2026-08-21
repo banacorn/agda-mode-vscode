@@ -532,12 +532,27 @@ module AgdaMode = {
     }
     Editor.Cursor.set(editor, cursor)
 
-    // The `agda-mode.load` command will be issued after `agda-mode.case` is executed
-    // listen to the `agda-mode.load` command to know when the whole case split process is done
+    // Issue #335: a dirty document makes `agda-mode.case` reload before it
+    // splits, so the first load is no longer the one that expands the new
+    // clauses. Wait for a load that comes after `MakeCase` instead. The flag is
+    // set from a middleware rather than `responseHandled`, because the load is
+    // dispatched from inside the `MakeCase` handler and so completes before
+    // that response is reported as handled.
+    let sawMakeCase = ref(false)
+    self.state.middlewares
+    ->Array.push(handler => async response => {
+      switch response {
+      | Response.MakeCase(_, _) => sawMakeCase := true
+      | _ => ()
+      }
+      await handler(response)
+    })
+    ->ignore
+
     let (promise, resolve, _) = Util.Promise_.pending()
     let destructor = self.state.channels.commandHandled->Chan.on(command => {
       switch command {
-      | Command.Load => resolve()
+      | Command.Load if sawMakeCase.contents => resolve()
       | _ => ()
       }
     })
@@ -549,10 +564,12 @@ module AgdaMode = {
       await promise
       // stop listening to commands
       destructor()
+      self.state.middlewares->Array.pop->ignore
 
       // update the context with the new state
       self.state = state
     | Some(Error(error)) =>
+      self.state.middlewares->Array.pop->ignore
       let (header, body) = Connection.Error.toString(error)
       raise(Failure(header ++ "\n" ++ body))
     }

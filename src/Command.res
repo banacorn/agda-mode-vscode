@@ -298,3 +298,67 @@ let toString = x =>
   | LookupSymbol => "Lookup Unicode symbol input sequence"
   | OpenDebugBuffer => "Open debug buffer"
   }
+
+/*
+  Issue #335: these commands are answered from the state Agda built during the
+  last load, so they are only meaningful while the file still says what Agda
+  was told it says.
+
+  Once the buffer has been edited we cannot know what changed without
+  typechecking again -- an edit anywhere above a goal can change that goal's
+  type, and goal-indexed requests like `Cmd_goal_type_context` carry an index
+  rather than a range, so Agda will happily answer them from its own stale
+  interaction points. The answer looks perfectly plausible and is wrong.
+  Dispatching a load first is the only way to make the answer true.
+
+  Deliberately excluded, and why:
+
+    Load, Restart          reload anyway
+    Quit                   tears the session down
+    Refresh                redraws the view, asks Agda nothing
+    NextGoal, PreviousGoal move the cursor; goal positions are already rebased
+                           against edits by `Goals.scanAllGoals`
+    ToggleDisplayOf*       set a display preference rather than report on the file
+    SwitchAgdaVersion      reconnects, which loads
+    Escape, InputMethod,
+    LookupSymbol,
+    OpenDebugBuffer,
+    EventFromView          never consult Agda's view of the file
+ */
+let requiresUpToDateLoad = x =>
+  switch x {
+  | Compile
+  | ShowConstraints(_)
+  | SolveConstraints(_)
+  | ShowGoals(_)
+  | SearchAbout(_)
+  | Give
+  | Refine
+  | ElaborateAndGive(_)
+  | Auto(_)
+  | Case
+  | HelperFunctionType(_)
+  | InferType(_)
+  | Context(_)
+  | GoalType(_)
+  | GoalTypeAndContext(_)
+  | GoalTypeContextAndInferredType(_)
+  | GoalTypeContextAndCheckedType(_)
+  | ModuleContents(_)
+  | ComputeNormalForm(_)
+  | WhyInScope => true
+  | Load
+  | Quit
+  | Restart
+  | Refresh
+  | NextGoal
+  | PreviousGoal
+  | ToggleDisplayOfImplicitArguments
+  | ToggleDisplayOfIrrelevantArguments
+  | SwitchAgdaVersion
+  | Escape
+  | InputMethod(_)
+  | LookupSymbol
+  | OpenDebugBuffer
+  | EventFromView(_) => false
+  }

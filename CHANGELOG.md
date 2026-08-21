@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## Unreleased
+
+### Fixed
+- #335: Reload before any command whose answer depends on the last load, so that goal-indexed requests can no longer be answered from interaction points that the file has since edited away
+- #335: `give` and case split now refuse to write into a goal whose range no longer matches the file, reporting that the goal is out of sync instead of overwriting the text that has taken its place
+- #335: Hole state is cleared at the start of each load rather than carried over, so a load no longer reads the hole positions of the previous one
+
+### Added
+- <kbd>C-c</kbd> <kbd>C-g</kbd> as an alternative binding for `give`, since Windows consumes <kbd>C-c</kbd> <kbd>C-SPC</kbd> for input method switching when more than one keyboard layout is installed
+
 ## v0.10.1 - 2026-08-15
 
 ### Fixed

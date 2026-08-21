@@ -874,6 +874,12 @@
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{
+				"command": "agda-mode.give",
+				"key": "ctrl+c ctrl+g",
+				"mac": "ctrl+c ctrl+g",
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
+			},
+			{
 				"command": "agda-mode.refine",
 				"key": "ctrl+c ctrl+r",
 				"mac": "ctrl+c ctrl+r",

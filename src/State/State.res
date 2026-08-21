@@ -77,6 +77,9 @@ type t = {
   // Skip HighlightingInfo during refine & give operations because Agda sends faulty token positions
   // that conflict with the extension's correctly calculated positions.
   mutable isInRefineOrGiveOperation: bool,
+  // Issue #335: set by every content change, cleared when a load hands the file
+  // to Agda. While it is set, Agda's answers describe text that is no longer here.
+  mutable editedSinceLoad: bool,
 }
 
 let make = (
@@ -110,6 +113,7 @@ let make = (
   channels,
   middlewares: [],
   isInRefineOrGiveOperation: false,
+  editedSinceLoad: false,
 }
 
 // construction/destruction

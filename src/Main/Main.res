@@ -383,6 +383,7 @@ let activateWithoutContext = (
           ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
           ->Array.toReversed
         if Array.length(changes) != 0 {
+          state.editedSinceLoad = true
           state.goals->Goals.scanAllGoals(currentEditor, changes)->Promise.done
         }
       }
