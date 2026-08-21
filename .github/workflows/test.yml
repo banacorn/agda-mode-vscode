@@ -234,3 +234,63 @@ jobs:
             node_modules
             ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
+
+  # Standalone from build-and-test: doesn't need Agda or VS Code at all, just
+  # a headless browser, so it isn't part of the OS/Agda matrix above.
+  webview-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v6
+
+      - name: 💾 Restore NPM dependencies
+        id: npm-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+
+      - name: 💾 Restore Playwright browsers
+        id: playwright-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: ⏬ Setup Node.js environment
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+
+      - name: ⏬ Install NPM Dependencies
+        run: npm ci --cache .npm
+
+      - name: ⏬ Install Playwright's Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: 🔨 Build stuff
+        run: npm run build
+
+      - name: 🚗 Run webview tests
+        run: npm run test:webview
+
+      - name: 💾 Cache Playwright browsers
+        if: always() && steps.playwright-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: 💾 Cache NPM dependencies
+        if: always() && steps.npm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
