@@ -345,28 +345,25 @@
 
 @indent: 2ch;
 
-// the parent container of a Horizontal grouping
+// the parent container of a Horizontal grouping.
+//
+// A single inline-block box, not flex/grid: Chromium inserts a stray
+// newline at every flex/grid *item* boundary when a text selection spans
+// multiple sibling flex/grid items, which broke copying expressions like
+// function application, e.g. "f a b c" pasting as "f\na\nb\nc" (#338).
+// A lone inline-block box doesn't trigger that -- the quirk is specifically
+// about serialization across sibling flex/grid items.
+//
+// Spacing between children is a literal space character inserted in
+// RichText.res, not a CSS margin -- margins never contribute to copied
+// text regardless of display mode, so relying on them for spacing was
+// never going to produce a space on copy either way.
 .component-horz {
-    // so that we can set paddings
-    display: inline-flex;
-    flex-wrap: wrap;
-    // use padding-left to indent every child
-    padding-left: calc(@indent - 1ch);
-}
-
-// but don't indent the first child
-.component-horz-item:first-of-type {
-    margin-left: calc(1ch - @indent);
-}
-
-// separate each .component-horz-item
-.component-horz-item {
-    margin-left: 1ch;
-
-    // no margin, for parentheses around other horz-items
-    &.compact {
-        margin-left: 0
-    }
+    display: inline-block;
+    // hanging indent: the first line starts flush, wrapped continuation
+    // lines are indented by @indent
+    padding-left: @indent;
+    text-indent: -@indent;
 }
 
 // for styling parentheses
