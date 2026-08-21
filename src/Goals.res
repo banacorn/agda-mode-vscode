@@ -227,6 +227,7 @@ module Module: Module = {
     mutable goalsWithoutIndices: Map.t<int, int>, // mapping of start position => end position, goals without indices
     mutable positions: AVLTree.t<index>, // start position => goal index
     mutable isBusy: option<Resource.t<unit>>, // semaphore for busy state
+    mutable rescanPending: bool, // another scan was requested while busy, or the last rewrite failed to apply
     mutable recentlyCaseSplited: option<Goal.t>, // keep track of the last case split goal, because it won't be available during the case split
   }
 
@@ -236,6 +237,7 @@ module Module: Module = {
       goalsWithoutIndices: Map.make(),
       positions: AVLTree.make(),
       isBusy: None,
+      rescanPending: false,
       recentlyCaseSplited: None,
     }
   }
@@ -681,7 +683,7 @@ module Module: Module = {
   includes the current change. This ensures correct position calculations as 
   the algorithm moves left to right through the document.
  */
-  let scanAllGoals = async (self, editor, changes) => {
+  let rec scanAllGoals = async (self, editor, changes) => {
     let document = VSCode.TextEditor.document(editor)
 
     let changes = changes->List.fromArray
@@ -842,31 +844,41 @@ module Module: Module = {
 
     if Array.length(rewrites) != 0 {
       if isBusy(self) {
-        // another scanAllGoals is already widening, skip duplicate rewrites
-        ()
+        // another scanAllGoals is already widening; queue a rescan instead of
+        // dropping this rewrite, since the in-flight one may also fail to apply
+        self.rescanPending = true
       } else {
         let originalCursorPosition = Editor.Cursor.get(editor)
         // set busy
         setBusy(self)
         let applied = await Editor.Text.batchReplace(document, rewrites)
-        if !applied {
-          setNotBusy(self)
-        }
+        setNotBusy(self)
 
         // place the cursor inside a hole if it was there before the rewrite
-        let cursorWasWithinRewrites =
-          rewrites->Array.some(((range, _)) => VSCode.Range.contains(range, originalCursorPosition))
-        if cursorWasWithinRewrites {
-          switch getGoalAtCursor(self, editor) {
-          | None => () // no goal at cursor, do nothing
-          | Some(goal) =>
-            // set the cursor to the goal
-            setCursorByIndex(self, editor, goal.index)
+        if applied {
+          let cursorWasWithinRewrites =
+            rewrites->Array.some(((range, _)) => VSCode.Range.contains(range, originalCursorPosition))
+          if cursorWasWithinRewrites {
+            switch getGoalAtCursor(self, editor) {
+            | None => () // no goal at cursor, do nothing
+            | Some(goal) =>
+              // set the cursor to the goal
+              setCursorByIndex(self, editor, goal.index)
+            }
           }
+        } else {
+          // the rewrite was rejected (e.g. a concurrent edit changed the
+          // document underneath it); rescan against the current state
+          self.rescanPending = true
         }
       }
     } else {
       setNotBusy(self)
+    }
+
+    if self.rescanPending {
+      self.rescanPending = false
+      await scanAllGoals(self, editor, [])
     }
   }
 
