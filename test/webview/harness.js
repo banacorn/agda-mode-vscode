@@ -16,7 +16,7 @@
 const http = require("node:http")
 const path = require("node:path")
 const fs = require("node:fs")
-const Module = require("node:module")
+const {requireCompiled} = require("./vscode-stub.js")
 
 const repoRoot = path.resolve(__dirname, "..", "..")
 
@@ -25,40 +25,28 @@ const makeUri = fsPath => ({
   toString: () => "file://" + fsPath,
 })
 
-// Registers the fake `vscode` module for `require("vscode")` calls made
-// while loading WebviewPanel.bs.js (and whatever it transitively requires).
-// Must run before that require happens.
-const installVscodeStub = ({ origin, capture }) => {
-  const originalLoad = Module._load
-  Module._load = function (request, parent, isMain) {
-    if (request === "vscode") {
-      return {
-        window: {
-          createWebviewPanel: (_viewType, _title, _showOptions, _options) => ({
-            webview: {
-              cspSource: origin,
-              asWebviewUri: uri => {
-                const url = origin + "/" + path.relative(repoRoot, uri.fsPath)
-                return {fsPath: url, toString: () => url}
-              },
-              set html(value) {
-                capture.html = value
-              },
-            },
-          }),
+// Builds the fake `vscode` module covering exactly what `WebviewPanel.make`
+// calls (see src/View/WebviewPanel.res) -- nothing more.
+const makeVscodeStub = ({origin, capture}) => ({
+  window: {
+    createWebviewPanel: (_viewType, _title, _showOptions, _options) => ({
+      webview: {
+        cspSource: origin,
+        asWebviewUri: uri => {
+          const url = origin + "/" + path.relative(repoRoot, uri.fsPath)
+          return {fsPath: url, toString: () => url}
         },
-        Uri: {
-          file: fsPath => makeUri(fsPath),
-          joinPath: (base, ...segments) => makeUri(path.join(base.fsPath, ...segments)),
+        set html(value) {
+          capture.html = value
         },
-      }
-    }
-    return originalLoad.apply(this, arguments)
-  }
-  return () => {
-    Module._load = originalLoad
-  }
-}
+      },
+    }),
+  },
+  Uri: {
+    file: fsPath => makeUri(fsPath),
+    joinPath: (base, ...segments) => makeUri(path.join(base.fsPath, ...segments)),
+  },
+})
 
 const contentType = filePath => {
   if (filePath.endsWith(".js")) return "application/javascript"
@@ -100,15 +88,10 @@ const start = async () => {
   const {port} = server.address()
   const origin = `http://127.0.0.1:${port}`
 
-  const restoreLoad = installVscodeStub({origin, capture})
-  let WebviewPanel
-  try {
-    // eslint-disable-next-line global-require
-    WebviewPanel = require(path.join(repoRoot, "lib/js/src/View/WebviewPanel.bs.js"))
-  } finally {
-    restoreLoad()
-  }
-
+  const WebviewPanel = requireCompiled(
+    "lib/js/src/View/WebviewPanel.bs.js",
+    makeVscodeStub({origin, capture}),
+  )
   WebviewPanel.WebviewPanel.make("Agda Mode", makeUri(repoRoot))
 
   if (!capture.html) {
