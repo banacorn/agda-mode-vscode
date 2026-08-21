@@ -7,10 +7,10 @@
 //  - WebviewPanel.bs.js actually calls `vscode.window.createWebviewPanel`
 //    and a handful of `Uri`/`Webview` methods (see harness.js), so it needs
 //    a stub that implements those.
-//  - Repro338.bs.js only needs `require("vscode")` to resolve to
+//  - Issue338.bs.js only needs `require("vscode")` to resolve to
 //    *something*, since the modules it pulls in -- Common.bs.js,
 //    Link.bs.js, Item.bs.js -- reference `vscode` only inside function
-//    bodies, never at module load (see repro-338.js).
+//    bodies, never at module load (see copy.test.js).
 //
 // Patching/restoring `Module._load` and `require()` are both synchronous;
 // nothing here needs to be async.
