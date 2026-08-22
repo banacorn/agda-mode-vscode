@@ -24,9 +24,11 @@ module Expr = {
     ->String.trim
     // Agda line-wraps long expressions for its own fixed-width display;
     // that wrap is a display artifact, not a semantic line break, so
-    // collapse any run of whitespace (including the "\n" it introduces)
-    // down to a single space before tokenizing (#337).
-    ->String.replaceRegExp(%re("/\s+/g"), " ")
+    // collapse it to a single space before tokenizing (#337). Only match
+    // whitespace runs that actually contain a newline (plus surrounding
+    // indentation) -- a same-line run (e.g. an intentional double space
+    // inside a string literal) has no newline in it and is left alone.
+    ->String.replaceRegExp(%re("/[ \t]*\r?\n[ \t]*/g"), " ")
     /* 1         2 */
     ->String.splitByRegExp(%re("/(\?\d+)|(\_\d+[^\}\)\s]*)/"))
     ->// RegEx updated to v10.1.4
