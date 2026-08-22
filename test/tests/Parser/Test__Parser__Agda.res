@@ -34,9 +34,28 @@ describe("when running Agda.OutputConstraint.parse", () => {
     // Context/meta entries ("x : T") are the most common OutputConstraint,
     // and T is exactly what Agda line-wraps when it's long -- the wrap is
     // a display artifact, not a semantic line break (#337).
-    let raw = "x : A ->\n  B -> C"
+    //
+    // `raw` is the real context-entry text captured from Agda 2.8.0 for
+    // `f : Nat → Nat → … → Nat` (21-ary), via `agda --interaction` on
+    // `Cmd_goal_type_context` -- not a synthetic stand-in.
+    let raw = `f : Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat`
     let expected = Some(
-      Agda.OutputConstraint.OfType(RichText.string("x"), RichText.string("A -> B -> C")),
+      Agda.OutputConstraint.OfType(
+        RichText.string("f"),
+        RichText.string(
+          "Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat",
+        ),
+      ),
     )
     let actual = Agda.OutputConstraint.parse(raw)
     Assert.deepStrictEqual(actual, expected)
