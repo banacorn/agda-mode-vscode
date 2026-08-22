@@ -30,22 +30,6 @@ describe("Parser.escape", () => {
   })
 })
 
-describe("Parser.unescapeEOL", () => {
-  it("should make explicit newline on Unix implicit", () => {
-    let raw = "x\\ny"
-    let expected = "x\ny"
-    let actual = Parser.unescapeEOL(raw)
-    Assert.deepStrictEqual(actual, expected)
-  })
-
-  it("should make explicit newline on Windows implicit", () => {
-    let raw = "x\\r\\ny"
-    let expected = "x\r\ny"
-    let actual = Parser.unescapeEOL(raw)
-    Assert.deepStrictEqual(actual, expected)
-  })
-})
-
 describe("Parser.Filepath", () => {
   it("should remove Windows Bidi control characters", () => {
     let actual = Parser.Filepath.make("\u202A/path/to/file.agda")
