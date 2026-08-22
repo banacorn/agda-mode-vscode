@@ -378,11 +378,3 @@ let escape = (s: string): string =>
   ->String.replaceRegExp(%re("/\r\n/g"), "\\r\\n")
   ->String.replaceRegExp(%re("/\n/g"), "\\n")
 
-// Almost the inverse of escape, but only for EOL characters.
-//
-//      \n    => LF
-//      \r\n  => CR LF
-let unescapeEOL = (s: string): string =>
-  s
-  ->String.replaceRegExp(%re("/\\r\\n/g"), "\r\n")
-  ->String.replaceRegExp(%re("/\\n/g"), "\n")
