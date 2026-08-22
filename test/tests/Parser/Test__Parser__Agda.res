@@ -38,10 +38,13 @@ describe("when running Agda.OutputConstraint.parse", () => {
   })
 
   it("should parse JustSort on Windows", () => {
+    // Agda line-wraps for its own fixed-width display; that wrap is a
+    // display artifact, not a semantic line break, so it should collapse
+    // to a single space rather than surviving as a literal "\r\n" (#337).
     let raw = "Sort ℕ\r\n  ℕ"
     let expected = Some(
       Agda.OutputConstraint.JustSort(
-        RichText.string(`ℕ\r\n  ℕ`),
+        RichText.string("ℕ ℕ"),
       ),
     )
     let actual = Agda.OutputConstraint.parse(raw)
@@ -52,7 +55,7 @@ describe("when running Agda.OutputConstraint.parse", () => {
     let raw = "Sort ℕ\n  ℕ"
     let expected = Some(
       Agda.OutputConstraint.JustSort(
-        RichText.string("ℕ\n  ℕ"),
+        RichText.string("ℕ ℕ"),
       ),
     )
     let actual = Agda.OutputConstraint.parse(raw)
