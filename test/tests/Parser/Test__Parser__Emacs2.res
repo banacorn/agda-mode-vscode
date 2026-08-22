@@ -40,6 +40,38 @@ x : ℕ`
   })
 })
 
+describe("when running Emacs__Parser2.parseGoalType and Emacs__Parser2.render together", () => {
+  // #337: Agda line-wraps a goal type that's too long for its own
+  // fixed-width display. `parseGoalType` keeps each wrapped physical line
+  // as a separate array entry; `render` then rejoins them with
+  // `Util.String.unlines` (a literal "\n") before handing the string to
+  // `Agda.Expr.parse`, which passes it straight through into a single
+  // `RichText` `Text` node with no whitespace collapsing. The wrap is a
+  // display artifact, not a semantic line break, so it should not survive
+  // as a literal "\n" in the rendered item.
+  it("should collapse an Agda-wrapped goal type into a single line", () => {
+    let raw = `Goal: A ->
+      B -> C
+————————————————————————————————————————————————————————————`
+    let actual = raw->Emacs__Parser2.parseGoalType->Emacs__Parser2.render
+    let expected = [Item.Labeled("Goal", "special", RichText.string("A -> B -> C"), None, None)]
+    Assert.deepStrictEqual(actual, expected)
+  })
+
+  it("should collapse an Agda-wrapped \"Have\" type into a single line", () => {
+    let raw = `Goal: ℕ
+Have: A ->
+      B -> C
+————————————————————————————————————————————————————————————`
+    let actual = raw->Emacs__Parser2.parseGoalType->Emacs__Parser2.render
+    let expected = [
+      Item.Labeled("Goal", "special", RichText.string("ℕ"), None, None),
+      Item.Labeled("Have", "special", RichText.string("A -> B -> C"), None, None),
+    ]
+    Assert.deepStrictEqual(actual, expected)
+  })
+})
+
 describe("when running Emacs__Parser2.parseAllGoalsWarnings", () => {
   it("should parse goals only", () => {
     let raw = `
