@@ -30,9 +30,28 @@ describe("when running Agda.OutputConstraint.parse", () => {
     Assert.deepStrictEqual(actual, expected)
   })
 
+  it("should parse OfType with a wrapped type", () => {
+    // Context/meta entries ("x : T") are the most common OutputConstraint,
+    // and T is exactly what Agda line-wraps when it's long -- the wrap is
+    // a display artifact, not a semantic line break (#337).
+    let raw = "x : A ->\n  B -> C"
+    let expected = Some(
+      Agda.OutputConstraint.OfType(RichText.string("x"), RichText.string("A -> B -> C")),
+    )
+    let actual = Agda.OutputConstraint.parse(raw)
+    Assert.deepStrictEqual(actual, expected)
+  })
+
   it("should parse JustType", () => {
     let raw = `Type ℕ`
     let expected = Some(Agda.OutputConstraint.JustType(RichText.string("ℕ")))
+    let actual = Agda.OutputConstraint.parse(raw)
+    Assert.deepStrictEqual(actual, expected)
+  })
+
+  it("should parse JustType with a wrapped type", () => {
+    let raw = "Type A ->\n  B -> C"
+    let expected = Some(Agda.OutputConstraint.JustType(RichText.string("A -> B -> C")))
     let actual = Agda.OutputConstraint.parse(raw)
     Assert.deepStrictEqual(actual, expected)
   })
