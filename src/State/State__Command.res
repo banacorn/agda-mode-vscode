@@ -4,6 +4,12 @@ open Command
 let rec dispatchCommand = async (state: State.t, command): unit => {
   state.channels.log->Chan.emit(CommandDispatched(command))
   let dispatchCommand = dispatchCommand(state, ...)
+  // Issue #335: an edit can change the meaning of anything below it, and
+  // goal-indexed requests carry no range for Agda to notice with, so the only
+  // way to get a true answer out of a stale session is to typecheck again.
+  if state.editedSinceLoad && Command.requiresUpToDateLoad(command) {
+    await dispatchCommand(Load)
+  }
   let sendAgdaRequest = async request => {
     await State__Connection.sendRequest(
       state,
@@ -26,6 +32,8 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
     // corrected for, but one that arrives before it would be baked into the
     // baseline and lost.
     Tokens.beginLoad(state.tokens, state.document)
+    // Agda now has the text as of this moment; anything after this is drift.
+    state.editedSinceLoad = false
     // Issue #26 - don't load the document in preview mode
     let options = Some(VSCode.TextDocumentShowOptions.make(~preview=false, ()))
     let _ = await VSCode.Window.showTextDocumentWithShowOptions(state.document, options)
@@ -36,6 +44,11 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
   | Restart =>
     // clear the RunningInfo log
     state.runningInfoLog = []
+    // Issue #335: no interaction point from the previous session may survive a
+    // restart, or the user is left with ranges that look usable but are not.
+    await state.goals->Goals.waitUntilNotBusy
+    state.goals->Goals.reset
+    state.tokens->Tokens.reset
     await dispatchCommand(Load)
   | Refresh =>
     State__View.Panel.restore(state)
@@ -86,7 +99,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
               await sendAgdaRequest(Give(goal))
               state.isInRefineOrGiveOperation = false
             } else {
-              await state.goals->Goals.modify(state.document, goal.index, _ => expr)
+              let _ = await state.goals->Goals.modify(state.document, goal.index, _ => expr)
               state.isInRefineOrGiveOperation = true
               await sendAgdaRequest(Give(goal))
               state.isInRefineOrGiveOperation = false
@@ -125,7 +138,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
               if expr == "" {
                 await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
               } else {
-                await state.goals->Goals.modify(state.document, goal.index, _ => expr)
+                let _ = await state.goals->Goals.modify(state.document, goal.index, _ => expr)
                 await sendAgdaRequest(ElaborateAndGive(normalization, expr, goal))
               },
           )
@@ -163,7 +176,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
               await sendAgdaRequest(Case(goal))
             } else {
               // place the queried expression in the goal
-              await state.goals->Goals.modify(state.document, goal.index, _ => expr)
+              let _ = await state.goals->Goals.modify(state.document, goal.index, _ => expr)
               await sendAgdaRequest(Case(goal))
             },
         )

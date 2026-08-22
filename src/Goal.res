@@ -10,6 +10,9 @@ module type Module = {
 
   let getContent: (t, VSCode.TextDocument.t) => string
 
+  // whether the text at the goal's range still spells out a goal
+  let isIntact: (t, VSCode.TextDocument.t) => bool
+
   let indentationWidth: (t, VSCode.TextDocument.t) => (int, string, VSCode.Range.t)
   // helper function for building Haskell Agda ranges
   let makeHaskellRange: (t, VSCode.TextDocument.t, string, string) => string
@@ -92,6 +95,27 @@ module Module: Module = {
       VSCode.TextDocument.positionAt(document, goal.end - 2),
     )
     Editor.Text.get(document, innerRange)->String.trim
+  }
+
+  // Issue #335: the same stale-range check as `Goals.isIntact`, for the goal
+  // remembered across a case split, which is no longer in the registry by the
+  // time `MakeCase` is answered.
+  let isIntact = (goal, document) => {
+    let documentEnd = VSCode.TextDocument.getText(document, None)->String.length
+    if goal.start < 0 || goal.end > documentEnd || goal.start >= goal.end {
+      false
+    } else {
+      let outerRange = VSCode.Range.make(
+        VSCode.TextDocument.positionAt(document, goal.start),
+        VSCode.TextDocument.positionAt(document, goal.end),
+      )
+      let text = Editor.Text.get(document, outerRange)
+      if goal.start + 1 == goal.end {
+        text == "?"
+      } else {
+        String.startsWith(text, "{!") && String.endsWith(text, "!}")
+      }
+    }
   }
 
   // returns the width of indentation of the first line of a goal

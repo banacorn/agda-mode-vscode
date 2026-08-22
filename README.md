@@ -56,7 +56,7 @@ Commands working with terms or types (marked with the 🎚 emoji below) can be p
 
 | Command                                 |             Keymap              |
 | :-------------------------------------- | :-----------------------------: |
-| give (fill goal)                        | <kbd>C-c</kbd> <kbd>C-SPC</kbd> |
+| give (fill goal)                        | <kbd>C-c</kbd> <kbd>C-SPC</kbd> or <kbd>C-c</kbd> <kbd>C-g</kbd>[^2] |
 | refine                                  |  <kbd>C-c</kbd> <kbd>C-r</kbd>  |
 | elaborate and give 🎚                    |  <kbd>C-c</kbd> <kbd>C-m</kbd>  |
 | auto 🎚                                  |  <kbd>C-c</kbd> <kbd>C-a</kbd>  |
@@ -71,6 +71,18 @@ Commands working with terms or types (marked with the 🎚 emoji below) can be p
 | module contents 🎚                       |  <kbd>C-c</kbd> <kbd>C-o</kbd>  |
 | compute normal form 🎚                   | <kbd>C-c</kbd> <kbd>C-n</kbd> |
 | why in scope                            |  <kbd>C-c</kbd> <kbd>C-w</kbd>  |
+
+[^2]: <kbd>C-c</kbd> <kbd>C-SPC</kbd> is the Emacs binding and is kept, but it cannot be relied on under Windows: with more than one keyboard layout installed, Windows claims <kbd>Ctrl</kbd> <kbd>Space</kbd> for input method switching and consumes it before VS Code sees it, so the second key of the chord never arrives. <kbd>C-c</kbd> <kbd>C-g</kbd> is bound to the same command and works everywhere.
+
+### Editing after a load
+
+Agda answers most commands out of the state it built during the last load, and
+goal-indexed requests carry a goal number rather than a source range — so once
+the file has been edited, Agda will answer from interaction points that no longer
+match the text. To avoid reporting such answers, any command whose result depends
+on the last load triggers a load first if the file has changed since. Commands
+that do not consult Agda's view of the file (moving between goals, toggling
+display options, the input method, and so on) are unaffected.
 
 ### Commands yet to be implemented
 

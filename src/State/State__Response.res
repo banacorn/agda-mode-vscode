@@ -183,6 +183,21 @@ let rec handle = async (
           Error("Error: Give failed"),
           [Item.plainText("Cannot find goal #" ++ string_of_int(index))],
         )
+      // Issue #335: refuse to write into a range that is no longer a goal.
+      // Applying the answer there would delete whatever text has taken its
+      // place, typically part of a neighbouring clause.
+      | Some(_) if !(state.goals->Goals.isIntact(state.document, index)) =>
+        await State__View.Panel.display(
+          state,
+          Error("Error: Give failed"),
+          [
+            Item.plainText(
+              "Goal #" ++
+              string_of_int(index) ++
+              " is out of sync with the file, so nothing was changed. Reload with \"Load\" and try again.",
+            ),
+          ],
+        )
       | Some(goal) =>
         switch give {
         | GiveParen =>
@@ -200,7 +215,9 @@ let rec handle = async (
           }
           state.goals->Goals.addGoalPositions(goalPositionsAbsolute)
 
-          await state.goals->Goals.modify(state.document, index, content => "(" ++ content ++ ")")
+          let _ = await state.goals->Goals.modify(state.document, index, content =>
+            "(" ++ content ++ ")"
+          )
         | GiveNoParen =>
           // add goal positions
           let goalContent = Goal.getContent(goal, state.document)
@@ -224,7 +241,7 @@ let rec handle = async (
           let indented = Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
 
           // modify the document
-          await state.goals->Goals.modify(state.document, index, _ => indented)
+          let _ = await state.goals->Goals.modify(state.document, index, _ => indented)
 
           // add goal positions
           let goalPositionsRelative = Goals.parseGoalPositionsFromRefine(indented)
@@ -255,6 +272,18 @@ let rec handle = async (
           Error("Cannot split the goal"),
           [Item.plainText("Failed to remember the goal being split")],
         )
+      | Some(goal) if !Goal.isIntact(goal, state.document) =>
+        await State__View.Panel.display(
+          state,
+          Error("Cannot split the goal"),
+          [
+            Item.plainText(
+              "Goal #" ++
+              string_of_int(goal.index) ++
+              " is out of sync with the file, so nothing was changed. Reload with \"Load\" and try again.",
+            ),
+          ],
+        )
       | Some(goal) =>
         let result = switch makeCaseType {
         | Function => await Goal.replaceWithLines(goal, state.document, lines)
@@ -282,7 +311,7 @@ let rec handle = async (
         | None => ()
         | Some(goal) =>
           // modify the goal content
-          await Goals.modify(state.goals, state.document, index, _ => solution)
+          let _ = await Goals.modify(state.goals, state.document, index, _ => solution)
           // send the give request to Agda
           await sendAgdaRequest(Give(goal))
         }
