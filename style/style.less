@@ -360,10 +360,65 @@
 // never going to produce a space on copy either way.
 .component-horz {
     display: inline-block;
+    // border-box, not the default content-box: max-width: 100% below must
+    // cap the whole border edge (content + padding) at the available
+    // width, or padding-left pushes the box @indent past its container on
+    // every line.
+    box-sizing: border-box;
     // hanging indent: the first line starts flush, wrapped continuation
     // lines are indented by @indent
     padding-left: @indent;
     text-indent: -@indent;
+    // Only the outermost group's wrapping should be driven by the panel's
+    // width; nested groups are sized by content (see below), so cap this
+    // one against its container instead of trusting shrink-to-fit, which
+    // a nowrap descendant would otherwise confuse (see the nested rule).
+    max-width: 100%;
+
+    // A nested Horz/PrHz group (e.g. a binder's own "name : type" pairing,
+    // or a parenthesized sub-group) must stay intact as a single rigid
+    // unit -- it never splits internally, full stop. If it doesn't fit,
+    // it overflows the line rather than breaking; it does NOT get its own
+    // max-width clamp down to the panel's width, since that clamp is
+    // exactly what would force it to wrap internally once its content
+    // exceeds the available space -- the one thing rule 1 forbids.
+    //
+    // width: max-content sizes the box purely from its own content,
+    // independent of any ancestor's available width, so nesting never
+    // compounds shrinkage either: a box sized to fit all of its content
+    // has nothing left to wrap, so it behaves as one atomic unit in the
+    // outer group's line, moving down as a whole when it doesn't fit.
+    // white-space: nowrap looks like the obvious way to say "don't split
+    // this," but combined with this structure it makes Chromium's
+    // shrink-to-fit width calculation for the ancestor ignore the panel's
+    // width entirely; max-content sizing gets the same "don't split"
+    // result without tripping that.
+    .component-horz {
+        display: inline-block;
+        width: max-content;
+        // Undo the outer rule's max-width: 100% -- a nested .component-horz
+        // still matches that single-class selector too, and a property a
+        // more specific rule doesn't mention keeps its value from the less
+        // specific one. Left in place, it would silently reclamp this box
+        // to the panel's width whenever that's narrower than its content,
+        // forcing exactly the internal wrap rule 1 forbids.
+        max-width: none;
+        padding-left: 0;
+        text-indent: 0;
+    }
+}
+
+// the parent container of a Vertical grouping (RichText.res's `Vert`,
+// mirroring Agda's own `vcat` pretty-printer combinator).
+//
+// `vcat` means "one child per line, unconditionally" -- it has no
+// single-line fallback the way `sep`/`fsep` do. `.component-vert-item`
+// previously had no rule at all, so with no `display: block` forcing a
+// break, the browser fell back to its default inline layout and ran
+// every item together on one line instead -- the opposite of what `Vert`
+// is supposed to mean.
+.component-vert-item {
+    display: block;
 }
 
 // for styling parentheses
