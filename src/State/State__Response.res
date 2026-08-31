@@ -221,7 +221,7 @@ let rec handle = async (
           // 2. the Emacs plugin seems to use len(text) as the indent, which could be a
           //    safer choice
           let defaultIndentation = 2
-          let indented = Parser.unescapeEOL(content)->indent(defaultIndentation + indentationWidth)
+          let indented = content->indent(defaultIndentation + indentationWidth)
 
           // modify the document
           await state.goals->Goals.modify(state.document, index, _ => indented)

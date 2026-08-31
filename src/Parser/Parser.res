@@ -99,7 +99,12 @@ module SExpression = {
   type state = {
     stack: array<ref<t>>,
     word: ref<string>,
-    escaped: ref<bool>,
+    // counts a run of consecutive backslashes inside a string, so a single
+    // backslash (Agda's own structural newline marker) can be told apart
+    // from a doubled backslash (an escaped literal backslash character in
+    // the string's own content) -- a plain boolean flag can't make that
+    // distinction (#342).
+    pendingBackslashes: ref<int>,
     in_str: ref<bool>,
   }
 
@@ -124,7 +129,7 @@ module SExpression = {
       t,
       (SExprParseError.t, string),
     > => {
-      let {stack, word, escaped, in_str} = state
+      let {stack, word, pendingBackslashes, in_str} = state
 
       let pushToTheTop = (elem: t) => {
         let index = Array.length(stack) - 1
@@ -138,21 +143,10 @@ module SExpression = {
         | None => ()
         }
       }
-      /* iterates through the string */
-      let totalLength = String.length(string)
 
-      for i in 0 to totalLength - 1 {
-        let char = string->String.charAt(i)
-
-        if escaped.contents {
-          /* something was being escaped */
-          /* put the backslash \ back in */
-          if char == "n" {
-            word := word.contents ++ "\\"
-          }
-          word := word.contents ++ char
-          escaped := false
-        } else if char == "\'" && !in_str.contents {
+      // handles a character that is not part of a backslash run
+      let processChar = (char: string) => {
+        if char == "\'" && !in_str.contents {
           ()
         } else if char == "(" && !in_str.contents {
           stack->Array.push(ref(L([])))
@@ -172,11 +166,42 @@ module SExpression = {
           }
         } else if char == "\"" {
           in_str := !in_str.contents
-        } else if char == "\\" && in_str.contents {
-          /* something is being escaped */
-          escaped := true
         } else {
           word := word.contents ++ char
+        }
+      }
+
+      /* iterates through the string */
+      let totalLength = String.length(string)
+
+      for i in 0 to totalLength - 1 {
+        let char = string->String.charAt(i)
+
+        if char == "\\" && in_str.contents {
+          /* accumulate a run of backslashes; resolve it once a non-backslash follows */
+          pendingBackslashes := pendingBackslashes.contents + 1
+        } else if pendingBackslashes.contents > 0 {
+          let count = pendingBackslashes.contents
+          let pairs = count / 2
+          let odd = mod(count, 2) == 1
+          // every complete pair of backslashes decodes to one literal backslash
+          word := word.contents ++ String.repeat("\\", pairs)
+          pendingBackslashes := 0
+          if odd {
+            // a leftover single backslash is Agda's own escape: "\n" is a
+            // real newline; anything else (in practice, only a quote) is
+            // that character taken literally, without special handling
+            if char == "n" {
+              word := word.contents ++ "\n"
+            } else {
+              word := word.contents ++ char
+            }
+          } else {
+            // no leftover backslash: the current character was never escaped
+            processChar(char)
+          }
+        } else {
+          processChar(char)
         }
       }
       switch Array.length(stack) {
@@ -201,7 +226,7 @@ module SExpression = {
     let initialState = () => {
       stack: [ref(L([]))],
       word: ref(""),
-      escaped: ref(false),
+      pendingBackslashes: ref(0),
       in_str: ref(false),
     }
 
@@ -353,11 +378,3 @@ let escape = (s: string): string =>
   ->String.replaceRegExp(%re("/\r\n/g"), "\\r\\n")
   ->String.replaceRegExp(%re("/\n/g"), "\\n")
 
-// Almost the inverse of escape, but only for EOL characters.
-//
-//      \n    => LF
-//      \r\n  => CR LF
-let unescapeEOL = (s: string): string =>
-  s
-  ->String.replaceRegExp(%re("/\\r\\n/g"), "\r\n")
-  ->String.replaceRegExp(%re("/\\n/g"), "\n")

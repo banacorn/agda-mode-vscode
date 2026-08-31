@@ -30,6 +30,37 @@ describe("when running Agda.OutputConstraint.parse", () => {
     Assert.deepStrictEqual(actual, expected)
   })
 
+  it("should parse OfType with a wrapped type", () => {
+    // Context/meta entries ("x : T") are the most common OutputConstraint,
+    // and T is exactly what Agda line-wraps when it's long -- the wrap is
+    // a display artifact, not a semantic line break (#337).
+    //
+    // `raw` is the real context-entry text captured from Agda 2.8.0 for
+    // `f : Nat → Nat → … → Nat` (21-ary), via `agda --interaction` on
+    // `Cmd_goal_type_context` -- not a synthetic stand-in.
+    let raw = `f : Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat →
+    Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat`
+    let expected = Some(
+      Agda.OutputConstraint.OfType(
+        RichText.string("f"),
+        RichText.string(
+          "Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat",
+        ),
+      ),
+    )
+    let actual = Agda.OutputConstraint.parse(raw)
+    Assert.deepStrictEqual(actual, expected)
+  })
+
   it("should parse JustType", () => {
     let raw = `Type ℕ`
     let expected = Some(Agda.OutputConstraint.JustType(RichText.string("ℕ")))
@@ -37,11 +68,21 @@ describe("when running Agda.OutputConstraint.parse", () => {
     Assert.deepStrictEqual(actual, expected)
   })
 
+  it("should parse JustType with a wrapped type", () => {
+    let raw = "Type A ->\n  B -> C"
+    let expected = Some(Agda.OutputConstraint.JustType(RichText.string("A -> B -> C")))
+    let actual = Agda.OutputConstraint.parse(raw)
+    Assert.deepStrictEqual(actual, expected)
+  })
+
   it("should parse JustSort on Windows", () => {
+    // Agda line-wraps for its own fixed-width display; that wrap is a
+    // display artifact, not a semantic line break, so it should collapse
+    // to a single space rather than surviving as a literal "\r\n" (#337).
     let raw = "Sort ℕ\r\n  ℕ"
     let expected = Some(
       Agda.OutputConstraint.JustSort(
-        RichText.string(`ℕ\r\n  ℕ`),
+        RichText.string("ℕ ℕ"),
       ),
     )
     let actual = Agda.OutputConstraint.parse(raw)
@@ -52,7 +93,7 @@ describe("when running Agda.OutputConstraint.parse", () => {
     let raw = "Sort ℕ\n  ℕ"
     let expected = Some(
       Agda.OutputConstraint.JustSort(
-        RichText.string("ℕ\n  ℕ"),
+        RichText.string("ℕ ℕ"),
       ),
     )
     let actual = Agda.OutputConstraint.parse(raw)
