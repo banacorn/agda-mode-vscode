@@ -460,8 +460,11 @@ module Module: Module = {
     let newStart = goal.start + deltaStart
     let newEnd = goal.end + deltaEnd
 
-    // remove the old goal from the positions tree
-    self.positions->AVLTree.remove(goal.start)->ignore
+    // NOTE: the goal's old key in the positions tree is NOT removed here.
+    // scanAllGoals already removed it in its up-front batch-removal pass
+    // (before any of this pass's inserts ran); removing it again by this
+    // goal's stale cached offset could delete another goal's entry that has
+    // since moved into that same slot.
 
     // decorate the goal in case that it has been expanded from a question mark to a hole
     let wasQuestionMark = goal.start + 1 == goal.end
@@ -469,7 +472,8 @@ module Module: Module = {
     let isQuestionMarkExpansion = wasQuestionMark && !isQuestionMark
 
     if isQuestionMarkExpansion {
-      removeGoal(self, goal)
+      InternalGoal.undecorate(goal)
+      self.goals->Map.delete(goal.index)->ignore
       insertGoal(self, newStart, newEnd, goal.index)
     } else {
       let updatedGoal = {...goal, start: newStart, end: newEnd}
@@ -848,7 +852,16 @@ module Module: Module = {
           updateGoalPositionByIndex(self, index, a, b)
           None
         | IsHole(_) =>
-          removeGoalByIndex(self, index)
+          // NOTE: don't call removeGoalByIndex here -- it would remove this
+          // goal's positions-tree entry by its own stale offset, which was
+          // already removed in the batch pass above and may since have been
+          // claimed by another goal's insert. Just drop it from `goals`.
+          switch getInternalGoalByIndex(self, index) {
+          | None => ()
+          | Some(goal) =>
+            InternalGoal.undecorate(goal)
+            self.goals->Map.delete(index)->ignore
+          }
           None
         }
       })
