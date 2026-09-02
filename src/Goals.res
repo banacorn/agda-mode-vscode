@@ -819,10 +819,21 @@ module Module: Module = {
 
     // remove every touched goal's old positions-tree key up front, before any
     // new key is inserted below, so a goal moving into a slot vacated later
-    // in this pass can't collide with the goal that still occupies it
+    // in this pass can't collide with the goal that still occupies it.
+    // A question-mark goal whose offset hasn't actually moved is skipped:
+    // touching the tree for it is pure waste, and this scan runs repeatedly
+    // (once per busy-rescan retry) while a widening is still in flight.
     stateEntries->Array.forEach(((index, state)) => {
       switch state {
-      | IsQuestionMark(_) | IsHole(_) =>
+      | IsQuestionMark(offset) =>
+        switch getInternalGoalByIndex(self, index) {
+        | None => ()
+        | Some(goal) =>
+          if goal.start != offset {
+            self.positions->AVLTree.remove(goal.start)->ignore
+          }
+        }
+      | IsHole(_) =>
         switch getInternalGoalByIndex(self, index) {
         | None => ()
         | Some(goal) => self.positions->AVLTree.remove(goal.start)->ignore
@@ -838,8 +849,10 @@ module Module: Module = {
           switch getInternalGoalByIndex(self, index) {
           | None => ()
           | Some(goal) =>
-            self.positions->AVLTree.insert(offset, index)
-            self.goals->Map.set(index, {...goal, start: offset, end: offset + 1})
+            if goal.start != offset {
+              self.positions->AVLTree.insert(offset, index)
+              self.goals->Map.set(index, {...goal, start: offset, end: offset + 1})
+            }
           }
           Some(
             VSCode.Range.make(
