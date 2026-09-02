@@ -811,20 +811,31 @@ module Module: Module = {
 
     let map = go(States.make(), 0, 0, parts, changes)
 
+    let stateEntries = map->States.toArray
+
+    // remove every touched goal's old positions-tree key up front, before any
+    // new key is inserted below, so a goal moving into a slot vacated later
+    // in this pass can't collide with the goal that still occupies it
+    stateEntries->Array.forEach(((index, state)) => {
+      switch state {
+      | IsQuestionMark(_) | IsHole(_) =>
+        switch getInternalGoalByIndex(self, index) {
+        | None => ()
+        | Some(goal) => self.positions->AVLTree.remove(goal.start)->ignore
+        }
+      }
+    })
+
     let rewrites =
-      map
-      ->States.toArray
+      stateEntries
       ->Array.filterMap(((index, state)) => {
         switch state {
         | IsQuestionMark(offset) =>
           switch getInternalGoalByIndex(self, index) {
           | None => ()
           | Some(goal) =>
-            if goal.start != offset {
-              self.positions->AVLTree.remove(goal.start)->ignore
-              self.positions->AVLTree.insert(offset, index)
-              self.goals->Map.set(index, {...goal, start: offset, end: offset + 1})
-            }
+            self.positions->AVLTree.insert(offset, index)
+            self.goals->Map.set(index, {...goal, start: offset, end: offset + 1})
           }
           Some(
             VSCode.Range.make(
