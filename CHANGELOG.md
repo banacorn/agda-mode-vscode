@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.10.2 - 2026-09-02
+
+### Fixed
+- #346: Fix a goal's decoration landing on the wrong hole after a chained refine by [@banacorn](https://github.com/banacorn)
+- #335: Fix an edit racing the case-split widening from dropping goals instead of rescanning them by [@banacorn](https://github.com/banacorn)
+- #342: Fix Agda's own quoting corrupting escape decoding in the S-expression parser by [@banacorn](https://github.com/banacorn)
+- #337: Fix Agda's line-wrap whitespace corrupting string literals when parsing an expression by [@banacorn](https://github.com/banacorn)
+- #338: Fix copying a Rich-mode expression to yield space-separated text by [@banacorn](https://github.com/banacorn)
+- Fix `Vert` to stack its items and keep nested `Horz` groups rigid by [@banacorn](https://github.com/banacorn)
+
+### Changed
+- Automate release tagging and pre-merge publish checks by [@banacorn](https://github.com/banacorn)
+
 ## v0.10.1 - 2026-08-15
 
 ### Fixed
