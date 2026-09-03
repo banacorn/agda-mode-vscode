@@ -28,6 +28,7 @@ jobs:
   tag:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: write
     outputs:
@@ -92,6 +93,7 @@ jobs:
       (github.ref_type == 'tag' ||
        (needs.tag.result == 'success' && needs.tag.outputs.should_deploy == 'true'))
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -119,7 +121,7 @@ jobs:
         run: npm run dry-run-publish
 
       - name: 🚀 Publish to Open VSX Registry
-        uses: HaaLeo/publish-vscode-extension@v1
+        uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
         with:
           pat: ${{ secrets.OPEN_VSX }}
         continue-on-error: true
@@ -136,7 +138,7 @@ jobs:
           echo "Publishing version $VERSION (minor: $MINOR_VERSION, prerelease: $IS_PRERELEASE)"
 
       - name: 🚀 Publish to Visual Studio Marketplace
-        uses: HaaLeo/publish-vscode-extension@v1
+        uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
         with:
           pat: ${{ secrets.VSCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
