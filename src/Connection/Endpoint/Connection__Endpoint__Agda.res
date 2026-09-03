@@ -101,7 +101,6 @@ module Module: Module = {
     let scheduler = Scheduler.make()
     // this promise get resolved after all Responses has been received from Agda
     let (allResponsesReceivedPromise, allResponsesReceived, _) = Util.Promise_.pending()
-    let (allResponsesHandledPromise, allResponsesHandled, _) = Util.Promise_.pending()
 
     // There are 2 kinds of Responses
     //  NonLast Response :
@@ -125,12 +124,6 @@ module Module: Module = {
       | Ok(Stop) =>
         // stop the Agda Response listener
         allResponsesReceived(Ok())
-
-        // start handling Last Responses, after all NonLast Responses have been handled
-        scheduler
-        ->Scheduler.runLast(response => callback(response))
-        ->Promise.finally(allResponsesHandled)
-        ->Promise.done
       }
 
     // start listening for responses
@@ -139,8 +132,10 @@ module Module: Module = {
     // stop listening for responses
     let result = await allResponsesReceivedPromise
     listenerHandle.contents->Option.forEach(destroyListener => destroyListener())
-    // wait for all responses to be handled
-    await allResponsesHandledPromise
+    // Handle deferred responses and wait for in-flight responses after both a
+    // normal prompt and an error. Previously only the prompt path resolved the
+    // "handled" promise, so stderr/process/parser errors deadlocked requests.
+    await scheduler->Scheduler.runLast(response => callback(response))
     result
   }
 
