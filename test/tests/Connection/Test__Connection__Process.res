@@ -2,6 +2,10 @@ open Mocha
 
 module Process = Connection__Transport__Process
 
+type agdaEndpointOutcome =
+  | Settled(result<unit, Connection__Error.CommWithAgda.t>)
+  | TimedOut
+
 module StatusIntrospection = {
   type t
   @get external status: Process.t => t = "status"
@@ -9,6 +13,80 @@ module StatusIntrospection = {
 }
 
 describe("Process Interface", () => {
+  Async.it(
+    "Agda endpoint should settle a request when the process writes to stderr",
+    async () => {
+      let restoreSpawn: unit => unit = %raw(`(() => {
+        const cp = require("node:child_process");
+        const originalSpawn = cp.spawn;
+
+        cp.spawn = function () {
+          const handlers = {};
+          let stderrData;
+
+          return {
+            stdout: {
+              on: function () {
+                return this;
+              },
+            },
+            stderr: {
+              on: function (event, cb) {
+                if (event === "data") stderrData = cb;
+                return this;
+              },
+            },
+            stdin: {
+              write: function () {
+                stderrData(Buffer.from("backend failed\n"));
+                return true;
+              },
+            },
+            pid: 454545,
+            on: function (event, cb) {
+              handlers[event] = cb;
+              return this;
+            },
+            kill: function () {
+              if (handlers["close"]) handlers["close"](1);
+              return true;
+            },
+          };
+        };
+
+        return () => {
+          cp.spawn = originalSpawn;
+        };
+      })()`)
+
+      let error = ref(None)
+      let outcome = ref(TimedOut)
+      let _ = switch await (async () => {
+        let endpoint = await Connection__Endpoint__Agda.make("fake-agda", "2.8.0")
+        let completion = endpoint
+          ->Connection__Endpoint__Agda.sendRequest("request", _response => Promise.resolve())
+          ->Promise.thenResolve(result => Settled(result))
+        let timeout = Util.Promise_.setTimeout(250)->Promise.thenResolve(_ => TimedOut)
+        outcome := (await Promise.race([completion, timeout]))
+        await endpoint->Connection__Endpoint__Agda.destroy
+      })() {
+      | _ => ()
+      | exception exn =>
+        error := Some(exn)
+        ()
+      }
+
+      restoreSpawn()
+      error.contents->Option.forEach(exn => raise(exn))
+
+      switch outcome.contents {
+      | Settled(Error(_)) => Assert.ok(true)
+      | Settled(Ok()) => Assert.fail("Expected stderr to produce an endpoint error")
+      | TimedOut => Assert.fail("Agda endpoint request remained pending after stderr")
+      }
+    },
+  )
+
   describe("Use `echo` as the testing subject", () => {
     // TODO: fix this test case on Windows
     Async.it_skip(
