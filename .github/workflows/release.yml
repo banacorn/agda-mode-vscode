@@ -1,24 +1,85 @@
+name: Release
+
+# Two ways in:
+#   1. A push to master that changes package.json's version - tags it, then deploys.
+#   2. A push of a v* tag (e.g. pushed by hand) - deploys directly, tagging skipped
+#      since the tag already exists. This is also the escape hatch for re-running
+#      a deploy without touching package.json again.
+#
+# Both paths converge on one job so the tag push never has to trigger a second
+# workflow run - avoiding the GITHUB_TOKEN anti-recursion restriction that a
+# separate tag-triggered workflow would hit.
+
 on:
   push:
-    tags:
-      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
-
-name: Deploy Extension
+    branches: [ master ]
+    tags: [ 'v*' ]
+    paths:
+      - 'package.json'
 
 jobs:
+  tag:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      should_deploy: ${{ steps.decide.outputs.should_deploy }}
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: 🔍 Check whether the version changed, and tag it if so
+        id: decide
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          git show ${{ github.event.before }}:package.json > /tmp/previous-package.json
+          PREVIOUS=$(node -p "require('/tmp/previous-package.json').version")
+          if [ "$CURRENT" = "$PREVIOUS" ]; then
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          TAG="v$CURRENT"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+
   deploy:
+    needs: tag
+    if: >-
+      !cancelled() &&
+      (github.ref_type == 'tag' ||
+       (needs.tag.result == 'success' && needs.tag.outputs.should_deploy == 'true'))
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v6
-        
-      - name: Install dependencies
-        run: npm version && npm ci
-        
-      - name: Build stuff
+
+      - name: 🔍 Validate the pushed tag matches package.json's version
+        if: github.ref_type == 'tag'
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF_NAME}" != "v$VERSION" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json version $VERSION" >&2
+            exit 1
+          fi
+
+      - name: 🛠️ Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔨 Build stuff
         run: npm run dry-run-publish
-        
-      - name: Publish to Open VSX Registry
+
+      - name: 🚀 Publish to Open VSX Registry
         uses: HaaLeo/publish-vscode-extension@v1
         with:
           pat: ${{ secrets.OPEN_VSX }}
@@ -35,7 +96,7 @@ jobs:
           echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
           echo "Publishing version $VERSION (minor: $MINOR_VERSION, prerelease: $IS_PRERELEASE)"
 
-      - name: Publish to Visual Studio Marketplace
+      - name: 🚀 Publish to Visual Studio Marketplace
         uses: HaaLeo/publish-vscode-extension@v1
         with:
           pat: ${{ secrets.VSCE_PAT }}
