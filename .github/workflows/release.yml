@@ -51,8 +51,19 @@ jobs:
           TAG="v$CURRENT"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "$TAG"
-          git push origin "$TAG"
+
+          EXISTING=$(git ls-remote origin "refs/tags/$TAG" | cut -f1)
+          if [ -n "$EXISTING" ]; then
+            if [ "$EXISTING" = "$(git rev-parse HEAD)" ]; then
+              echo "Tag $TAG already points at this commit, treating as a retry"
+            else
+              echo "Tag $TAG already exists and points at a different commit ($EXISTING)" >&2
+              exit 1
+            fi
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
           echo "should_deploy=true" >> "$GITHUB_OUTPUT"
 
   deploy:
