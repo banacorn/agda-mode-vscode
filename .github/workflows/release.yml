@@ -17,6 +17,13 @@ on:
     paths:
       - 'package.json'
 
+# Serialize releases: an overlapping master push and manual tag push (or two
+# close master pushes) must not publish concurrently. Never cancel an
+# in-progress release - it may have already tagged or partially published.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   tag:
     if: github.ref == 'refs/heads/master'
