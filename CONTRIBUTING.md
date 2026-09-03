@@ -51,6 +51,27 @@ This extension follows VS Code's recommended versioning scheme for extensions:
 
 This versioning makes it clear to users which versions are stable and which are experimental.
 
+# Releasing
+
+Releases are driven entirely by `package.json`'s `version` field; nothing is published by hand.
+
+## Process
+
+1. Add a new version section to `CHANGELOG.md`.
+2. Bump `version` in `package.json`. If `package-lock.json` doesn't pick up the change on its own, run `npm install --package-lock-only`.
+3. Open a PR with those changes into `master`. `.github/workflows/release-check.yml` builds and packages the extension as a PR check, so a broken package is caught before merge.
+4. Once merged, `.github/workflows/release.yml` runs on the push to master. It detects that the version changed, tags the merge commit `vX.Y.Z`, pushes the tag, then builds and publishes that one package to both Open VSX and the Visual Studio Marketplace.
+5. Whether that publish goes out as stable or prerelease follows the Versioning Policy above - the workflow sets `preRelease: true` automatically based on whether the minor version is odd or even.
+
+## Manual escape hatch
+
+Pushing a `vX.Y.Z` tag by hand (matching the version already in `package.json`) re-triggers just the build-and-publish half of the workflow, skipping the tagging step - useful for retrying a failed publish without another version bump. The tag must match `package.json`'s current version, or the run fails before touching any secrets.
+
+## Required secrets
+
+- `OPEN_VSX` - Open VSX Registry personal access token
+- `VSCE_PAT` - Visual Studio Marketplace personal access token
+
 # NPM Scripts
 
 This project includes several npm scripts for development and building:
@@ -88,17 +109,13 @@ This project includes several npm scripts for development and building:
 
 ## Publishing Scripts
 
-### `npm run vscode:prepublish`
-**VS Code marketplace publishing**
-- Production build for desktop extension
-- Automatically runs before `vsce publish`
-- Creates optimized bundle for VS Code marketplace
-
-### `npm run vfx-dry-run`
-**Pre-publishing dependency check**
+### `npm run dry-run-publish`
+**Pre-publishing build and dependency check**
+- Runs the production build
 - Lists all production dependencies that will be packaged
 - Helps verify what gets included in the published extension
-- Run before publishing to ensure clean dependency tree
+- Used by both `release-check.yml` (as a PR check) and `release.yml` (before
+  publishing) - see "Releasing" above
 
 ## Testing Scripts
 
