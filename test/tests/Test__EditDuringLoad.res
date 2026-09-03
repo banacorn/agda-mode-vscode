@@ -85,27 +85,47 @@ describe("edit during an in-flight load", () => {
   //
   // `ClearHighlighting` is the first response of a load and precedes the
   // highlighting responses, so it marks the start of that window. The
-  // middleware awaits the edit before it lets the response through, which
-  // keeps the ordering deterministic instead of leaving it to a timer.
+  // middleware handles the clear, applies the edit, and holds highlighting
+  // responses until the edit finishes, keeping the ordering deterministic
+  // instead of leaving it to a timer.
   //
   // Fails rather than measuring nothing if the edit never ran, or if the
   // ordering this relies on ever stops holding.
   let reloadWithEditInFlight = async (ctx: AgdaMode.t, edit) => {
+    let editStarted = ref(false)
     let editApplied = ref(false)
     let responseOrder = []
+    // NonLast responses are handled concurrently by Connection__Scheduler.
+    // Awaiting the ClearHighlighting handler therefore does not hold back a
+    // HighlightingInfo response that has already arrived. Gate highlighting
+    // explicitly so it cannot insert the stale token until the edit event has
+    // updated `editsSinceLoad`.
+    let (editFinished, resolveEditFinished, _) = Util.Promise_.pending()
     ctx.state.middlewares
     ->Array.push(handler => async response => {
       responseOrder->Array.push(Response.toString(response))
       switch response {
       | Response.ClearHighlighting =>
+        let shouldEdit = !editStarted.contents
+        if shouldEdit {
+          editStarted := true
+        }
         await handler(response)
-        if !editApplied.contents {
+        if shouldEdit {
           let succeeded = await edit()
           if !succeeded {
             raise(Failure("the edit was rejected"))
           }
           editApplied := true
+          resolveEditFinished()
         }
+      | Response.HighlightingInfoDirect(_, _)
+      | Response.HighlightingInfoIndirect(_)
+      | Response.HighlightingInfoIndirectJSON(_) =>
+        if editStarted.contents {
+          await editFinished
+        }
+        await handler(response)
       | _ => await handler(response)
       }
     })
