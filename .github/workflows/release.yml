@@ -121,6 +121,7 @@ jobs:
         run: npm run dry-run-publish
 
       - name: 🚀 Publish to Open VSX Registry
+        id: openvsx
         uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
         with:
           pat: ${{ secrets.OPEN_VSX }}
@@ -143,3 +144,7 @@ jobs:
           pat: ${{ secrets.VSCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
           preRelease: ${{ steps.version.outputs.is_prerelease == '1' }}
+          # Reuse the exact vsix Open VSX just published instead of repackaging,
+          # so both registries ship the same artifact. Falls back to repackaging
+          # if the Open VSX step failed before producing one.
+          extensionFile: ${{ steps.openvsx.outcome == 'success' && steps.openvsx.outputs.vsixPath || '' }}
