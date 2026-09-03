@@ -92,6 +92,8 @@ jobs:
       (github.ref_type == 'tag' ||
        (needs.tag.result == 'success' && needs.tag.outputs.should_deploy == 'true'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v6
