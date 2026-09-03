@@ -48,6 +48,25 @@ jobs:
             echo "should_deploy=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
+          SEMVER_REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
+          if ! [[ "$CURRENT" =~ $SEMVER_REGEX ]]; then
+            echo "package.json version '$CURRENT' is not a valid X.Y.Z semver" >&2
+            exit 1
+          fi
+          if ! [[ "$PREVIOUS" =~ $SEMVER_REGEX ]]; then
+            echo "previous package.json version '$PREVIOUS' is not a valid X.Y.Z semver, cannot compare" >&2
+            exit 1
+          fi
+          node -e "
+            const [c, p] = process.argv.slice(1).map(v => v.split('.').map(Number));
+            for (let i = 0; i < 3; i++) {
+              if (c[i] > p[i]) process.exit(0);
+              if (c[i] < p[i]) process.exit(1);
+            }
+            process.exit(1);
+          " "$CURRENT" "$PREVIOUS" || { echo "package.json version went from $PREVIOUS to $CURRENT, which is not an increase" >&2; exit 1; }
+
           TAG="v$CURRENT"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
