@@ -209,18 +209,63 @@ jobs:
             extension.vsix.sha256
           retention-days: 90
 
+      - name: 🔎 Check whether Open VSX already has this version
+        # Makes a retry after a partial deployment idempotent: republishing
+        # an existing version to Open VSX fails, so detect it up front and
+        # treat it as already satisfied instead of a broken retry.
+        id: openvsx_check
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' "https://open-vsx.org/api/banacorn/agda-mode/$VERSION")
+          if [ "$STATUS" = "200" ]; then
+            echo "Open VSX already has version $VERSION, publish step will be skipped"
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: 🚀 Publish to Open VSX Registry
         id: openvsx
-        if: github.event_name != 'workflow_dispatch' || inputs.dry_run == false
+        if: >-
+          (github.event_name != 'workflow_dispatch' || inputs.dry_run == false) &&
+          steps.openvsx_check.outputs.already_published != 'true'
         uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
         with:
           pat: ${{ secrets.OPEN_VSX }}
           extensionFile: extension.vsix
         continue-on-error: true
 
+      - name: 🔎 Check whether the Marketplace already has this version
+        # Same idempotency guard as the Open VSX check above, queried
+        # through the Marketplace gallery API instead of a version-scoped URL.
+        id: marketplace_check
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          HAS_VERSION=$(curl -s -X POST https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json;api-version=3.0-preview.1" \
+            -d '{"filters":[{"criteria":[{"filterType":7,"value":"banacorn.agda-mode"}]}],"flags":103}' \
+            | VERSION="$VERSION" node -e "
+                let d = '';
+                process.stdin.on('data', c => d += c);
+                process.stdin.on('end', () => {
+                  let versions = [];
+                  try { versions = JSON.parse(d).results[0].extensions[0].versions; } catch { versions = []; }
+                  console.log(versions.some(v => v.version === process.env.VERSION));
+                });
+              ")
+          if [ "$HAS_VERSION" = "true" ]; then
+            echo "Marketplace already has version $VERSION, publish step will be skipped"
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: 🚀 Publish to Visual Studio Marketplace
         id: marketplace
-        if: github.event_name != 'workflow_dispatch' || inputs.dry_run == false
+        if: >-
+          (github.event_name != 'workflow_dispatch' || inputs.dry_run == false) &&
+          steps.marketplace_check.outputs.already_published != 'true'
         uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
         with:
           pat: ${{ secrets.VSCE_PAT }}
@@ -237,10 +282,14 @@ jobs:
         # Each publish step continues past the other's failure so both
         # registries always get an attempt - this is what turns a partial
         # deployment back into a failed job instead of a silent green one.
+        # A registry already holding this version (publish step skipped by
+        # the idempotency check above) counts as satisfied, not failed.
         if: always() && (github.event_name != 'workflow_dispatch' || inputs.dry_run == false)
         run: |
-          if [ "${{ steps.openvsx.outcome }}" != "success" ] || [ "${{ steps.marketplace.outcome }}" != "success" ]; then
-            echo "Open VSX: ${{ steps.openvsx.outcome }}" >&2
-            echo "Marketplace: ${{ steps.marketplace.outcome }}" >&2
+          OPENVSX_OK="${{ steps.openvsx.outcome == 'success' || steps.openvsx_check.outputs.already_published == 'true' }}"
+          MARKETPLACE_OK="${{ steps.marketplace.outcome == 'success' || steps.marketplace_check.outputs.already_published == 'true' }}"
+          if [ "$OPENVSX_OK" != "true" ] || [ "$MARKETPLACE_OK" != "true" ]; then
+            echo "Open VSX: ${{ steps.openvsx.outcome }} (already published: ${{ steps.openvsx_check.outputs.already_published }})" >&2
+            echo "Marketplace: ${{ steps.marketplace.outcome }} (already published: ${{ steps.marketplace_check.outputs.already_published }})" >&2
             exit 1
           fi
