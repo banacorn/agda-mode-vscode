@@ -1,21 +1,25 @@
 name: Release
 
 # Two ways in:
-#   1. A push to master that changes package.json's version - tags it, then deploys.
-#   2. A push of a v* tag (e.g. pushed by hand) - deploys directly, tagging skipped
-#      since the tag already exists. This is also the escape hatch for re-running
-#      a deploy without touching package.json again.
+#   1. The Test workflow finishing successfully on master - tags the exact
+#      commit it validated, then deploys. Waiting on Test's completion (rather
+#      than triggering directly off the same push) is what stops a release
+#      from publishing a commit whose CI is still running or red.
+#   2. A push of a v* tag (e.g. pushed by hand) - deploys directly, tagging
+#      skipped since the tag already exists. This is also the escape hatch
+#      for re-running a deploy without touching package.json again.
 #
 # Both paths converge on one job so the tag push never has to trigger a second
 # workflow run - avoiding the GITHUB_TOKEN anti-recursion restriction that a
 # separate tag-triggered workflow would hit.
 
 on:
-  push:
+  workflow_run:
+    workflows: [ "Test" ]
+    types: [ completed ]
     branches: [ master ]
+  push:
     tags: [ 'v*' ]
-    paths:
-      - 'package.json'
 
 # Serialize releases: an overlapping master push and manual tag push (or two
 # close master pushes) must not publish concurrently. Never cancel an
@@ -26,7 +30,10 @@ concurrency:
 
 jobs:
   tag:
-    if: github.ref == 'refs/heads/master'
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -34,39 +41,46 @@ jobs:
     outputs:
       should_deploy: ${{ steps.decide.outputs.should_deploy }}
     steps:
-      - name: 📥 Checkout repository
+      - name: 📥 Checkout the exact commit Test just validated
         uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
       - name: 🔍 Check whether the version changed, and tag it if so
         id: decide
         run: |
           CURRENT=$(node -p "require('./package.json').version")
-          git show ${{ github.event.before }}:package.json > /tmp/previous-package.json
-          PREVIOUS=$(node -p "require('/tmp/previous-package.json').version")
-          if [ "$CURRENT" = "$PREVIOUS" ]; then
-            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
 
           SEMVER_REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
           if ! [[ "$CURRENT" =~ $SEMVER_REGEX ]]; then
             echo "package.json version '$CURRENT' is not a valid X.Y.Z semver" >&2
             exit 1
           fi
-          if ! [[ "$PREVIOUS" =~ $SEMVER_REGEX ]]; then
-            echo "previous package.json version '$PREVIOUS' is not a valid X.Y.Z semver, cannot compare" >&2
-            exit 1
+
+          # Compared against the latest existing release tag rather than the
+          # previous commit: workflow_run carries no "before" SHA to diff against.
+          LATEST_TAG=$(git tag --list 'v*' | sed 's/^v//' | sort -V | tail -1)
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No existing vX.Y.Z tag found, treating $CURRENT as the first release"
+          elif [ "$CURRENT" = "$LATEST_TAG" ]; then
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          else
+            if ! [[ "$LATEST_TAG" =~ $SEMVER_REGEX ]]; then
+              echo "latest tag version '$LATEST_TAG' is not a valid X.Y.Z semver, cannot compare" >&2
+              exit 1
+            fi
+            node -e "
+              const [c, p] = process.argv.slice(1).map(v => v.split('.').map(Number));
+              for (let i = 0; i < 3; i++) {
+                if (c[i] > p[i]) process.exit(0);
+                if (c[i] < p[i]) process.exit(1);
+              }
+              process.exit(1);
+            " "$CURRENT" "$LATEST_TAG" || { echo "package.json version went from $LATEST_TAG to $CURRENT, which is not an increase" >&2; exit 1; }
           fi
-          node -e "
-            const [c, p] = process.argv.slice(1).map(v => v.split('.').map(Number));
-            for (let i = 0; i < 3; i++) {
-              if (c[i] > p[i]) process.exit(0);
-              if (c[i] < p[i]) process.exit(1);
-            }
-            process.exit(1);
-          " "$CURRENT" "$PREVIOUS" || { echo "package.json version went from $PREVIOUS to $CURRENT, which is not an increase" >&2; exit 1; }
 
           TAG="v$CURRENT"
           git config user.name "github-actions[bot]"
@@ -99,6 +113,10 @@ jobs:
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v6
+        with:
+          # workflow_run's default github.sha is the workflow file's ref, not
+          # the commit it validated - pin explicitly to that commit instead.
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: 🔍 Validate the pushed tag matches package.json's version
         if: github.ref_type == 'tag'
