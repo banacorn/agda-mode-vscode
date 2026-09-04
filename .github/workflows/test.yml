@@ -235,6 +235,11 @@ jobs:
             ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
 
+  # Runs packaging as part of the same required gate every PR and push runs,
+  # instead of gating it on which files changed.
+  packaging:
+    uses: ./.github/workflows/release-check.yml
+
   # Standalone from build-and-test: doesn't need Agda or VS Code at all, just
   # a headless browser, so it isn't part of the OS/Agda matrix above.
   webview-test:
@@ -294,3 +299,18 @@ jobs:
             node_modules
             ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
+
+  # Single stable context to require in branch protection instead of the
+  # matrix's exact, version-coupled job names. Fails unless every desktop
+  # matrix leg, the webview test, and packaging all succeeded.
+  ci-success:
+    if: always()
+    needs: [ build-and-test, webview-test, packaging ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: ✅ Check required jobs
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more required jobs did not succeed."
+            exit 1
+          fi

@@ -1,19 +1,11 @@
 name: Release Check
 
-# Runs the same packaging steps release.yml relies on, but as a PR check on
-# any PR that bumps package.json's version, so a broken package is caught
-# before merge instead of after the tag has already gone out.
+# Runs the same packaging steps release.yml relies on. Called from test.yml's
+# ci-success gate on every push and PR, so a broken package is caught before
+# merge instead of after the tag has already gone out.
 
 on:
-  pull_request:
-    branches: [ master ]
-    paths:
-      - 'package.json'
-      - 'package-lock.json'
-      - '.vscodeignore'
-      - 'webpack.config.js'
-      - '.github/workflows/release.yml'
-      - '.github/workflows/release-check.yml'
+  workflow_call:
 
 jobs:
   dry-run-publish:
