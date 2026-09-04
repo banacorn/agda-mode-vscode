@@ -9,6 +9,11 @@ on:
     branches: [ master ]
     paths:
       - 'package.json'
+      - 'package-lock.json'
+      - '.vscodeignore'
+      - 'webpack.config.js'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/release-check.yml'
 
 jobs:
   dry-run-publish:
