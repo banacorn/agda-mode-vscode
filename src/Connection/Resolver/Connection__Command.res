@@ -16,7 +16,7 @@ module Error = {
 
 // Instead of returning the underlying error, we return `None` as a special case when
 // command lookup is working correctly but the executable is not found.
-let searchWith = async (command, args, ~timeout=1000) => {
+let searchWith = async (command, args, ~timeout=5000) => {
   switch await Connection__Process__Exec.run(command, args, ~timeout, ~shell=false) {
   | Ok(stdout) =>
     let path = String.trim(stdout) // trim the string to remove the trailing newline
@@ -28,7 +28,7 @@ let searchWith = async (command, args, ~timeout=1000) => {
   }
 }
 
-let search = async (name, ~timeout=1000) => {
+let search = async (name, ~timeout=5000) => {
   // sometimes GitHub Actions runner exits with code 0 but does not write to stdout;
   // this function retries a few times
   let flakyLookup = () => {
