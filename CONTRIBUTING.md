@@ -78,6 +78,16 @@ Both paths validate the requested tag matches `package.json`'s current version b
 - `OPEN_VSX` - Open VSX Registry personal access token
 - `VSCE_PAT` - Visual Studio Marketplace personal access token
 
+# CI Dependency Audit Policy
+
+CI, build, and release tooling runs on Node LTS, pinned consistently across all workflows (`test.yml`, `release-check.yml`, `release.yml`).
+
+Run `npm audit` periodically (and after any dependency bump) to check for advisories. Production dependencies (`npm audit --omit=dev`) should stay at zero vulnerabilities; treat any finding there as urgent. Advisories confined to dev/build/test dependencies are lower urgency, since they don't ship in the published extension, but they still execute in CI and can influence build output, so don't ignore them indefinitely.
+
+When `npm audit fix` (without `--force`) resolves an advisory, apply it. When the only fix is a semver-major bump, evaluate it separately rather than force-applying it blind - check the changelog for breaking changes, and test the build and full test suite before merging. If a package has no fix available at all (e.g. it's only released alongside a major bump of something that depends on it), track the advisory and note here why it's outstanding instead of silently living with it:
+
+- `serialize-javascript` (<=7.0.4, GHSA-5c6j-r48x-rmvq / GHSA-qj8w-gfj5-8c6v): pulled in transitively by `copy-webpack-plugin`, `mocha`, and `rescript-mocha`. No non-breaking fix exists; resolving it requires a major bump of those direct dependencies. Dev-only, not part of the shipped extension.
+
 # NPM Scripts
 
 This project includes several npm scripts for development and building:
