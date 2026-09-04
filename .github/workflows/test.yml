@@ -108,8 +108,8 @@ jobs:
       - name: ⏬ Setup Node.js environment
         uses: actions/setup-node@v6
         with:
-          node-version: 20.x
-      
+          node-version: 24.x
+
       - name: 🛠️ Add ${{ env.DIST }}/bin to PATH
         run: echo $(pwd)/$DIST/bin >> $GITHUB_PATH
               
@@ -270,7 +270,7 @@ jobs:
       - name: ⏬ Setup Node.js environment
         uses: actions/setup-node@v6
         with:
-          node-version: 20.x
+          node-version: 24.x
 
       - name: ⏬ Install NPM Dependencies
         run: npm ci --cache .npm
