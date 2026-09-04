@@ -128,6 +128,24 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: 🔍 Validate the requested tag exists
+        # Runs before checkout so a bad input fails with a clear message
+        # instead of an opaque "couldn't find remote ref" from checkout.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ inputs.tag }}"
+          SEMVER_TAG_REGEX='^v[0-9]+\.[0-9]+\.[0-9]+$'
+          if ! [[ "$TAG" =~ $SEMVER_TAG_REGEX ]]; then
+            echo "Tag '$TAG' is not a valid vX.Y.Z tag" >&2
+            exit 1
+          fi
+          if ! gh api "repos/${{ github.repository }}/git/refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag '$TAG' does not exist in this repository" >&2
+            exit 1
+          fi
+
       - name: 📥 Checkout code
         uses: actions/checkout@v6
         with:
