@@ -26,7 +26,7 @@ jobs:
         run: npm run dry-run-publish
 
       - name: 📦 Package extension
-        # Pinned to match the major version HaaLeo/publish-vscode-extension@v1
-        # (used by release.yml) bundles, so this check packages the same way
-        # production actually will.
+        # Pinned to the same @vscode/vsce range release.yml packages and
+        # publishes with, so this check packages the same way production
+        # actually will.
         run: npx @vscode/vsce@^2.32.0 package
