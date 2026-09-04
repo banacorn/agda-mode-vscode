@@ -179,10 +179,10 @@ jobs:
           echo "Publishing version $VERSION (minor: $MINOR_VERSION, prerelease: $IS_PRERELEASE)"
 
       - name: 📦 Package extension
-        # Pinned to match the major version HaaLeo/publish-vscode-extension@v1
-        # bundles, so this packages the same way release-check.yml verified.
-        # Packaged once, up front, so both registries publish the identical
-        # artifact instead of each step packaging its own.
+        # Pinned to the same @vscode/vsce range used to publish below, so
+        # this packages the same way release-check.yml verified. Packaged
+        # once, up front, so both registries publish the identical artifact
+        # instead of each step packaging its own.
         run: npx @vscode/vsce@^2.32.0 package --out extension.vsix
 
       - name: 🔒 Compute the vsix's SHA-256 digest
@@ -217,10 +217,12 @@ jobs:
         if: >-
           (github.event_name != 'workflow_dispatch' || inputs.dry_run == false) &&
           steps.openvsx_check.outputs.already_published != 'true'
-        uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
-        with:
-          pat: ${{ secrets.OPEN_VSX }}
-          extensionFile: extension.vsix
+        # Publishes the already-packaged vsix directly via the ovsx CLI,
+        # instead of a third-party action, so this runs on our own pinned
+        # Node 24 toolchain rather than that action's bundled Node 20 runtime.
+        env:
+          OVSX_PAT: ${{ secrets.OPEN_VSX }}
+        run: npx ovsx@^0.9.0 publish extension.vsix --pat "$OVSX_PAT"
         continue-on-error: true
 
       - name: 🔎 Check whether the Marketplace already has this version
@@ -254,12 +256,17 @@ jobs:
         if: >-
           (github.event_name != 'workflow_dispatch' || inputs.dry_run == false) &&
           steps.marketplace_check.outputs.already_published != 'true'
-        uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
-        with:
-          pat: ${{ secrets.VSCE_PAT }}
-          registryUrl: https://marketplace.visualstudio.com
-          preRelease: ${{ steps.version.outputs.is_prerelease == '1' }}
-          extensionFile: extension.vsix
+        # Same rationale as the Open VSX step above: publish the
+        # already-packaged vsix directly via the vsce CLI, on our own
+        # pinned Node 24 toolchain instead of that action's Node 20 runtime.
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          ARGS=(--packagePath extension.vsix --pat "$VSCE_PAT")
+          if [ "${{ steps.version.outputs.is_prerelease }}" = "1" ]; then
+            ARGS+=(--pre-release)
+          fi
+          npx @vscode/vsce@^2.32.0 publish "${ARGS[@]}"
         continue-on-error: true
 
       - name: 🧪 Dry run complete - registries were not published to
