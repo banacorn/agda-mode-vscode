@@ -65,7 +65,13 @@ Releases are driven entirely by `package.json`'s `version` field; nothing is pub
 
 ## Manual escape hatch
 
-Pushing a `vX.Y.Z` tag by hand (matching the version already in `package.json`) re-triggers just the build-and-publish half of the workflow, skipping the tagging step - useful for retrying a failed publish without another version bump. The tag must match `package.json`'s current version, or the run fails before touching any secrets.
+Two ways to re-trigger just the build-and-publish half of the workflow without another version bump - useful for retrying a failed or partial publish.
+
+**`workflow_dispatch` (preferred)**: run the "Release" workflow manually from the Actions tab, or `gh workflow run release.yml -f tag=vX.Y.Z -f dry_run=true`, naming an existing `vX.Y.Z` tag. `dry_run` defaults to `true` and packages and validates without publishing to either registry - use it to rehearse a release before trusting it with real registry credentials. Set `dry_run=false` to actually publish. If a registry already has that version, its publish step is skipped and still counts as satisfied, so a retry only republishes to whichever registry actually failed.
+
+**Pushing a tag by hand**: pushing a `vX.Y.Z` tag matching the version already in `package.json` re-triggers the same build-and-publish path directly, skipping the tagging step.
+
+Both paths validate the requested tag matches `package.json`'s current version before touching any secrets, and re-running an existing job from the Actions tab works the same way for either.
 
 ## Required secrets
 
