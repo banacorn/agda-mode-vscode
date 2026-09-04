@@ -138,13 +138,6 @@ jobs:
       - name: 🔨 Build stuff
         run: npm run dry-run-publish
 
-      - name: 🚀 Publish to Open VSX Registry
-        id: openvsx
-        uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
-        with:
-          pat: ${{ secrets.OPEN_VSX }}
-        continue-on-error: true
-
       - name: Extract version info
         id: version
         run: |
@@ -156,13 +149,25 @@ jobs:
           echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
           echo "Publishing version $VERSION (minor: $MINOR_VERSION, prerelease: $IS_PRERELEASE)"
 
+      - name: 📦 Package extension
+        # Pinned to match the major version HaaLeo/publish-vscode-extension@v1
+        # bundles, so this packages the same way release-check.yml verified.
+        # Packaged once, up front, so both registries publish the identical
+        # artifact instead of each step packaging its own.
+        run: npx @vscode/vsce@^2.32.0 package --out extension.vsix
+
+      - name: 🚀 Publish to Open VSX Registry
+        id: openvsx
+        uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
+        with:
+          pat: ${{ secrets.OPEN_VSX }}
+          extensionFile: extension.vsix
+        continue-on-error: true
+
       - name: 🚀 Publish to Visual Studio Marketplace
         uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
         with:
           pat: ${{ secrets.VSCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
           preRelease: ${{ steps.version.outputs.is_prerelease == '1' }}
-          # Reuse the exact vsix Open VSX just published instead of repackaging,
-          # so both registries ship the same artifact. Falls back to repackaging
-          # if the Open VSX step failed before producing one.
-          extensionFile: ${{ steps.openvsx.outcome == 'success' && steps.openvsx.outputs.vsixPath || '' }}
+          extensionFile: extension.vsix
