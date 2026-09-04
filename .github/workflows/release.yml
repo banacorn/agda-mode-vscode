@@ -68,8 +68,7 @@ jobs:
         run: |
           CURRENT=$(node -p "require('./package.json').version")
 
-          SEMVER_REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
-          if ! [[ "$CURRENT" =~ $SEMVER_REGEX ]]; then
+          if ! node .github/scripts/version-utils.js is-valid-version "$CURRENT"; then
             echo "package.json version '$CURRENT' is not a valid X.Y.Z semver" >&2
             exit 1
           fi
@@ -84,18 +83,7 @@ jobs:
             echo "should_deploy=false" >> "$GITHUB_OUTPUT"
             exit 0
           else
-            if ! [[ "$LATEST_TAG" =~ $SEMVER_REGEX ]]; then
-              echo "latest tag version '$LATEST_TAG' is not a valid X.Y.Z semver, cannot compare" >&2
-              exit 1
-            fi
-            node -e "
-              const [c, p] = process.argv.slice(1).map(v => v.split('.').map(Number));
-              for (let i = 0; i < 3; i++) {
-                if (c[i] > p[i]) process.exit(0);
-                if (c[i] < p[i]) process.exit(1);
-              }
-              process.exit(1);
-            " "$CURRENT" "$LATEST_TAG" || { echo "package.json version went from $LATEST_TAG to $CURRENT, which is not an increase" >&2; exit 1; }
+            node .github/scripts/version-utils.js is-increase "$CURRENT" "$LATEST_TAG"
           fi
 
           TAG="v$CURRENT"
@@ -163,7 +151,7 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           EXPECTED_TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
-          if [ "$EXPECTED_TAG" != "v$VERSION" ]; then
+          if ! node .github/scripts/version-utils.js tag-matches-version "$EXPECTED_TAG" "$VERSION"; then
             echo "Tag $EXPECTED_TAG does not match package.json version $VERSION" >&2
             exit 1
           fi
