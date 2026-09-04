@@ -1,6 +1,6 @@
 name: Release
 
-# Two ways in:
+# Three ways in:
 #   1. The Test workflow finishing successfully on master - tags the exact
 #      commit it validated, then deploys. Waiting on Test's completion (rather
 #      than triggering directly off the same push) is what stops a release
@@ -8,8 +8,13 @@ name: Release
 #   2. A push of a v* tag (e.g. pushed by hand) - deploys directly, tagging
 #      skipped since the tag already exists. This is also the escape hatch
 #      for re-running a deploy without touching package.json again.
+#   3. A manual workflow_dispatch naming an existing vX.Y.Z tag - deploys
+#      directly like (2), plus an optional dry-run mode that packages and
+#      validates without publishing to either registry. This is the
+#      controlled recovery path for completing (or rehearsing) a release
+#      without pushing a tag by hand.
 #
-# Both paths converge on one job so the tag push never has to trigger a second
+# All paths converge on one job so the tag push never has to trigger a second
 # workflow run - avoiding the GITHUB_TOKEN anti-recursion restriction that a
 # separate tag-triggered workflow would hit.
 
@@ -20,6 +25,17 @@ on:
     branches: [ master ]
   push:
     tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing vX.Y.Z tag to deploy'
+        required: true
+        type: string
+      dry_run:
+        description: 'Package and validate without publishing to either registry'
+        required: false
+        type: boolean
+        default: true
 
 # Serialize releases: an overlapping master push and manual tag push (or two
 # close master pushes) must not publish concurrently. Never cancel an
@@ -104,7 +120,8 @@ jobs:
     needs: tag
     if: >-
       !cancelled() &&
-      (github.ref_type == 'tag' ||
+      (github.event_name == 'workflow_dispatch' ||
+       github.ref_type == 'tag' ||
        (needs.tag.result == 'success' && needs.tag.outputs.should_deploy == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -116,14 +133,20 @@ jobs:
         with:
           # workflow_run's default github.sha is the workflow file's ref, not
           # the commit it validated - pin explicitly to that commit instead.
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          # workflow_dispatch carries no ref of its own here, so pin to the
+          # tag the operator named.
+          ref: >-
+            ${{ github.event_name == 'workflow_dispatch' && inputs.tag ||
+                github.event_name == 'workflow_run' && github.event.workflow_run.head_sha ||
+                github.sha }}
 
-      - name: 🔍 Validate the pushed tag matches package.json's version
-        if: github.ref_type == 'tag'
+      - name: 🔍 Validate the requested tag matches package.json's version
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          if [ "${GITHUB_REF_NAME}" != "v$VERSION" ]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match package.json version $VERSION" >&2
+          EXPECTED_TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          if [ "$EXPECTED_TAG" != "v$VERSION" ]; then
+            echo "Tag $EXPECTED_TAG does not match package.json version $VERSION" >&2
             exit 1
           fi
 
@@ -170,6 +193,7 @@ jobs:
 
       - name: 🚀 Publish to Open VSX Registry
         id: openvsx
+        if: github.event_name != 'workflow_dispatch' || inputs.dry_run == false
         uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
         with:
           pat: ${{ secrets.OPEN_VSX }}
@@ -178,6 +202,7 @@ jobs:
 
       - name: 🚀 Publish to Visual Studio Marketplace
         id: marketplace
+        if: github.event_name != 'workflow_dispatch' || inputs.dry_run == false
         uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
         with:
           pat: ${{ secrets.VSCE_PAT }}
@@ -186,11 +211,15 @@ jobs:
           extensionFile: extension.vsix
         continue-on-error: true
 
+      - name: 🧪 Dry run complete - registries were not published to
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+        run: echo "Dry run of ${{ inputs.tag }} succeeded - packaged and validated, both registry publishes were skipped."
+
       - name: ✅ Require both registries to have succeeded
         # Each publish step continues past the other's failure so both
         # registries always get an attempt - this is what turns a partial
         # deployment back into a failed job instead of a silent green one.
-        if: always()
+        if: always() && (github.event_name != 'workflow_dispatch' || inputs.dry_run == false)
         run: |
           if [ "${{ steps.openvsx.outcome }}" != "success" ] || [ "${{ steps.marketplace.outcome }}" != "success" ]; then
             echo "Open VSX: ${{ steps.openvsx.outcome }}" >&2
