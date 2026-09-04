@@ -37,7 +37,13 @@ let run = async (path, args, ~timeout=10000, ~shell=true): result<'a, Error.t> =
 
   // reject if the process hasn't responded for more than `timeout` milliseconds
   let hangTimeout = ref(
-    Some(Js.Global.setTimeout(() => resolve(Error(Error.ProcessHanging(timeout))), timeout)),
+    Some(
+      Js.Global.setTimeout(() => {
+        // terminate the unresponsive process before giving up on it
+        process->Process.destroy->ignore
+        resolve(Error(Error.ProcessHanging(timeout)))
+      }, timeout),
+    ),
   )
 
   let stdout = ref("")
