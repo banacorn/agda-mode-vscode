@@ -156,6 +156,18 @@ jobs:
         # artifact instead of each step packaging its own.
         run: npx @vscode/vsce@^2.32.0 package --out extension.vsix
 
+      - name: 🔒 Compute the vsix's SHA-256 digest
+        run: sha256sum extension.vsix > extension.vsix.sha256
+
+      - name: 📤 Upload the vsix and its digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-${{ steps.version.outputs.version }}
+          path: |
+            extension.vsix
+            extension.vsix.sha256
+          retention-days: 90
+
       - name: 🚀 Publish to Open VSX Registry
         id: openvsx
         uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
