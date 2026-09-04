@@ -165,9 +165,23 @@ jobs:
         continue-on-error: true
 
       - name: 🚀 Publish to Visual Studio Marketplace
+        id: marketplace
         uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
         with:
           pat: ${{ secrets.VSCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
           preRelease: ${{ steps.version.outputs.is_prerelease == '1' }}
           extensionFile: extension.vsix
+        continue-on-error: true
+
+      - name: ✅ Require both registries to have succeeded
+        # Each publish step continues past the other's failure so both
+        # registries always get an attempt - this is what turns a partial
+        # deployment back into a failed job instead of a silent green one.
+        if: always()
+        run: |
+          if [ "${{ steps.openvsx.outcome }}" != "success" ] || [ "${{ steps.marketplace.outcome }}" != "success" ]; then
+            echo "Open VSX: ${{ steps.openvsx.outcome }}" >&2
+            echo "Marketplace: ${{ steps.marketplace.outcome }}" >&2
+            exit 1
+          fi
