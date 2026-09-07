@@ -1211,7 +1211,6 @@ describe("Connection", () => {
           memento,
           globalStorageUri,
           [agdaMockPath], // paths
-          [], // commands
           logChannel,
         ) {
         | Ok(connection) =>
@@ -1269,7 +1268,6 @@ describe("Connection", () => {
           memento,
           globalStorageUri,
           [], // no specific paths
-          ["agda"], // try to find agda command
           logChannel,
         )
 
@@ -1352,7 +1350,6 @@ describe("Connection", () => {
           memento,
           globalStorageUri,
           ["/nonexistent/path"], // invalid paths
-          ["nonexistent-command"], // invalid commands
           logChannel,
         ) {
         | Ok(_) => Assert.fail("Expected connection to fail")
@@ -1433,7 +1430,6 @@ describe("Connection", () => {
           memento,
           globalStorageUri,
           ["/invalid/path"],
-          ["invalid-command"],
           logChannel,
         ) {
         | Ok(_) =>
@@ -1483,7 +1479,6 @@ describe("Connection", () => {
           memento,
           globalStorageUri,
           [agdaMockPath], // valid path
-          ["invalid-command"], // invalid commands
           logChannel,
         )
         let establishFlowEvents = collectEstablishFlow(listener)
@@ -1639,7 +1634,6 @@ describe("Connection", () => {
           memento,
           VSCode.Uri.file("/tmp/test-storage"),
           [configAgda.contents],
-          [],
           Chan.make(),
         )
 
@@ -1663,7 +1657,6 @@ describe("Connection", () => {
           memento,
           VSCode.Uri.file("/tmp/test-storage"),
           [configAgda.contents],
-          [],
           Chan.make(),
         )
 
@@ -1693,7 +1686,6 @@ describe("Connection", () => {
           memento,
           VSCode.Uri.file("/tmp/test-storage"),
           [pickedPath, configAgda.contents, pickedPath],
-          [],
           Chan.make(),
         )
 
@@ -1736,7 +1728,6 @@ describe("Connection", () => {
           Memento.make(None),
           VSCode.Uri.file("/tmp/test-storage"),
           ["agda", "als"],
-          ["agda", "als"],
           Chan.make(),
         )
 
@@ -1772,7 +1763,6 @@ describe("Connection", () => {
           Memento.make(None),
           VSCode.Uri.file("/tmp/test-storage"),
           ["agda"],
-          [],
           logChannel,
         )
 
@@ -1800,7 +1790,6 @@ describe("Connection", () => {
           memento,
           VSCode.Uri.file("/tmp/test-storage"),
           ["/invalid/path"],
-          ["invalid-command"],
           logChannel,
         )
 
@@ -1845,7 +1834,6 @@ describe("Connection", () => {
           memento,
           VSCode.Uri.file("/tmp/test-storage"),
           ["/invalid/path"],
-          ["invalid-command"],
           logChannel,
         )
 
@@ -1880,7 +1868,6 @@ describe("Connection", () => {
           memento,
           VSCode.Uri.file("/tmp/test-storage"),
           existingPaths,
-          ["invalid-command"],
           logChannel,
         )
 
@@ -1950,7 +1937,6 @@ describe("Connection", () => {
           memento,
           VSCode.Uri.file("/tmp/test-storage"),
           ["/nonexistent/path"],
-          [],
           logChannel,
         )
 
@@ -1998,7 +1984,6 @@ describe("Connection", () => {
           memento,
           VSCode.Uri.file("/tmp/test-storage"),
           ["/nonexistent/path"],
-          ["agda"],
           logChannel,
         )
 
@@ -2093,7 +2078,6 @@ describe("Connection", () => {
           memento,
           globalStorageUri,
           [],
-          [],
           logChannel,
         )
 
@@ -2185,7 +2169,6 @@ describe("Connection", () => {
           memento,
           globalStorageUri,
           [],
-          [],
           logChannel,
         )
 
@@ -2267,7 +2250,6 @@ describe("Connection", () => {
             platform,
             memento,
             globalStorageUri,
-            [],
             [],
             logChannel,
           )

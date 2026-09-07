@@ -621,7 +621,6 @@ describe("Connection Downloads", () => {
           memento,
           globalStorageUri,
           ["/invalid/path"],
-          ["invalid-command"],
           logChannel,
         )
 
@@ -664,7 +663,6 @@ describe("Connection Downloads", () => {
           memento,
           globalStorageUri,
           ["/invalid/path"],
-          ["invalid-command"],
           logChannel,
         )
 
@@ -705,7 +703,6 @@ describe("Connection Downloads", () => {
           memento,
           globalStorageUri,
           ["/invalid/path"],
-          ["invalid-command"],
           logChannel,
         )
         let loggedEvents = listener(~filter=Log.isConnection)
@@ -753,7 +750,6 @@ describe("Connection Downloads", () => {
           memento,
           globalStorageUri,
           ["/invalid/path"],
-          ["invalid-command"],
           logChannel,
         )
 
@@ -818,7 +814,6 @@ describe("Connection Downloads", () => {
           memento,
           globalStorageUri,
           ["/invalid/path"],
-          ["invalid-command"],
           logChannel,
         )
 
@@ -878,7 +873,6 @@ describe("Connection Downloads", () => {
           memento,
           globalStorageUri,
           ["/invalid/path"],
-          ["invalid-command"],
           logChannel,
         )
 
@@ -935,7 +929,6 @@ describe("Connection Downloads", () => {
           memento,
           globalStorageUri,
           ["/invalid/path"],
-          ["invalid-command"],
           logChannel,
         )
 

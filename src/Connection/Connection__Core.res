@@ -23,7 +23,6 @@ module type Module = {
     Memento.t,
     VSCode.Uri.t,
     array<string>,
-    array<string>,
     Chan.t<Log.t>,
   ) => promise<result<t, Error.t>>
   let toString: t => string
@@ -679,7 +678,6 @@ module Module: Module = {
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
     paths: array<string>,
-    _commands: array<string>,
     logChannel: Chan.t<Log.t>,
   ): result<t, Error.t> => {
     let logConnection = connection => {
