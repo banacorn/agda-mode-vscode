@@ -57,7 +57,6 @@ describe("Memento.PreferredCandidate", () => {
       memento,
       VSCode.Uri.file("/tmp/test"),
       configPaths,
-      ["whatever"], // to invoke our `findCommand` mock
       logChannel,
     )
   }
@@ -118,7 +117,6 @@ describe("Memento.PreferredCandidate", () => {
           memento,
           VSCode.Uri.file("/tmp/test"),
           [userAgda.contents],
-          ["whatever"],
           logChannel,
         )
 

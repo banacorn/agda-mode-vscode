@@ -89,7 +89,6 @@ describe("Config.Connection paths", () => {
       memento,
       VSCode.Uri.file("/tmp/test"),
       configPaths,
-      ["agda"], // command to discover
       logChannel,
     )
 
