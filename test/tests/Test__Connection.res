@@ -1263,11 +1263,12 @@ describe("Connection", () => {
         let globalStorageUri = VSCode.Uri.file("/tmp/test-storage")
 
         // INVOKE: Connection.makeWithFallback with real agda command
+        // "agda" is a bare command name, resolved via $PATH per connection.paths semantics.
         let result = await Connection.makeWithFallback(
           platformDeps,
           memento,
           globalStorageUri,
-          [], // no specific paths
+          ["agda"],
           logChannel,
         )
 
@@ -1944,54 +1945,6 @@ describe("Connection", () => {
         | Ok(_) =>
           // Automatic fallback MUST use selected channel from memento (DevALS)
           Assert.deepStrictEqual(downloadedChannel.contents, Some(Connection__Download__Channel.DevALS))
-        | Error(_) => Assert.fail("Expected download fallback to succeed")
-        }
-      },
-    )
-
-    Async.it(
-      "should NOT try command probes — resolution is preferred then paths then download",
-      async () => {
-        let logChannel = Chan.make()
-        await Config.Connection.setAgdaPaths(logChannel, ["/nonexistent/path"])
-        await Config.Connection.DownloadPolicy.set(Undecided)
-        let memento = Memento.make(None)
-        let commandProbed = ref(false)
-        let platform: Platform.t = {
-          module MockPlatform = {
-            let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
-            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
-            let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
-            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
-              switch channel {
-              | Connection__Download__Channel.DevALS =>
-                Ok(Connection__Download__Source.FromGitHub(channel, Mock.DownloadDescriptor.mockDevALSDescriptor))
-              | _ => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
-              }
-            )
-            let download = (_globalStorageUri, _downloadDescriptor, ~trace as _=Connection__Download__Trace.noop) =>
-              Promise.resolve(Ok(downloadedAgda.contents))
-            let findCommand = (_command, ~timeout as _timeout=1000) => {
-              commandProbed := true
-              Promise.resolve(Error(Connection__Command.Error.NotFound))
-            }
-          }
-          module(MockPlatform)
-        }
-
-        let result = await Connection.makeWithFallback(
-          platform,
-          memento,
-          VSCode.Uri.file("/tmp/test-storage"),
-          ["/nonexistent/path"],
-          logChannel,
-        )
-
-        switch result {
-        | Ok(_) =>
-          // Resolution chain should be: preferred -> paths -> download
-          // Command probes should NOT be part of the resolution chain
-          Assert.deepStrictEqual(commandProbed.contents, false)
         | Error(_) => Assert.fail("Expected download fallback to succeed")
         }
       },
