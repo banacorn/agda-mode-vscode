@@ -107,7 +107,14 @@ let downloadFromURL = async (globalStorageUri, url, saveAsFileName, displayName,
         },
       }
 
-      switch await Connection__Download__Util.asFile(httpOptions, tempFileUri, reportProgress, ~trace, ~fetch?) {
+      // TEMPORARY total-duration cap; see Connection__Download__Util.artifactDownloadTimeoutMs.
+      switch await Connection__Download__Util.asFile(
+        httpOptions,
+        tempFileUri,
+        reportProgress,
+        ~trace,
+        ~fetch?,
+      )->Connection__Download__Util.timeoutAfter(Connection__Download__Util.artifactDownloadTimeoutMs) {
       | Error(error) =>
         // Convert Connection__Download__Util.Error.t to Connection__Download__GitHub.Error.t
         let convertedError = switch error {
