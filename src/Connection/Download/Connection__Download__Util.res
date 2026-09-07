@@ -124,6 +124,10 @@ module Module: {
   ) => promise<result<unit, Error.t>>
 
   let timeoutAfter: (promise<result<'a, Error.t>>, int) => promise<result<'a, Error.t>>
+
+  // TEMPORARY (see comment at definition): a blunt total-duration cap on
+  // artifact downloads (asFile), separate from asJson's short manifest timeout.
+  let artifactDownloadTimeoutMs: int
 } = {
   // Convert http options to URL
   let optionsToUrl = options => 
@@ -173,6 +177,21 @@ module Module: {
       p,
     ])
   }
+
+  // TEMPORARY: a fixed total-duration cap for artifact downloads (asFile),
+  // e.g. ALS release zips, which are much larger than the small JSON manifest
+  // asJson fetches (asJson gets its own short timeout at its call site).
+  //
+  // This is a stopgap, not the right long-term fix: it's a blunt total-duration
+  // limit built on timeoutAfter's Promise.race, which does NOT cancel the
+  // underlying fetch — a timed-out download keeps running in the background,
+  // and a large-but-legitimately-slow download can still be killed early.
+  // The correct fix is to stream the response body (asFile currently reads it
+  // in one shot via arrayBuffer, so there's no per-chunk progress signal to
+  // reset an idle timer against) and abort via a real AbortSignal only after a
+  // period of no progress, not a fixed total duration. See the investigation
+  // in the F1 connection-flake work for the full design.
+  let artifactDownloadTimeoutMs = 120000
 
   let asJson = async httpOptions => {
     let url = optionsToUrl(httpOptions)

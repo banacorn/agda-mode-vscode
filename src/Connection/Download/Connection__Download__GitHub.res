@@ -498,7 +498,12 @@ module Module: {
 
     let doFetch = switch fetchFile {
     | Some(f) => f
-    | None => (uri, ~trace=Connection__Download__Trace.noop) => Download.asFile(httpOptions, uri, onDownload, ~trace)
+    | None =>
+      // TEMPORARY total-duration cap; see Connection__Download__Util.artifactDownloadTimeoutMs.
+      (uri, ~trace=Connection__Download__Trace.noop) =>
+        Download.asFile(httpOptions, uri, onDownload, ~trace)->Download.timeoutAfter(
+          Download.artifactDownloadTimeoutMs,
+        )
     }
     let doUnzip = unzip->Option.getOr((a, b) => Unzip.run(a, b))
     let doDeleteZip = deleteZip->Option.getOr(FS.delete)
