@@ -37,6 +37,17 @@ describe("onOpenEditor routing", () => {
       }
     )
 
+  // This suite does a real `agda-mode.load` against a real Agda process
+  // (via `AgdaMode.makeAndLoad`), unlike most listener tests -- the default
+  // 4000ms budget (`TestSuiteAdapter.res`) has no margin for that on a slow
+  // or momentarily contended Windows runner. A 1000-cycle timing probe on
+  // windows-latest/Agda-2.8.0 (see PR #364) measured this exact
+  // load+switch+wait cycle at p99 1694ms / max 3353ms, well past what a
+  // 4000ms *default meant for unit tests* was ever sized for. 15s on
+  // Windows covers that tail with room to spare; 5s on Unix is cheap
+  // insurance even though nothing there was observed to be tight.
+  This.timeout(OS.onUnix ? 5000 : 15000)
+
   Async.it(
     "switching back to a loaded Agda file replaces state.editor/state.document and dispatches Refresh",
     async () => {
