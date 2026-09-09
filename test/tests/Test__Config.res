@@ -117,6 +117,66 @@ describe("Config", () => {
     )
   })
 
+  describe("Backend", () => {
+    let savedBackend = ref(Config.backendInTestingMode.contents)
+    Async.beforeEach(async () => {
+      savedBackend := Config.backendInTestingMode.contents
+    })
+    Async.afterEach(async () => {
+      Config.backendInTestingMode := savedBackend.contents
+    })
+
+    Async.it("should preserve all 7 backend settings", async () => {
+      open Config__Backend
+      [GHC, GHCNoMain, LaTeX, QuickLaTeX, JS, HTML, Dot]->Array.forEach(backend => {
+        Config.backendInTestingMode := backend
+        Assert.strictEqual(Config.getBackend(), backend)
+      })
+    })
+
+    describe("decode", () => {
+      it("should decode all 7 known backend strings", () => {
+        open Config__Backend
+        [
+          ("GHC", GHC),
+          ("GHCNoMain", GHCNoMain),
+          ("LaTeX", LaTeX),
+          ("QuickLaTeX", QuickLaTeX),
+          ("JS", JS),
+          ("HTML", HTML),
+          ("Dot", Dot),
+        ]->Array.forEach(((raw, expected)) => {
+          Assert.strictEqual(Config__Backend.decode(Some(raw)), expected)
+        })
+      })
+
+      it("should default to GHCNoMain for an unknown string", () => {
+        Assert.strictEqual(Config__Backend.decode(Some("NotABackend")), Config__Backend.GHCNoMain)
+      })
+
+      it("should default to GHCNoMain for None", () => {
+        Assert.strictEqual(Config__Backend.decode(None), Config__Backend.GHCNoMain)
+      })
+    })
+
+    describe("encode", () => {
+      it("should encode all 7 backends back to their names", () => {
+        open Config__Backend
+        [
+          (GHC, "GHC"),
+          (GHCNoMain, "GHCNoMain"),
+          (LaTeX, "LaTeX"),
+          (QuickLaTeX, "QuickLaTeX"),
+          (JS, "JS"),
+          (HTML, "HTML"),
+          (Dot, "Dot"),
+        ]->Array.forEach(((backend, expected)) => {
+          Assert.strictEqual(Config__Backend.encode(backend), expected)
+        })
+      })
+    })
+  })
+
   describe("DevMode", () => {
     describe(
       "defaultValue",
