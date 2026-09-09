@@ -310,7 +310,7 @@ jobs:
     steps:
       - name: ✅ Check required jobs
         run: |
-          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" == "true" ]]; then
             echo "One or more required jobs did not succeed."
             exit 1
           fi
