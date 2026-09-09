@@ -71,7 +71,7 @@ let encode = (
   document: VSCode.TextDocument.t,
   version,
   filepath: string,
-  backend: string,
+  backend: Config__Backend.t,
   libraryPath: array<string>,
   highlightingMethod: bool,
   request,
@@ -96,6 +96,7 @@ let encode = (
   }
 
   let buildRange = goal => Goal.makeHaskellRange(goal, document, version, filepath)
+  let backend = backend->Config__Backend.encode
 
   // assemble them
   switch request {

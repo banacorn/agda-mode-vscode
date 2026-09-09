@@ -271,22 +271,16 @@ module Highlighting = {
 }
 
 // Backend
-let backendInTestingMode = ref("GHCNoMain")
+let backendInTestingMode = ref(Config__Backend.GHCNoMain)
 
-let getBackend = () => {
-  let raw = if inTestingMode.contents {
-    Some(backendInTestingMode.contents)
+let getBackend = (): Config__Backend.t =>
+  if inTestingMode.contents {
+    backendInTestingMode.contents
   } else {
-    Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get("backend")
+    Workspace.getConfiguration(Some("agdaMode"), None)
+    ->WorkspaceConfiguration.get("backend")
+    ->Config__Backend.decode
   }
-  switch raw {
-  | Some("GHC") => "GHC"
-  | Some("GHCNoMain") => "GHCNoMain"
-  | Some("LaTeX") => "LaTeX"
-  | Some("QuickLaTeX") => "QuickLaTeX"
-  | _ => "GHCNoMain"
-  }
-}
 
 module InputMethod = {
   let getEnabled = () => {
