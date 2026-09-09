@@ -1290,13 +1290,19 @@
 						"GHC",
 						"GHCNoMain",
 						"LaTeX",
-						"QuickLaTeX"
+						"QuickLaTeX",
+						"JS",
+						"HTML",
+						"Dot"
 					],
-					"enumDescriptions": [
-						"Compile to executable (requires a main function)",
-						"Compile without main (MAlonzo tree only)",
-						"LaTeX backend",
-						"QuickLaTeX backend"
+					"markdownEnumDescriptions": [
+						"Compile to a native **executable** (requires a `main` function). [Docs](https://agda.readthedocs.io/en/latest/tools/compilers.html#ghc-backend)",
+						"Compile via GHC **without** a `main` function (produces the Haskell module tree only). [Docs](https://agda.readthedocs.io/en/latest/tools/compilers.html#ghc-backend)",
+						"Generate LaTeX with **highlighted** source code. [Docs](https://agda.readthedocs.io/en/latest/tools/generating-latex.html)",
+						"Faster LaTeX generation — **scope-checks only**, skips type-checking. [Docs](https://agda.readthedocs.io/en/latest/tools/generating-latex.html#quicker-generation-without-typechecking)",
+						"Compile to **JavaScript**. [Docs](https://agda.readthedocs.io/en/latest/tools/compilers.html#javascript-backend)",
+						"Generate **highlighted, hyperlinked** HTML from source code. [Docs](https://agda.readthedocs.io/en/latest/tools/generating-html.html)",
+						"Generate a `.dot` file with the **module dependency graph**. [Docs](https://agda.readthedocs.io/en/latest/tools/command-line-options.html#cmdoption-dependency-graph)"
 					],
 					"scope": "machine-overridable",
 					"description": "Backend target"
