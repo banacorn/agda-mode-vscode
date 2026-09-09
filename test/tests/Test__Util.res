@@ -212,6 +212,40 @@ external executeCommand: string => promise<option<result<State.t, Connection.Err
 
 let wait = ms => Promise.make((resolve, _) => Js.Global.setTimeout(resolve, ms)->ignore)
 
+// A unique, disposable globalStorageUri for a test — as opposed to sharing a
+// single hardcoded path (e.g. "/tmp/test-storage") across tests, which lets
+// one test's leftover cache silently affect another's. Caller should clean up
+// with FS.deleteRecursive when the test is done.
+let createStorageUri = async (~prefix="agda-test-storage") => {
+  let storagePath = NodeJs.Path.join([
+    NodeJs.Os.tmpdir(),
+    prefix ++ "-" ++ string_of_int(int_of_float(Js.Date.now())),
+  ])
+  await NodeJs.Fs.mkdir(storagePath, {recursive: true, mode: 0o777})
+  VSCode.Uri.file(storagePath)
+}
+
+// Bracket pattern: creates a disposable globalStorageUri, passes it to `f` as
+// a parameter (so it's scoped to `f`'s body, not leaked into the caller), and
+// deletes it unconditionally afterwards -- ReScript has no native
+// try/finally, so this emulates one: `f`'s exception (if any) is captured,
+// cleanup always runs, then the exception is re-raised so Mocha still sees
+// the test as failed.
+let withStorage = async (~prefix=?, f) => {
+  let globalStorageUri = await createStorageUri(~prefix?)
+  let result = try {
+    let _ = await f(globalStorageUri)
+    None
+  } catch {
+  | exn => Some(exn)
+  }
+  let _ = await FS.deleteRecursive(globalStorageUri)
+  switch result {
+  | Some(exn) => raise(exn)
+  | None => ()
+  }
+}
+
 // Generic extension-host log helper for integration tests that need to
 // observe something the real extension host printed/logged (e.g. a warning
 // emitted by a production code path that isn't otherwise observable from the
@@ -227,8 +261,7 @@ module ExtHostLog = {
     switch activatedLogUri.contents {
     | None =>
       Assert.fail(
-        "Test__Util.ExtHostLog: extension has not been activated yet -- " ++
-        "call activateExtension (or activateExtensionAndOpenFile) first",
+        "Test__Util.ExtHostLog: extension has not been activated yet -- " ++ "call activateExtension (or activateExtensionAndOpenFile) first",
       )
       ""
     | Some(logUri) =>
@@ -239,7 +272,8 @@ module ExtHostLog = {
       } else {
         Assert.fail(
           "Test__Util.ExtHostLog: could not find exthost.log -- observed logUri.fsPath: " ++
-          (logDir ++ (", expected candidate: " ++ candidate)),
+          (logDir ++
+          (", expected candidate: " ++ candidate)),
         )
         ""
       }
@@ -502,13 +536,11 @@ module AgdaMode = {
 
   let quit = async (self: t) => {
     let _ = await File.open_(self.filepath)
-    let destroyCompleted = Log.on(
-      self.channels.log,
-      log =>
-        switch log {
-        | Log.Others("State.destroy: Connection released, destruction complete") => true
-        | _ => false
-        },
+    let destroyCompleted = Log.on(self.channels.log, log =>
+      switch log {
+      | Log.Others("State.destroy: Connection released, destruction complete") => true
+      | _ => false
+      }
     )
 
     switch await executeCommand("agda-mode.quit") {
