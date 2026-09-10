@@ -20,8 +20,11 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   build-and-test:
-    # Runs on all major platforms 
-    runs-on: ${{ matrix.os }} 
+    # Runs on all major platforms
+    runs-on: ${{ matrix.os }}
+    env:
+      # Shared with the Agda cache key below, so a bump here invalidates it too.
+      GHC_VERSION: "9.10.2"
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
@@ -95,9 +98,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ${{ env.DIST  }}
-          key: ${{ env.DIST  }}-${{ matrix.stack-config }}
-          restore-keys: |
-              ${{ env.DIST  }}-${{ matrix.stack-config }}
+          key: ${{ env.DIST }}-ghc-${{ env.GHC_VERSION }}-${{ hashFiles(matrix.stack-config) }}
         
       - name: 💾 Restore VSCode from .vscode-test
         id:   vscode
@@ -135,7 +136,7 @@ jobs:
         id: haskell-setup
         uses: haskell-actions/setup@v2
         with:
-          ghc-version: '9.10.2'
+          ghc-version: ${{ env.GHC_VERSION }}
           stack-version: latest
           cabal-update: false
           enable-stack: true
