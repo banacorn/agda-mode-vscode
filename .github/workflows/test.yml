@@ -198,9 +198,9 @@ jobs:
           key: ${{ steps.agda-artefacts.outputs.cache-primary-key }}
     
       - name: ⏬ Install NPM Dependencies
-        run: npm ci --cache .npm
-        
-      - name: 🔨 Build stuff 
+        run: npm ci
+
+      - name: 🔨 Build stuff
         run: npm run build
 
       - name: 🚗 Run tests
@@ -276,7 +276,7 @@ jobs:
           node-version: 24.x
 
       - name: ⏬ Install NPM Dependencies
-        run: npm ci --cache .npm
+        run: npm ci
 
       - name: ⏬ Install Playwright's Chromium
         run: npx playwright install --with-deps chromium
