@@ -171,11 +171,13 @@ jobs:
         id: version
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          MINOR_VERSION=$(echo $VERSION | cut -d. -f2)
+          MINOR_VERSION=$(echo "$VERSION" | cut -d. -f2)
           IS_PRERELEASE=$((MINOR_VERSION % 2))
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "minor=$MINOR_VERSION" >> $GITHUB_OUTPUT
-          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          {
+            echo "version=$VERSION"
+            echo "minor=$MINOR_VERSION"
+            echo "is_prerelease=$IS_PRERELEASE"
+          } >> "$GITHUB_OUTPUT"
           echo "Publishing version $VERSION (minor: $MINOR_VERSION, prerelease: $IS_PRERELEASE)"
 
       - name: 📦 Package extension
