@@ -3,6 +3,7 @@ type options = {
   extensionDevelopmentPath: string,
   extensionTestsPath: string,
   launchArgs?: array<string>,
+  version?: string,
 }
 
 type commandResult = {stdout: string, stderr: string}
@@ -14,6 +15,10 @@ external runTests: options => promise<unit> = "runTests"
 @module("@vscode/test-electron")
 external runVSCodeCommand: (array<string>, commandOptions) => promise<commandResult> =
   "runVSCodeCommand"
+
+// Pinned so a cache hit and a fresh download always land on the same VS Code
+// build; bump deliberately alongside the "VS Code" cache key in test.yml.
+let vscodeVersion = "1.136.2"
 
 let testSuiteAdapterFileName = "TestSuiteAdapter.bs.js"
 let vimExtensionId = "vscodevim.vim"
@@ -124,6 +129,7 @@ let main = async () => {
       "--user-data-dir=" ++ testUserDataDir,
       "--extensions-dir=" ++ testExtensionsDir,
     ],
+    version: vscodeVersion,
   })
 }
 
