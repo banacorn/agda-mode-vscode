@@ -2,6 +2,9 @@
 
 name: Test
 
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash
