@@ -105,9 +105,10 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: .vscode-test
-          key: vscode-${{ runner.os }}-${{ runner.arch }}
+          # 1.136.2 must match the pinned `vscodeVersion` in test/RunTestFromCLI.res.
+          key: vscode-${{ runner.os }}-${{ runner.arch }}-1.136.2-${{ hashFiles('package-lock.json') }}
           restore-keys: |
-              vscode-${{ runner.os }}-
+              vscode-${{ runner.os }}-${{ runner.arch }}-
         
       - name: ⏬ Setup Node.js environment
         uses: actions/setup-node@v6
@@ -228,7 +229,7 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: .vscode-test
-          key: vscode-${{ runner.os }}-${{ runner.arch }}
+          key: ${{ steps.vscode.outputs.cache-primary-key }}
 
       - name: 💾 Cache NPM dependencies
         if: always() && steps.npm-cache.outputs.cache-hit != 'true'
