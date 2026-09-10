@@ -4,6 +4,7 @@ test/globalStoragePath
 test/tests/assets/MAlonzo/
 test/tests/assets/Compile
 test/tests/assets/Compile.exe
+/test-user-data-dir.txt
 
 
 .DS_Store

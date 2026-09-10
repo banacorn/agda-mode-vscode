@@ -77,6 +77,15 @@ Js.log(
 NodeJs.Fs.mkdirSyncWith(tempTestRoot, {recursive: true})
 NodeJs.Fs.mkdirSyncWith(testUserDataDir, {recursive: true})
 NodeJs.Fs.mkdirSyncWith(testExtensionsDir, {recursive: true})
+
+// testUserDataDir's name is randomized per run (see tempRunId above), so CI
+// can't hardcode it when copying extension-host logs out after a failure.
+// Drop the path at a known, fixed location instead. Normalized to forward
+// slashes so the bash step that reads this file doesn't have to deal with
+// Windows' backslash paths.
+let userDataDirMarkerPath = NodeJs.Path.join([extensionDevelopmentPath, "test-user-data-dir.txt"])
+let userDataDirForShell = testUserDataDir->Js.String2.split("\\")->Js.Array2.joinWith("/")
+NodeJs.Fs.writeFileSync(userDataDirMarkerPath, NodeJs.Buffer.fromString(userDataDirForShell))
 if withVim {
   // VSCodeVim reads this file without handling a missing-file error. Seed an
   // empty register store because every test run intentionally has fresh user data.

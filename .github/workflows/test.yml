@@ -222,6 +222,31 @@ jobs:
             npm test 2>&1 | tee test-output.log
           fi
 
+      - name: 📋 Collect extension-host logs
+        # test-user-data-dir.txt (written by RunTestFromCLI.res) points at this
+        # run's randomized --user-data-dir, so we can pull its logs into a fixed
+        # workspace path that upload-artifact can address.
+        if: failure()
+        run: |
+          if [ -f test-user-data-dir.txt ]; then
+            USER_DATA_DIR=$(cat test-user-data-dir.txt)
+            mkdir -p extension-host-logs
+            cp -r "$USER_DATA_DIR/logs" extension-host-logs/ || echo "No logs directory at $USER_DATA_DIR/logs"
+          else
+            echo "test-user-data-dir.txt not found; extension host may not have started"
+          fi
+
+      - name: 📤 Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-${{ matrix.os }}-${{ matrix.agda }}
+          path: |
+            test-output.log
+            extension-host-logs/
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: 🔍 Check if VS Code was downloaded
         id: check-vscode-download
         run: |
