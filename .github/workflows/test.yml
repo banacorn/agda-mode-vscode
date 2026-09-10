@@ -62,16 +62,6 @@ jobs:
         run: | 
           echo "DIST=${{ matrix.agda }}-${{ matrix.os }}"  >> "$GITHUB_ENV"
 
-      - name: 🔍 Reviewing variables
-        run: |
-          echo "runner.os         = ${{ runner.os                               }}"
-          echo "ghc-path          = ${{ steps.haskell-setup.outputs.ghc-path    }}"
-          echo "ghc-exe           = ${{ steps.haskell-setup.outputs.ghc-exe     }}"
-          echo "stack-path        = ${{ steps.haskell-setup.outputs.stack-path  }}"
-          echo "stack-exe         = ${{ steps.haskell-setup.outputs.stack-exe   }}"
-          echo "stack-root        = ${{ steps.haskell-setup.outputs.stack-root  }}"
-          echo "DIST              = $DIST"
-    
       # cached stuff to be restored:
       # - name: 💾 Restore cached stack global package db
       #   id:   stack-global
@@ -125,7 +115,7 @@ jobs:
           node-version: 24.x
 
       - name: 🛠️ Add ${{ env.DIST }}/bin to PATH
-        run: echo $(pwd)/$DIST/bin >> $GITHUB_PATH
+        run: echo "$(pwd)/$DIST/bin" >> "$GITHUB_PATH"
               
       # - name: 🛠️ Add ${{ env.STACK_LOCAL_BIN }} to PATH
       #   run: echo $STACK_LOCAL_BIN >> $GITHUB_PATH
@@ -138,8 +128,8 @@ jobs:
       - name: 📦 Setup ${{ env.DIST }}
         if: ${{ steps.check-agda.outcome == 'failure'}}
         run: |
-          mkdir -p $DIST
-          mkdir -p $DIST/bin
+          mkdir -p "$DIST"
+          mkdir -p "$DIST/bin"
   
       - name: ⏬ Setup Haskell environment
         if: ${{ steps.check-agda.outcome == 'failure'}}
@@ -150,6 +140,17 @@ jobs:
           stack-version: latest
           cabal-update: false
           enable-stack: true
+
+      - name: 🔍 Reviewing variables
+        if: ${{ steps.check-agda.outcome == 'failure'}}
+        run: |
+          echo "runner.os         = ${{ runner.os                               }}"
+          echo "ghc-path          = ${{ steps.haskell-setup.outputs.ghc-path    }}"
+          echo "ghc-exe           = ${{ steps.haskell-setup.outputs.ghc-exe     }}"
+          echo "stack-path        = ${{ steps.haskell-setup.outputs.stack-path  }}"
+          echo "stack-exe         = ${{ steps.haskell-setup.outputs.stack-exe   }}"
+          echo "stack-root        = ${{ steps.haskell-setup.outputs.stack-root  }}"
+          echo "DIST              = $DIST"
 
       - name: ⏬ Install Agda
         if: ${{ steps.check-agda.outcome == 'failure'}}
@@ -162,19 +163,19 @@ jobs:
         run: |
 
           # Copy the binary:
-          cp $STACK_LOCAL_BIN/agda $DIST/bin
-          
+          cp "$STACK_LOCAL_BIN/agda" "$DIST/bin"
+
           # Strip the binary:
           if [[ ${{ runner.os }} == "Windows" ]]; then
-            strip $DIST/bin/agda.exe
-            file $DIST/bin/agda.exe
+            strip "$DIST/bin/agda.exe"
+            file "$DIST/bin/agda.exe"
           else
-            strip $DIST/bin/agda
-            file $DIST/bin/agda
+            strip "$DIST/bin/agda"
+            file "$DIST/bin/agda"
           fi
 
           # Copy the rest of the artefacts:
-          cp -a $($STACK_LOCAL_BIN/agda --print-agda-dir)/. $DIST
+          cp -a "$("$STACK_LOCAL_BIN/agda" --print-agda-dir)"/. "$DIST"
           
       - name: 🌐 Setting the $Agda_datadir environment variable
         run: echo "Agda_datadir=$(pwd)/$DIST" >> "$GITHUB_ENV"
@@ -251,10 +252,10 @@ jobs:
         id: check-vscode-download
         run: |
           if grep -q "Downloading.*MB" test-output.log; then
-            echo "downloaded=true" >> $GITHUB_OUTPUT
+            echo "downloaded=true" >> "$GITHUB_OUTPUT"
             echo "✨ Newer VS Code version detected and downloaded"
           else
-            echo "downloaded=false" >> $GITHUB_OUTPUT
+            echo "downloaded=false" >> "$GITHUB_OUTPUT"
             echo "📦 Using cached VS Code version (no newer version available)"
           fi
 
@@ -340,12 +341,27 @@ jobs:
             ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
 
+  # Catches the workflow YAML/ShellCheck mistakes actionlint finds locally,
+  # so they can't reach master unnoticed.
+  workflow-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v6
+
+      - name: ⏬ Install actionlint
+        run: bash <(curl -s https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+
+      - name: 🔍 Lint workflows
+        run: ./actionlint -color
+
   # Single stable context to require in branch protection instead of the
   # matrix's exact, version-coupled job names. Fails unless every desktop
-  # matrix leg, the webview test, and packaging all succeeded.
+  # matrix leg, the webview test, packaging, and the workflow lint all succeeded.
   ci-success:
     if: always()
-    needs: [ build-and-test, webview-test, packaging ]
+    needs: [ build-and-test, webview-test, packaging, workflow-lint ]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
