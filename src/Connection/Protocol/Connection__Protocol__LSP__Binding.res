@@ -372,7 +372,52 @@ module LanguageClient = {
   external onNotification: (t, string, 'a) => Disposable.t = "onNotification"
   // https://github.com/microsoft/vscode-languageserver-node/blob/02806427ce7251ec8fa2ff068febd9a9e59dbd2f/client/src/common/client.ts#L811C68-L811C81
   @send
-  external sendNotification: (t, string, 'a) => promise<unit> = "sendNotification"
+  external sendNotificationImpl: (t, string, 'a) => promise<unit> = "sendNotification"
+
+  // Marks that a deliberate shutdown is underway, so a `textDocument/didClose`
+  // failure caused by that shutdown can be told apart from a genuine one:
+  // the warehouse crew really is closing up, this isn't a false alarm.
+  let markShuttingDown: t => unit = %raw("function (client) {
+      client.__agdaModeShuttingDown = true;
+    }")
+
+  // vscode-languageclient's own automatic textDocument/didClose send calls
+  // the client's own `sendNotification` method directly, the exact same
+  // method this binding calls, not anything exported from this module. So
+  // catching that send means patching the method on the client instance
+  // itself, once, the first time either side reaches it here: any caller
+  // afterward, ours or vscode-languageclient's own internal dispatch, goes
+  // through the same patched method. That internal dispatch passes a
+  // notification-type descriptor object (`{method: "textDocument/didClose",
+  // ...}`), not the bare string this binding's own callers pass, so both
+  // forms are read the same way. A courier who finds the warehouse's
+  // loading bay already hauled away by the time they turn back around
+  // isn't sounding a false alarm, it's an expected, silent closure, but
+  // only when the warehouse crew really did close up
+  // (`markShuttingDown` was called first); any other reason to fail is
+  // still reported as "Sending document notification ... failed." See
+  // Test__Connection__Protocol__LSP.res for the full story.
+  let installDidCloseErrorSuppression: t => unit = %raw("function (client) {
+      if (client.__agdaModeSendNotificationPatched) {
+        return;
+      }
+      client.__agdaModeSendNotificationPatched = true;
+      const original = client.sendNotification.bind(client);
+      client.sendNotification = function (type, params) {
+        return original(type, params).catch((error) => {
+          const method = typeof type === 'string' ? type : (type && type.method);
+          if (method === 'textDocument/didClose' && client.__agdaModeShuttingDown) {
+            return;
+          }
+          throw error;
+        });
+      };
+    }")
+
+  let sendNotification: (t, string, 'a) => promise<unit> = (client, type_, params) => {
+    installDidCloseErrorSuppression(client)
+    sendNotificationImpl(client, type_, params)
+  }
   @send
   external sendRequest: (t, string, Js.Json.t) => promise<'result> = "sendRequest"
   @send

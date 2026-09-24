@@ -86,6 +86,7 @@ module Module: Module = {
   let destroy = async self => {
     self.errorChan->Chan.destroy
     self.notificationChan->Chan.destroy
+    self.client->Binding.LanguageClient.markShuttingDown
     switch await Binding.LanguageClient.stop(self.client, Some(200))->fromJsPromise {
     | Ok(()) => Ok()
     | _ =>
@@ -169,6 +170,7 @@ module Module: Module = {
 
     // Create the language client
     let languageClient = Binding.LanguageClient.make(id, name, serverOptions, clientOptions)
+    languageClient->Binding.LanguageClient.installDidCloseErrorSuppression
 
     let self = {
       client: languageClient,
