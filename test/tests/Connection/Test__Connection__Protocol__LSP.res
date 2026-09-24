@@ -218,3 +218,81 @@ describe("ALS didClose lifecycle race (reproduction)", () => {
     },
   )
 })
+
+// These tests exercise Binding.LanguageClient.installDidCloseErrorSuppression
+// and markShuttingDown directly, in isolation from the full acquire/release
+// lifecycle above: just the suppression mechanism itself, covering the cases
+// the race reproduction above doesn't reach.
+
+// A bare fake client whose sendNotification always rejects with the given
+// error, for testing the suppression wrapper on its own.
+let makeRejectingFakeClient: Js.Exn.t => Binding.LanguageClient.t = %raw(`function (error) {
+  return {
+    sendNotification: function (_type, _params) { return Promise.reject(error) },
+  }
+}`)
+
+let makeError: string => Js.Exn.t = %raw(`function (message) { return new Error(message) }`)
+
+// Calls the client's own (possibly patched) sendNotification method
+// directly with an arbitrary JS value for `type`, the same way
+// vscode-languageclient's internal dispatch does when it passes a
+// notification-type descriptor object rather than a bare string.
+let callSendNotificationWithRawType: (Binding.LanguageClient.t, Js.Json.t) => promise<unit> = %raw(`function (client, type) {
+  return client.sendNotification(type, null)
+}`)
+
+describe("installDidCloseErrorSuppression", () => {
+  Async.it(
+    "suppresses a didClose failure sent as vscode-languageclient's own notification-type object, not just a bare string, during a deliberate shutdown",
+    async () => {
+      let fakeClient = makeRejectingFakeClient(makeError("Starting server failed"))
+      fakeClient->Binding.LanguageClient.installDidCloseErrorSuppression
+      fakeClient->Binding.LanguageClient.markShuttingDown
+
+      let didCloseType: Js.Json.t = %raw(`{method: "textDocument/didClose"}`)
+      let outcome = switch await callSendNotificationWithRawType(fakeClient, didCloseType) {
+      | () => Ok()
+      | exception Js.Exn.Error(e) => Error(e->Js.Exn.message->Option.getOr("unknown error"))
+      }
+      Assert.deepStrictEqual(outcome, Ok())
+    },
+  )
+
+  Async.it(
+    "still reports a didClose failure that happens before any shutdown was marked",
+    async () => {
+      let fakeClient = makeRejectingFakeClient(makeError("Starting server failed"))
+      fakeClient->Binding.LanguageClient.installDidCloseErrorSuppression
+      // No markShuttingDown call: this failure wasn't caused by a
+      // deliberate teardown, so it must not be suppressed.
+
+      let outcome = switch await fakeClient->Binding.LanguageClient.sendNotification(
+        "textDocument/didClose",
+        Js.Json.null,
+      ) {
+      | () => Ok()
+      | exception Js.Exn.Error(e) => Error(e->Js.Exn.message->Option.getOr("unknown error"))
+      }
+      Assert.deepStrictEqual(outcome, Error("Starting server failed"))
+    },
+  )
+
+  Async.it(
+    "still reports a failure from a different notification type during a deliberate shutdown",
+    async () => {
+      let fakeClient = makeRejectingFakeClient(makeError("some other failure"))
+      fakeClient->Binding.LanguageClient.installDidCloseErrorSuppression
+      fakeClient->Binding.LanguageClient.markShuttingDown
+
+      let outcome = switch await fakeClient->Binding.LanguageClient.sendNotification(
+        "agda",
+        Js.Json.null,
+      ) {
+      | () => Ok()
+      | exception Js.Exn.Error(e) => Error(e->Js.Exn.message->Option.getOr("unknown error"))
+      }
+      Assert.deepStrictEqual(outcome, Error("some other failure"))
+    },
+  )
+})
