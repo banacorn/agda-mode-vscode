@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.10.3 - 2026-09-25
+
+### Added
+- #292: Add `JS`, `HTML`, and `Dot` as selectable `agdaMode.backend` options, alongside the existing `GHC`, `GHCNoMain`, `LaTeX`, and `QuickLaTeX`
+
+### Fixed
+- Suppress a misleading "Starting server failed" error when the automatic `didClose` notification races ALS shutdown
+- Stop Agda requests from hanging when the backend writes to stderr mid-compile
+- Stop Windows command discovery from falsely reporting Agda as missing on a loaded machine, and from leaking orphaned processes
+- Cap the ALS artifact-download fetch at 2 minutes instead of hanging indefinitely
+
+### Changed
+- Modernize the CI toolchain: Node 24 across all workflows, direct `ovsx`/`vsce` publishing, and patched dependency advisories
+- Harden the Test workflow: scoped permissions, working caches, job timeouts, and a clean `actionlint` pass, with `ci-success` now requiring every dependency to succeed
+- Make releases safer: gate on a single required CI check, idempotent tagging, `workflow_dispatch` dry-run retries, and stop a partial release from publishing as green
+- Merge the auto-tag and release workflows to fix a `GITHUB_TOKEN` recursion bug
+- Fix flaky tests: the onOpenEditor/Refresh timeout, a HighlightingInfo/edit race, and the onOpenEditor routing tests racing a fixed sleep
+
 ## v0.10.2 - 2026-09-02
 
 ### Fixed
