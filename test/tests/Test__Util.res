@@ -291,6 +291,65 @@ module ExtHostLog = {
   }
 }
 
+// Test-only observation of the goal-number overlays painted by Goals. VS Code
+// has no API for reading decorations back, so temporarily wrap the shared
+// VS Code decoration factory that Goals calls. The wrapper tracks decoration
+// handles independently: identical overlays remain separate entries, and an
+// orphaned handle remains observable until production code disposes it. Goal
+// positions remain available separately through `Goals.serializeGoals`.
+module GoalNumberDecorations = {
+  type t
+
+  let install: unit => t = %raw(`function() {
+    const vscode = require("vscode");
+    const originalCreateDecoration = vscode.window.createTextEditorDecorationType;
+    const live = new Map();
+
+    vscode.window.createTextEditorDecorationType = function(options) {
+      const handle = originalCreateDecoration.call(vscode.window, options);
+      const text = options && options.after && options.after.contentText;
+      if (typeof text === "string") {
+        const wrapper = {
+          key: handle.key,
+          dispose: function() {
+            live.delete(wrapper);
+            return handle.dispose();
+          },
+        };
+        live.set(wrapper, text);
+        return wrapper;
+      }
+      return handle;
+    };
+
+    return {
+      snapshot: function() {
+        return Array.from(live.values()).sort();
+      },
+      restore: function() {
+        vscode.window.createTextEditorDecorationType = originalCreateDecoration;
+      },
+    };
+  }`)
+
+  @send external snapshot: t => array<string> = "snapshot"
+  @send external restore: t => unit = "restore"
+
+  let withInstalled = async f => {
+    let observer = install()
+    let result = try {
+      Ok(await f(observer))
+    } catch {
+    | exn => Error(exn)
+    }
+    observer->restore
+    switch result {
+    | Ok(value) => value
+    | Error(exn) => raise(exn)
+    }
+  }
+}
+
 module Strings = {
   // trim and replace all occurrences of line breaks with "\n"
   let normalize = string => {
