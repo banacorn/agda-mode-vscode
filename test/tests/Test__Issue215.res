@@ -18,7 +18,8 @@ describe("issue #215: Auto must not remove the following hole", () => {
     await ctx->AgdaMode.execute(Auto(AsIs), ~cursor=VSCode.Position.make(16, 28))
 
     Assert.deepStrictEqual(
-      Editor.Text.getAll(ctx.state.document),
+      // Windows checkouts and VS Code use CRLF
+      Editor.Text.getAll(ctx.state.document)->String.replaceAll("\r\n", "\n"),
       [
         "# Issue 215 reproduction",
         "",
