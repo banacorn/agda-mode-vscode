@@ -12,7 +12,7 @@ describe("Goals", () => {
   describe("Handle `onDidChangeTextDocument`", () => {
     Async.it(
       "should instantiate all 5 goals with question marks expanded to holes",
-      async () => {
+      async () => await GoalNumberDecorations.withInstalled(async observer => {
         let ctx = await AgdaMode.makeAndLoad(filename)
 
         // check the positions of the goals
@@ -20,13 +20,18 @@ describe("Goals", () => {
           Goals.serializeGoals(ctx.state.goals),
           ["#0 [8:12-19)", "#1 [9:19-26)", "#2 [10:20-27)", "#3 [11:19-26)", "#4 [11:27-31)"],
         )
+        Assert.deepStrictEqual(
+          observer->GoalNumberDecorations.snapshot,
+          ["0", "1", "2", "3", "4"],
+        )
 
         // compare file content before and after
         await ctx->AgdaMode.quit
+        Assert.deepStrictEqual(observer->GoalNumberDecorations.snapshot, [])
         let actual = await File.read(Path.asset(filename))
         let expected = await File.read(Path.asset("Goals.agda.out"))
         Assert.deepStrictEqual(actual, expected)
-      },
+      }),
     )
 
     Async.it(
