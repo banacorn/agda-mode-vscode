@@ -560,9 +560,17 @@ let loadAndSettle = async (~panelOpens=true, channels: State.channels) => {
 
 // Builds `layout`, focuses `active`, checks that the setup is what we meant
 // (so a wrong assumption fails here and not in the assertion), loads, and
-// compares the settled layout with `expected`.
-let check = async (~layout, ~active, ~position, ~expected) =>
-  await withScenario(~position, async channels => {
+// compares the settled layout with `expected`, with or without the sizes.
+let check = async (
+  ~layout,
+  ~active,
+  ~position,
+  ~splitSizing="split",
+  ~settings=[],
+  ~shapeOnly=false,
+  ~expected,
+) =>
+  await withScenario(~position, ~splitSizing, ~settings, async channels => {
     await build(layout)
     await focus(layout, active)
     let before = await capture()
@@ -570,5 +578,8 @@ let check = async (~layout, ~active, ~position, ~expected) =>
     Assert.deepStrictEqual(before.activeGroup, active)
 
     let after = await loadAndSettle(channels)
-    Assert.deepStrictEqual(Layout.show(after.layout), expected)
+    Assert.deepStrictEqual(
+      shapeOnly ? Layout.showShape(after.layout) : Layout.show(after.layout),
+      expected,
+    )
   })

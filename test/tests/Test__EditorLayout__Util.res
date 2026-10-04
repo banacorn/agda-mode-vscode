@@ -29,3 +29,16 @@ let rec show = (tree: EditorLayout.t<string>): string =>
   }
 and showSized = ({size, tree}: EditorLayout.sized<string>): string =>
   show(tree) ++ "(" ++ Float.toString(Math.round(size *. 100.0)) ++ ")"
+
+// The same without the sizes, e.g. `[A | [B / Agda]]`, for when the sizes
+// belong to VS Code.
+let rec showShape = (tree: EditorLayout.t<string>): string =>
+  switch tree {
+  | Group(name) => name
+  | Split(orientation, children) =>
+    let separator = switch orientation {
+    | LeftRight => " | "
+    | TopBottom => " / "
+    }
+    "[" ++ children->Array.map(child => showShape(child.tree))->Array.join(separator) ++ "]"
+  }
