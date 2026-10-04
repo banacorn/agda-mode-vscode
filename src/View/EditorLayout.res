@@ -57,3 +57,54 @@ let resizePair = (layout: t<'group>, ~active: 'group, ~panel: 'group): t<'group>
 
   go(layout)
 }
+
+// The payloads of `vscode.getEditorLayout` and `vscode.setEditorLayout`
+type rec rawGroup = {groups?: array<rawGroup>, size?: float}
+type rawLayout = {orientation: int, groups: array<rawGroup>}
+
+let orientationOfInt = n => n == 0 ? LeftRight : TopBottom
+let intOfOrientation = orientation =>
+  switch orientation {
+  | LeftRight => 0
+  | TopBottom => 1
+  }
+let flip = orientation =>
+  switch orientation {
+  | LeftRight => TopBottom
+  | TopBottom => LeftRight
+  }
+
+// Groups are numbered 1, 2, 3 ... in depth-first order, which is also the
+// order of their view columns.
+let fromVSCode = (raw: rawLayout): t<int> => {
+  let counter = ref(0)
+  let rec go = (orientation, groups: array<rawGroup>): t<int> =>
+    Split(
+      orientation,
+      groups->Array.map(group => {
+        let tree = switch group.groups {
+        | Some(children) if Array.length(children) > 0 => go(flip(orientation), children)
+        | _ =>
+          counter := counter.contents + 1
+          Group(counter.contents)
+        }
+        {size: group.size->Option.getOr(1.0), tree}
+      }),
+    )
+  go(orientationOfInt(raw.orientation), raw.groups)
+}
+
+let toVSCode = (layout: t<'group>): rawLayout => {
+  let rec toRawGroup = (sized: sized<'group>): rawGroup =>
+    switch sized.tree {
+    | Group(_) => {size: sized.size}
+    | Split(_, children) => {groups: children->Array.map(toRawGroup), size: sized.size}
+    }
+  switch layout {
+  | Group(_) => {orientation: 0, groups: [{size: 1.0}]}
+  | Split(orientation, children) => {
+      orientation: intOfOrientation(orientation),
+      groups: children->Array.map(toRawGroup),
+    }
+  }
+}
