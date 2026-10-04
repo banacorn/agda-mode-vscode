@@ -14,4 +14,46 @@ and sized<'group> = {
 // Gives `active` 70% and `panel`, the group right after it, 30% of the share
 // they have together. Nothing else changes, and sizes become proportions per
 // sibling list, rounded to two decimals.
-let resizePair = (layout: t<'group>, ~active as _: 'group, ~panel as _: 'group): t<'group> => layout
+let resizePair = (layout: t<'group>, ~active: 'group, ~panel: 'group): t<'group> => {
+  let isGroup = (child: sized<'group>, group) =>
+    switch child.tree {
+    | Group(candidate) => candidate == group
+    | Split(_, _) => false
+    }
+
+  let rec go = (tree: t<'group>): t<'group> =>
+    switch tree {
+    | Group(_) => tree
+    | Split(orientation, children) =>
+      let children = children->Array.map(child => {...child, tree: go(child.tree)})
+
+      // the panel sits right after the active group: they share their combined share 70:30
+      let children = children->Array.mapWithIndex((child, index) =>
+        switch (children[index + 1], children[index - 1]) {
+        | (Some(next), _) if isGroup(child, active) && isGroup(next, panel) => {
+            ...child,
+            size: (child.size +. next.size) *. 0.7,
+          }
+        | (_, Some(previous)) if isGroup(previous, active) && isGroup(child, panel) => {
+            ...child,
+            size: (previous.size +. child.size) *. 0.3,
+          }
+        | _ => child
+        }
+      )
+
+      // sizes become proportions of the sibling list, rounded to two decimals
+      let total = children->Array.reduce(0., (sum, child) => sum +. child.size)
+      Split(
+        orientation,
+        total == 0.
+          ? children
+          : children->Array.map(child => {
+              ...child,
+              size: Math.round(child.size /. total *. 100.) /. 100.,
+            }),
+      )
+    }
+
+  go(layout)
+}
