@@ -299,15 +299,29 @@ let updateGlobalSetting: (string, string, Obj.t) => promise<Obj.t> = %raw(`
     return previous;
   }`)
 
-let showInColumn: (string, int) => promise<unit> = %raw(`
-  async function(path, column) {
-    const vscode = require("vscode");
-    await vscode.window.showTextDocument(vscode.Uri.file(path), {
-      viewColumn: column,
-      preview: false,
-      preserveFocus: false,
-    });
-  }`)
+let viewColumn = column =>
+  switch column {
+  | 1 => VSCode.ViewColumn.One
+  | 2 => VSCode.ViewColumn.Two
+  | 3 => VSCode.ViewColumn.Three
+  | 4 => VSCode.ViewColumn.Four
+  | 5 => VSCode.ViewColumn.Five
+  | 6 => VSCode.ViewColumn.Six
+  | 7 => VSCode.ViewColumn.Seven
+  | 8 => VSCode.ViewColumn.Eight
+  | 9 => VSCode.ViewColumn.Nine
+  | _ => raise(Invalid_argument(`there is no view column ${Int.toString(column)}`))
+  }
+
+let showInColumn = async (path, column) => {
+  let options = VSCode.TextDocumentShowOptions.make(
+    ~viewColumn=viewColumn(column),
+    ~preview=false,
+    ~preserveFocus=false,
+    (),
+  )
+  let _ = await VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(path), Some(options))
+}
 
 let describeExn: exn => string = %raw(`function(e) {
   return (e && e._1 && e._1.message) || (e && e.message) || String(e);
@@ -508,10 +522,58 @@ let build = async (layout: EditorLayout.t<string>) => {
   }
 }
 
-// gives focus to the group holding `name`
+let editorFile = editor =>
+  editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+
+let isEditorFor = (editor, path) => editorFile(editor) == path
+
+// Gives focus to the group holding `name` and waits for VS Code's active
+// editor to agree. After a previous scenario, VS Code can have an active tab
+// group in one column while `activeTextEditor` still belongs to another. A
+// show in the already-active group then changes no editor, so it emits no
+// active-editor event. First activate the stale editor's own group to make the
+// two notions of active agree; the real switch can then be observed normally.
 let focus = async (layout: EditorLayout.t<string>, name) => {
   let column = leaves(layout)->Array.findIndex(candidate => candidate == name) + 1
-  await showInColumn(fileOf(name), column)
+  let path = fileOf(name)
+  switch VSCode.Window.activeTextEditor {
+  | Some(editor) if isEditorFor(editor, path) => ()
+  | active =>
+    switch active {
+    | Some(editor) =>
+      switch editor->VSCode.TextEditor.viewColumn {
+      | Some(column) =>
+        let _ = await VSCode.Window.showTextDocument(
+          editor->VSCode.TextEditor.document,
+          ~column,
+          ~preserveFocus=false,
+          (),
+        )
+      | None => ()
+      }
+    | None => ()
+    }
+
+    let (activated, resolve, _) = Util.Promise_.pending()
+    let subscription = VSCode.Window.onDidChangeActiveTextEditor(editor =>
+      switch editor {
+      | Some(editor) if isEditorFor(editor, path) => resolve()
+      | _ => ()
+      }
+    )
+    let failure = try {
+      await showInColumn(path, column)
+      await withHangGuard(~what=`${path} to become the active text editor`, activated)
+      None
+    } catch {
+    | exn => Some(exn)
+    }
+    let _ = subscription->VSCode.Disposable.dispose
+    switch failure {
+    | Some(exn) => raise(exn)
+    | None => ()
+    }
+  }
 }
 
 // runs the real `agda-mode.load` on the active editor
