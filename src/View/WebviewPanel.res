@@ -3,6 +3,8 @@ module WebviewPanel: {
   type t
   // constructor / destructor
   let make: (string, VSCode.Uri.t) => t
+  // opens in the active editor group
+  let makeInActiveGroup: (string, VSCode.Uri.t) => t
   let destroy: t => unit
   // messaging
   let send: (t, string) => promise<bool>
@@ -11,11 +13,6 @@ module WebviewPanel: {
   let onDestroyed: (t, unit => unit) => VSCode.Disposable.t
   // methods
   let reveal: t => unit
-
-  // move the panel around
-  let getEditorLayout: unit => promise<Obj.t>
-  let moveToBottom: unit => unit
-  let moveToRight: unit => unit
 } = {
   module Path = {
     // Resource file names
@@ -104,7 +101,7 @@ module WebviewPanel: {
   }
 
   // Creates a new webview panel with environment-aware resource loading
-  let make = (title, extensionUri) => {
+  let create = (~viewColumn, title, extensionUri) => {
     // Configure allowed local resource roots for security
     let distPath = VSCode.Uri.joinPath(extensionUri, [Path.distDir])->VSCode.Uri.fsPath
     let distUri = VSCode.Uri.file(distPath)
@@ -118,11 +115,10 @@ module WebviewPanel: {
       (),
     )
 
-    // Create the webview panel in column 3 (rightmost)
     let panel = VSCode.Window.createWebviewPanel(
       "panel",
       title,
-      {"preserveFocus": true, "viewColumn": 3},
+      {"preserveFocus": true, "viewColumn": viewColumn},
       Some(webviewOptions),
     )
 
@@ -132,6 +128,10 @@ module WebviewPanel: {
 
     panel
   }
+
+  // VS Code's own `ViewColumn.Beside` (-2) and `ViewColumn.Active` (-1)
+  let make = (title, extensionUri) => create(~viewColumn=-2, title, extensionUri)
+  let makeInActiveGroup = (title, extensionUri) => create(~viewColumn=-1, title, extensionUri)
 
   let destroy = VSCode.WebviewPanel.dispose
 
@@ -144,38 +144,6 @@ module WebviewPanel: {
   let onDestroyed = (panel, callback) => panel->VSCode.WebviewPanel.onDidDispose(callback)
 
   let reveal = panel => panel->VSCode.WebviewPanel.reveal(~preserveFocus=true)
-
-  let moveToBottom = () => {
-    open VSCode.Commands
-    executeCommand(
-      #setEditorLayout(
-        %raw(`{
-          orientation: 1,
-          groups: [{ size: 0.7 }, { size: 0.3 }]
-        }`),
-        // {
-        // orientation: 1,
-        // groups: {
-        //   open Layout
-        //   [sized({groups: [simple], size: 0.7}), sized({groups: [simple], size: 0.3})]
-        // },
-      ),
-    )->ignore
-  }
-
-  let moveToRight = () => {
-    open VSCode.Commands
-    executeCommand(
-      #setEditorLayout(
-        %raw(`{
-          orientation: 0,
-          groups: [ {size: 0.5}, {size: 0.5} ]
-        }`),
-      ),
-    )->ignore
-  }
-
-  let getEditorLayout = async () => await VSCode.Commands.executeCommand0("vscode.getEditorLayout")
 }
 
 // a thin layer on top of WebviewPanel
@@ -183,6 +151,7 @@ module type Module = {
   type t
 
   let make: (string, VSCode.Uri.t) => t
+  let makeInActiveGroup: (string, VSCode.Uri.t) => t
   let destroy: t => unit
 
   let sendEvent: (t, View.EventToView.t) => promise<unit>
@@ -260,19 +229,13 @@ module Module: Module = {
     // Handle events from the webview
     view.onEvent->Chan.on(callback)->VSCode.Disposable.make
 
-  let make = (title, extensionUri) => {
+  let makeWith = (makePanel, title, extensionUri) => {
     let view = {
-      panel: WebviewPanel.make(title, extensionUri),
+      panel: makePanel(title, extensionUri),
       subscriptions: [],
       onResponse: Chan.make(),
       onEvent: Chan.make(),
       status: Uninitialized([], []),
-    }
-
-    // Move the created panel to the bottom row
-    switch Config.View.getPanelMountingPosition() {
-    | Bottom => WebviewPanel.moveToBottom()
-    | Right => WebviewPanel.moveToRight()
     }
 
     // on message
@@ -327,6 +290,10 @@ module Module: Module = {
 
     view
   }
+
+  let make = (title, extensionUri) => makeWith(WebviewPanel.make, title, extensionUri)
+  let makeInActiveGroup = (title, extensionUri) =>
+    makeWith(WebviewPanel.makeInActiveGroup, title, extensionUri)
 
   let destroy = view => {
     // if we invoke `view.panel->WebviewPanel.dispose` first,
