@@ -507,8 +507,14 @@ let withScenario = async (~position, ~splitSizing="split", ~settings=[], body) =
   }
 }
 
+// on Windows VS Code reports the drive letter in lower case, while `fileOf`
+// upper-cases it, so both sides go through `Parser.Filepath`
 let editorFile = editor =>
-  editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+  editor
+  ->VSCode.TextEditor.document
+  ->VSCode.TextDocument.fileName
+  ->Parser.Filepath.make
+  ->Parser.Filepath.toString
 
 let isEditorFor = (editor, path) => editorFile(editor) == path
 
