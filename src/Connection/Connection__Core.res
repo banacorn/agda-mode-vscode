@@ -60,6 +60,7 @@ module type Module = {
   // utility
   let checkForPrebuiltDataDirectory: string => promise<option<string>>
   let workingDirectory: (~workspaceFolderPath: option<string>, ~documentPath: string) => string
+  let workingDirectoryForDocument: VSCode.TextDocument.t => string
 
   type probeResult =
     | IsAgda(string) // Agda version
@@ -160,9 +161,18 @@ module Module: Module = {
 
   // Directory a native Agda process starts in: the workspace folder containing
   // the document, or the document's own directory for a loose file.
-  // STUB (red): still returns the extension host's cwd.
-  let workingDirectory = (~workspaceFolderPath as _, ~documentPath as _) =>
-    NodeJs.Process.cwd(NodeJs.Process.process)
+  let workingDirectory = (~workspaceFolderPath, ~documentPath) =>
+    switch workspaceFolderPath {
+    | Some(folder) => folder
+    | None => NodeJs.Path.dirname(documentPath)
+    }
+
+  let workingDirectoryForDocument = document =>
+    workingDirectory(
+      ~workspaceFolderPath=VSCode.Workspace.getWorkspaceFolder(VSCode.TextDocument.uri(document))
+      ->Option.map(folder => folder->VSCode.WorkspaceFolder.uri->VSCode.Uri.fsPath),
+      ~documentPath=VSCode.TextDocument.fileName(document),
+    )
 
   type probeResult =
     | IsAgda(string) // Agda version
