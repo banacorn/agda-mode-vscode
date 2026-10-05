@@ -408,6 +408,7 @@ let activateWithoutContext = (
     | Load
     | Restart
     | InputMethod(Activate) =>
+      await PanelPlacement.ensure(editor, extensionUri)
       switch Registry.get(document) {
       | None =>
         let state = initialize(
