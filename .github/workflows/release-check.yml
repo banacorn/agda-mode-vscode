@@ -1,6 +1,6 @@
 name: Release Check
 
-# Runs the same packaging steps release.yml relies on. Called from test.yml's
+# Runs the same packaging steps test.yml's Publish Release job relies on. Called from test.yml's
 # ci-success gate on every push and PR, so a broken package is caught before
 # merge instead of after the tag has already gone out.
 
@@ -31,7 +31,7 @@ jobs:
         run: npm run dry-run-publish
 
       - name: 📦 Package extension
-        # Pinned to the same @vscode/vsce range release.yml packages and
+        # Pinned to the same @vscode/vsce range Publish Release packages and
         # publishes with, so this check packages the same way production
         # actually will.
         run: npx @vscode/vsce@^2.32.0 package

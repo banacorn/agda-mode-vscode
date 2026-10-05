@@ -59,19 +59,13 @@ Releases are driven entirely by `package.json`'s `version` field; nothing is pub
 
 1. Add a new version section to `CHANGELOG.md`.
 2. Bump `version` in `package.json`. If `package-lock.json` doesn't pick up the change on its own, run `npm install --package-lock-only`.
-3. Open a PR with those changes into `master`. `.github/workflows/release-check.yml` builds and packages the extension as a PR check, so a broken package is caught before merge.
-4. Once merged, `.github/workflows/release.yml` runs on the push to master. It detects that the version changed, tags the merge commit `vX.Y.Z`, pushes the tag, then builds and publishes that one package to both Open VSX and the Visual Studio Marketplace.
+3. Open a PR with those changes into `master`. The `Packaging` job (`.github/workflows/release-check.yml`) builds and packages the extension as a PR check, so a broken package is caught before merge.
+4. Once merged, the `Check Release` and `Publish Release` jobs in `.github/workflows/test.yml` run after CI succeeds on the push to master. `Check Release` treats a version as released only once Open VSX, the Marketplace and the git tag `vX.Y.Z` all have it; if any is missing, `Publish Release` builds one package and publishes it to whichever targets lack it, tagging the merge commit as the third target.
 5. Whether that publish goes out as stable or prerelease follows the Versioning Policy above - the workflow sets `preRelease: true` automatically based on whether the minor version is odd or even.
 
-## Manual escape hatch
+## Retrying a failed publish
 
-Two ways to re-trigger just the build-and-publish half of the workflow without another version bump - useful for retrying a failed or partial publish.
-
-**`workflow_dispatch` (preferred)**: run the "Release" workflow manually from the Actions tab, or `gh workflow run release.yml -f tag=vX.Y.Z -f dry_run=true`, naming an existing `vX.Y.Z` tag. `dry_run` defaults to `true` and packages and validates without publishing to either registry - use it to rehearse a release before trusting it with real registry credentials. Set `dry_run=false` to actually publish. If a registry already has that version, its publish step is skipped and still counts as satisfied, so a retry only republishes to whichever registry actually failed.
-
-**Pushing a tag by hand**: pushing a `vX.Y.Z` tag matching the version already in `package.json` re-triggers the same build-and-publish path directly, skipping the tagging step.
-
-Both paths validate the requested tag matches `package.json`'s current version before touching any secrets, and re-running an existing job from the Actions tab works the same way for either.
+Re-run the failed `Publish Release` job (or the whole run) from the Actions tab. If a registry already has that version, or the tag already exists on that commit, that step is skipped and still counts as satisfied, so a retry only redoes whichever target actually failed. A later push to master also retries automatically while any target is missing.
 
 ## Required secrets
 
@@ -80,7 +74,7 @@ Both paths validate the requested tag matches `package.json`'s current version b
 
 # CI Dependency Audit Policy
 
-CI, build, and release tooling runs on Node LTS, pinned consistently across all workflows (`test.yml`, `release-check.yml`, `release.yml`).
+CI, build, and release tooling runs on Node LTS, pinned consistently across all workflows (`test.yml`, `release-check.yml`).
 
 Run `npm audit` periodically (and after any dependency bump) to check for advisories. Production dependencies (`npm audit --omit=dev`) should stay at zero vulnerabilities; treat any finding there as urgent. Advisories confined to dev/build/test dependencies are lower urgency, since they don't ship in the published extension, but they still execute in CI and can influence build output, so don't ignore them indefinitely.
 
@@ -130,8 +124,8 @@ This project includes several npm scripts for development and building:
 - Runs the production build
 - Lists all production dependencies that will be packaged
 - Helps verify what gets included in the published extension
-- Used by both `release-check.yml` (as a PR check) and `release.yml` (before
-  publishing) - see "Releasing" above
+- Used by both `release-check.yml` (as a PR check) and the `Publish Release` job in
+  `test.yml` (before publishing) - see "Releasing" above
 
 ## Testing Scripts
 
