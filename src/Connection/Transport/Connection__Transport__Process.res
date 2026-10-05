@@ -29,7 +29,7 @@ let errorMessageIndicatesNotFound = msg =>
 module type Module = {
   type t
   // lifetime: same as the child process
-  let make: (~shell: bool=?, string, array<string>) => t
+  let make: (~shell: bool=?, ~cwd: string=?, string, array<string>) => t
   let destroy: t => promise<unit>
   // messaging
   let send: (t, string) => bool
@@ -62,7 +62,7 @@ module Module: Module = {
     mutable status: status,
   }
 
-  let make = (~shell=true, path, args) => {
+  let make = (~shell=true, ~cwd as _=?, path, args) => {
     let chan = Chan.make()
     let stderr = ref("")
     // spawn the child process
