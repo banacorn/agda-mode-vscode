@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.10.4 - 2026-10-05
+
+### Fixed
+- #129: Place the Agda panel with VS Code's own new-group commands, and size the bottom panel with a 70/30 split
+- #243: Fix stale background highlighting that stayed painted after reloading with `C-c C-l`
+
+### Changed
+- #129: Add regression tests for the panel layout
+- #215: Add a regression test for `Agda: Auto` removing the next hole in literate files
+- #248: Add a regression test for duplicate goal numbers on rapid loads
+- Release from the Test workflow, with the git tag as a third release target
+- Make the Agda presence check report found instead of failing, and give workflow jobs readable names
+
 ## v0.10.3 - 2026-09-25
 
 ### Added
