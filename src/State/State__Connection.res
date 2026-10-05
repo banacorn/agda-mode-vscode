@@ -48,6 +48,7 @@ let sendRequest = async (
       state.globalStorageUri,
       Config.Connection.getAgdaPaths(),
       state.channels.log,
+      ~cwd=Connection.workingDirectoryForDocument(state.document),
     )
   }
 
