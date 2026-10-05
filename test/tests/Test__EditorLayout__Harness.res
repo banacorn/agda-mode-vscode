@@ -313,11 +313,11 @@ let viewColumn = column =>
   | _ => raise(Invalid_argument(`there is no view column ${Int.toString(column)}`))
   }
 
-let showInColumn = async (path, column) => {
+let showInColumn = async (~preserveFocus=false, path, column) => {
   let options = VSCode.TextDocumentShowOptions.make(
     ~viewColumn=viewColumn(column),
     ~preview=false,
-    ~preserveFocus=false,
+    ~preserveFocus,
     (),
   )
   let _ = await VSCode.Window.showTextDocumentWithUri(VSCode.Uri.file(path), Some(options))
@@ -507,72 +507,68 @@ let withScenario = async (~position, ~splitSizing="split", ~settings=[], body) =
   }
 }
 
-// creates the groups of `layout` and opens a file in each non-empty one
-let build = async (layout: EditorLayout.t<string>) => {
-  let names = leaves(layout)
-  let _ = await VSCode.Commands.executeCommand1(
-    "vscode.setEditorLayout",
-    toRawLayout(normalize(layout)),
-  )
-  for index in 0 to Array.length(names) - 1 {
-    switch names[index] {
-    | Some("Empty") | None => ()
-    | Some(name) => await showInColumn(fileOf(name), index + 1)
-    }
-  }
-}
-
 let editorFile = editor =>
   editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
 
 let isEditorFor = (editor, path) => editorFile(editor) == path
 
-// Gives focus to the group holding `name` and waits for VS Code's active
-// editor to agree. After a previous scenario, VS Code can have an active tab
-// group in one column while `activeTextEditor` still belongs to another. A
-// show in the already-active group then changes no editor, so it emits no
-// active-editor event. First activate the stale editor's own group to make the
-// two notions of active agree; the real switch can then be observed normally.
-let focus = async (layout: EditorLayout.t<string>, name) => {
-  let column = leaves(layout)->Array.findIndex(candidate => candidate == name) + 1
-  let path = fileOf(name)
-  switch VSCode.Window.activeTextEditor {
-  | Some(editor) if isEditorFor(editor, path) => ()
-  | active =>
-    switch active {
-    | Some(editor) =>
-      switch editor->VSCode.TextEditor.viewColumn {
-      | Some(column) =>
-        let _ = await VSCode.Window.showTextDocument(
-          editor->VSCode.TextEditor.document,
-          ~column,
-          ~preserveFocus=false,
-          (),
-        )
-      | None => ()
-      }
-    | None => ()
-    }
+let isEditorInColumn = (editor, column) =>
+  switch editor->VSCode.TextEditor.viewColumn {
+  | Some(editorColumn) => (Obj.magic(editorColumn): int) == column
+  | None => false
+  }
 
-    let (activated, resolve, _) = Util.Promise_.pending()
-    let subscription = VSCode.Window.onDidChangeActiveTextEditor(editor =>
-      switch editor {
-      | Some(editor) if isEditorFor(editor, path) => resolve()
-      | _ => ()
-      }
-    )
-    let failure = try {
-      await showInColumn(path, column)
-      await withHangGuard(~what=`${path} to become the active text editor`, activated)
-      None
-    } catch {
-    | exn => Some(exn)
+let waitForActiveEditor = async (~what, ~matches, action) => {
+  let (activated, resolve, _) = Util.Promise_.pending()
+  let subscription = VSCode.Window.onDidChangeActiveTextEditor(editor =>
+    switch editor {
+    | Some(editor) if matches(editor) => resolve()
+    | _ => ()
     }
-    let _ = subscription->VSCode.Disposable.dispose
-    switch failure {
-    | Some(exn) => raise(exn)
-    | None => ()
+  )
+  let failure = try {
+    await action()
+    switch VSCode.Window.activeTextEditor {
+    | Some(editor) if matches(editor) => resolve()
+    | _ => ()
     }
+    await withHangGuard(~what, activated)
+    None
+  } catch {
+  | exn => Some(exn)
+  }
+  let _ = subscription->VSCode.Disposable.dispose
+  switch failure {
+  | Some(exn) => raise(exn)
+  | None => ()
+  }
+}
+
+// Creates every group from a fresh editor state. Open the intended active file
+// first, then populate the other groups without changing focus. VS Code can
+// otherwise make a tab group active without updating the extension host's
+// `activeTextEditor` (and without firing `onDidChangeActiveTextEditor`) when a
+// populated group to the left is focused.
+let build = async (~active, layout: EditorLayout.t<string>) => {
+  let names = leaves(layout)
+  let column = names->Array.findIndex(candidate => candidate == active) + 1
+  let path = fileOf(active)
+  let _ = await VSCode.Commands.executeCommand0("workbench.action.closeAllEditors")
+  let _ = await VSCode.Commands.executeCommand1(
+    "vscode.setEditorLayout",
+    toRawLayout(normalize(layout)),
+  )
+  await waitForActiveEditor(
+    ~what=`${path} to become the active text editor while building the layout`,
+    ~matches=editor => isEditorFor(editor, path) && isEditorInColumn(editor, column),
+    async () => await showInColumn(path, column),
+  )
+  let inactive = names
+    ->Array.mapWithIndex((name, index) => (name, index + 1))
+    ->Array.filter(((name, _)) => name != "Empty" && name != active)
+  for index in 0 to Array.length(inactive) - 1 {
+    let (name, column) = inactive->Array.getUnsafe(index)
+    await showInColumn(~preserveFocus=true, fileOf(name), column)
   }
 }
 
@@ -633,8 +629,7 @@ let check = async (
   ~expected,
 ) =>
   await withScenario(~position, ~splitSizing, ~settings, async channels => {
-    await build(layout)
-    await focus(layout, active)
+    await build(~active, layout)
     let before = await capture()
     Assert.deepStrictEqual(Layout.show(before.layout), Layout.show(normalize(layout)))
     Assert.deepStrictEqual(before.activeGroup, active)
