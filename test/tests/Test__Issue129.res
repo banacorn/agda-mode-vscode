@@ -177,8 +177,7 @@ describe("issue #129: Agda: Load must not discard the editor layout", () => {
       "leaves the layout alone when a second Load reuses the panel",
       async () =>
         await Harness.withScenario(~position=Config.View.Right, async channels => {
-          await Harness.build(layout)
-          await Harness.focus(layout, "Issue328")
+          await Harness.build(~active="Issue328", layout)
           let first = await Harness.loadAndSettle(channels)
           let second = await Harness.loadAndSettle(~panelOpens=false, channels)
           Assert.deepStrictEqual(show(second.layout), show(first.layout))
@@ -189,8 +188,7 @@ describe("issue #129: Agda: Load must not discard the editor layout", () => {
       "places the panel again after it was closed",
       async () =>
         await Harness.withScenario(~position=Config.View.Right, async channels => {
-          await Harness.build(layout)
-          await Harness.focus(layout, "Issue328")
+          await Harness.build(~active="Issue328", layout)
           let _ = await Harness.loadAndSettle(channels)
 
           // the user closes the panel; the extension destroys its states
@@ -201,7 +199,7 @@ describe("issue #129: Agda: Load must not discard the editor layout", () => {
 
           // what VS Code made of the layout is the new baseline
           let baseline = await Harness.capture()
-          await Harness.focus(baseline.layout, "Issue328")
+          await Harness.build(~active="Issue328", baseline.layout)
 
           // a new webview tab has to open for this to settle
           let after = await Harness.loadAndSettle(channels)
@@ -216,8 +214,7 @@ describe("issue #129: Agda: Load must not discard the editor layout", () => {
       async () =>
         await Harness.withScenario(~position=Config.View.Right, async channels => {
           let layout = row([leaf(50., "Load"), leaf(50., "Issue328")])
-          await Harness.build(layout)
-          await Harness.focus(layout, "Issue328")
+          await Harness.build(~active="Issue328", layout)
           let after = await Harness.loadAndSettle(channels)
           Assert.deepStrictEqual(
             (
