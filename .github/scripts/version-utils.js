@@ -1,4 +1,4 @@
-// Pure version/tag logic shared by release.yml's tag and deploy jobs, pulled
+// Pure version/tag logic shared by test.yml's Check Release and Publish Release jobs, pulled
 // out here so it has one implementation and can be unit tested directly
 // instead of only through the inline bash/node in the workflow file.
 
