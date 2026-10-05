@@ -17,8 +17,8 @@ on:
   pull_request:
     branches: [ master ]
 
-# A superseded PR run is safe to throw away, but a master run may already be
-# what release.yml is waiting on to tag and deploy - never cancel that one.
+# A superseded PR run is safe to throw away, but a master run may go on to
+# tag and publish a release - never cancel that one.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -341,5 +341,246 @@ jobs:
         run: |
           if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" == "true" ]]; then
             echo "One or more required jobs did not succeed."
+            exit 1
+          fi
+
+  # A bumped package.json version on a green master is the only release
+  # trigger. A version counts as released only once Open VSX, the Marketplace
+  # and the git tag all have it, so a release that failed part-way (say, only
+  # the tag) is picked up again by the next master push instead of being lost.
+  check-release:
+    name: Check Release
+    needs: [ ci-success ]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_deploy: ${{ steps.decide.outputs.should_deploy }}
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: 🔍 Check whether this version is fully released
+        id: decide
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          TAG="v$CURRENT"
+
+          if ! node .github/scripts/version-utils.js is-valid-version "$CURRENT"; then
+            echo "package.json version '$CURRENT' is not a valid X.Y.Z semver" >&2
+            exit 1
+          fi
+
+          OPENVSX_STATUS=$(curl -s -o /dev/null -w '%{http_code}' "https://open-vsx.org/api/banacorn/agda-mode/$CURRENT")
+          MARKETPLACE_HAS=$(curl -s -X POST https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json;api-version=3.0-preview.1" \
+            -d '{"filters":[{"criteria":[{"filterType":7,"value":"banacorn.agda-mode"}]}],"flags":103}' \
+            | VERSION="$CURRENT" node -e "
+                let d = '';
+                process.stdin.on('data', c => d += c);
+                process.stdin.on('end', () => {
+                  let versions = [];
+                  try { versions = JSON.parse(d).results[0].extensions[0].versions; } catch { versions = []; }
+                  console.log(versions.some(v => v.version === process.env.VERSION));
+                });
+              ")
+          TAG_REF=$(git ls-remote origin "refs/tags/$TAG" | cut -f1)
+
+          echo "Open VSX: HTTP $OPENVSX_STATUS, Marketplace: $MARKETPLACE_HAS, tag $TAG: ${TAG_REF:-missing}"
+
+          if [ "$OPENVSX_STATUS" = "200" ] && [ "$MARKETPLACE_HAS" = "true" ] && [ -n "$TAG_REF" ]; then
+            echo "Version $CURRENT is already fully released"
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # A version that was never tagged must be an increase over the latest
+          # tag, so a stale or reverted package.json can't release backwards.
+          if [ -z "$TAG_REF" ]; then
+            LATEST_TAG=$(git tag --list 'v*' | sed 's/^v//' | sort -V | tail -1)
+            if [ -n "$LATEST_TAG" ]; then
+              node .github/scripts/version-utils.js is-increase "$CURRENT" "$LATEST_TAG"
+            fi
+          fi
+          echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+
+  publish-release:
+    name: Publish Release
+    needs: [ check-release ]
+    if: needs.check-release.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    # Never cancel a release in progress - it may have partially published.
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v6
+
+      - name: 🛠️ Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔨 Build stuff
+        run: npm run dry-run-publish
+
+      - name: 🔍 Extract version info
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          MINOR_VERSION=$(echo "$VERSION" | cut -d. -f2)
+          IS_PRERELEASE=$((MINOR_VERSION % 2))
+          {
+            echo "version=$VERSION"
+            echo "minor=$MINOR_VERSION"
+            echo "is_prerelease=$IS_PRERELEASE"
+          } >> "$GITHUB_OUTPUT"
+          echo "Publishing version $VERSION (minor: $MINOR_VERSION, prerelease: $IS_PRERELEASE)"
+
+      - name: 📦 Package extension
+        # Pinned to the same @vscode/vsce range used to publish below, so
+        # this packages the same way the Packaging job verified. Packaged
+        # once, up front, so both registries publish the identical artifact
+        # instead of each step packaging its own.
+        run: npx @vscode/vsce@^2.32.0 package --out extension.vsix
+
+      - name: 🔒 Compute the vsix's SHA-256 digest
+        run: sha256sum extension.vsix > extension.vsix.sha256
+
+      - name: 📤 Upload the vsix and its digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-${{ steps.version.outputs.version }}
+          path: |
+            extension.vsix
+            extension.vsix.sha256
+          retention-days: 90
+
+      - name: 🔎 Check whether Open VSX already has this version
+        # Makes a retry after a partial deployment idempotent: republishing
+        # an existing version to Open VSX fails, so detect it up front and
+        # treat it as already satisfied instead of a broken retry.
+        id: openvsx_check
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' "https://open-vsx.org/api/banacorn/agda-mode/$VERSION")
+          if [ "$STATUS" = "200" ]; then
+            echo "Open VSX already has version $VERSION, publish step will be skipped"
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 🚀 Publish to Open VSX Registry
+        id: openvsx
+        if: steps.openvsx_check.outputs.already_published != 'true'
+        # Publishes the already-packaged vsix directly via the ovsx CLI,
+        # instead of a third-party action, so this runs on our own pinned
+        # Node 24 toolchain rather than that action's bundled Node 20 runtime.
+        env:
+          OVSX_PAT: ${{ secrets.OPEN_VSX }}
+        run: npx ovsx@^0.9.0 publish extension.vsix --pat "$OVSX_PAT"
+        continue-on-error: true
+
+      - name: 🔎 Check whether the Marketplace already has this version
+        # Same idempotency guard as the Open VSX check above, queried
+        # through the Marketplace gallery API instead of a version-scoped URL.
+        id: marketplace_check
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          HAS_VERSION=$(curl -s -X POST https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json;api-version=3.0-preview.1" \
+            -d '{"filters":[{"criteria":[{"filterType":7,"value":"banacorn.agda-mode"}]}],"flags":103}' \
+            | VERSION="$VERSION" node -e "
+                let d = '';
+                process.stdin.on('data', c => d += c);
+                process.stdin.on('end', () => {
+                  let versions = [];
+                  try { versions = JSON.parse(d).results[0].extensions[0].versions; } catch { versions = []; }
+                  console.log(versions.some(v => v.version === process.env.VERSION));
+                });
+              ")
+          if [ "$HAS_VERSION" = "true" ]; then
+            echo "Marketplace already has version $VERSION, publish step will be skipped"
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 🚀 Publish to Visual Studio Marketplace
+        id: marketplace
+        if: steps.marketplace_check.outputs.already_published != 'true'
+        # Same rationale as the Open VSX step above: publish the
+        # already-packaged vsix directly via the vsce CLI, on our own
+        # pinned Node 24 toolchain instead of that action's Node 20 runtime.
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          ARGS=(--packagePath extension.vsix --pat "$VSCE_PAT")
+          if [ "${{ steps.version.outputs.is_prerelease }}" = "1" ]; then
+            ARGS+=(--pre-release)
+          fi
+          npx @vscode/vsce@^2.32.0 publish "${ARGS[@]}"
+        continue-on-error: true
+
+      - name: 🔎 Check whether the git tag already exists
+        # Same idempotency guard as the registries above. A tag already on
+        # this commit counts as satisfied; one on a different commit is a
+        # conflict the tag step below fails on.
+        id: tag_check
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          EXISTING=$(git ls-remote origin "refs/tags/$TAG" | cut -f1)
+          if [ "$EXISTING" = "$(git rev-parse HEAD)" ]; then
+            echo "Tag $TAG already points at this commit, tag step will be skipped"
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          elif [ -n "$EXISTING" ]; then
+            echo "Tag $TAG already exists and points at a different commit ($EXISTING)" >&2
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 🏷️ Tag the released commit
+        id: git_tag
+        if: steps.tag_check.outputs.already_published != 'true'
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          if [ "${{ steps.tag_check.outputs.conflict }}" = "true" ]; then
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+        continue-on-error: true
+
+      - name: ✅ Require every release target to have succeeded
+        # Each publish step continues past the others' failure so every
+        # target always gets an attempt - this is what turns a partial
+        # deployment back into a failed job instead of a silent green one.
+        # A target already holding this version (its step skipped by the
+        # idempotency check above) counts as satisfied, not failed.
+        if: always()
+        run: |
+          OPENVSX_OK="${{ steps.openvsx.outcome == 'success' || steps.openvsx_check.outputs.already_published == 'true' }}"
+          MARKETPLACE_OK="${{ steps.marketplace.outcome == 'success' || steps.marketplace_check.outputs.already_published == 'true' }}"
+          TAG_OK="${{ steps.git_tag.outcome == 'success' || steps.tag_check.outputs.already_published == 'true' }}"
+          if [ "$OPENVSX_OK" != "true" ] || [ "$MARKETPLACE_OK" != "true" ] || [ "$TAG_OK" != "true" ]; then
+            echo "Open VSX: ${{ steps.openvsx.outcome }} (already published: ${{ steps.openvsx_check.outputs.already_published }})" >&2
+            echo "Marketplace: ${{ steps.marketplace.outcome }} (already published: ${{ steps.marketplace_check.outputs.already_published }})" >&2
+            echo "Git tag: ${{ steps.git_tag.outcome }} (already tagged: ${{ steps.tag_check.outputs.already_published }})" >&2
             exit 1
           fi
