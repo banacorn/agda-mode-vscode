@@ -101,17 +101,21 @@ jobs:
               
       - name: 🔍 Check if Agda has been installed
         id: check-agda
-        continue-on-error: true
-        run: which agda
+        run: |
+          if which agda; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: 📦 Setup ${{ env.DIST }}
-        if: ${{ steps.check-agda.outcome == 'failure'}}
+        if: ${{ steps.check-agda.outputs.found == 'false' }}
         run: |
           mkdir -p "$DIST"
           mkdir -p "$DIST/bin"
   
       - name: ⏬ Setup Haskell environment
-        if: ${{ steps.check-agda.outcome == 'failure'}}
+        if: ${{ steps.check-agda.outputs.found == 'false' }}
         id: haskell-setup
         uses: haskell-actions/setup@v2
         with:
@@ -121,7 +125,7 @@ jobs:
           enable-stack: true
 
       - name: 🔍 Reviewing variables
-        if: ${{ steps.check-agda.outcome == 'failure'}}
+        if: ${{ steps.check-agda.outputs.found == 'false' }}
         run: |
           echo "runner.os         = ${{ runner.os                               }}"
           echo "ghc-path          = ${{ steps.haskell-setup.outputs.ghc-path    }}"
@@ -132,13 +136,13 @@ jobs:
           echo "DIST              = $DIST"
 
       - name: ⏬ Install Agda
-        if: ${{ steps.check-agda.outcome == 'failure'}}
+        if: ${{ steps.check-agda.outputs.found == 'false' }}
         run: |
           stack install --stack-yaml=${{ matrix.stack-config }} --allow-different-user ${{ matrix.agda-version }}
           echo "STACK_LOCAL_BIN=$(stack path --stack-yaml=${{ matrix.stack-config }} --local-bin)" >> "$GITHUB_ENV"
 
       - name: 📦 Move artefacts to ${{ env.DIST }}
-        if: ${{ steps.check-agda.outcome == 'failure'}}
+        if: ${{ steps.check-agda.outputs.found == 'false' }}
         run: |
 
           # Copy the binary:
@@ -160,14 +164,14 @@ jobs:
         run: echo "Agda_datadir=$(pwd)/$DIST" >> "$GITHUB_ENV"
 
       - name: 🔍 Check if Agda has been installed again
-        if: ${{ steps.check-agda.outcome == 'failure'}}
+        if: ${{ steps.check-agda.outputs.found == 'false' }}
         run: |
           echo "Agda_datadir    = $Agda_datadir"
           echo "Path of Agda    = $(which agda)"
           echo "Version of Agda = $(agda -V)"
 
       - name: 💾 Cache Agda in ${{ env.DIST  }}
-        if:   always() && (steps.agda-artefacts.outputs.cache-hit != 'true' || steps.check-agda.outcome == 'failure')
+        if:   always() && (steps.agda-artefacts.outputs.cache-hit != 'true' || steps.check-agda.outputs.found == 'false')
         uses: actions/cache/save@v5
         with:
           path: ${{ env.DIST  }}
