@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   dry-run-publish:
+    name: Dry-Run Publish
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

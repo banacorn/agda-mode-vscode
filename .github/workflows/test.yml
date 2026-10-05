@@ -26,6 +26,7 @@ concurrency:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   build-and-test:
+    name: Build and Test
     # Runs on all major platforms
     runs-on: ${{ matrix.os }}
     # Observed cache-hit runs land in 3-11 min; a cold Agda build from source
@@ -62,25 +63,6 @@ jobs:
         run: | 
           echo "DIST=${{ matrix.agda }}-${{ matrix.os }}"  >> "$GITHUB_ENV"
 
-      # cached stuff to be restored:
-      # - name: 💾 Restore cached stack global package db
-      #   id:   stack-global
-      #   uses: actions/cache/restore@v5
-      #   with:
-      #     path: ${{ steps.haskell-setup.outputs.stack-root }}
-      #     key: ${{ runner.os }}-stack-global-${{ matrix.agda }}
-      #     restore-keys: |
-      #         ${{ runner.os }}-stack-global
-
-      # - name: 💾 Restore stack-installed binaries in ~/.local/bin
-      #   id:   stack-binaries
-      #   uses: actions/cache/restore@v5
-      #   with:
-      #     path: ${{ env.STACK_LOCAL_BIN  }}
-      #     key: ${{ runner.os }}-stack-binaries-${{ matrix.agda }}
-      #     restore-keys: |
-      #         ${{ runner.os }}-stack-binaries
-        
       - name: 💾 Restore NPM dependencies
         id: npm-cache
         uses: actions/cache/restore@v5
@@ -117,9 +99,6 @@ jobs:
       - name: 🛠️ Add ${{ env.DIST }}/bin to PATH
         run: echo "$(pwd)/$DIST/bin" >> "$GITHUB_PATH"
               
-      # - name: 🛠️ Add ${{ env.STACK_LOCAL_BIN }} to PATH
-      #   run: echo $STACK_LOCAL_BIN >> $GITHUB_PATH
-
       - name: 🔍 Check if Agda has been installed
         id: check-agda
         continue-on-error: true
@@ -187,21 +166,6 @@ jobs:
           echo "Path of Agda    = $(which agda)"
           echo "Version of Agda = $(agda -V)"
 
-      # things to be cached
-      # - name: 💾 Cache stack global package db
-      #   if:   always() && steps.stack-global.outputs.cache-hit != 'true'
-      #   uses: actions/cache/save@v5
-      #   with:
-      #     path: ${{ steps.haskell-setup.outputs.stack-root }}
-      #     key: ${{ steps.stack-global.outputs.cache-primary-key }}
-
-      # - name: 💾 Cache stack-installed binaries
-      #   if:   always() && steps.stack-binaries.outputs.cache-hit != 'true'
-      #   uses: actions/cache/save@v5
-      #   with:
-      #     path: ${{ env.STACK_LOCAL_BIN }}
-      #     key: ${{ steps.stack-binaries.outputs.cache-primary-key }}
-     
       - name: 💾 Cache Agda in ${{ env.DIST  }}
         if:   always() && (steps.agda-artefacts.outputs.cache-hit != 'true' || steps.check-agda.outcome == 'failure')
         uses: actions/cache/save@v5
@@ -278,11 +242,13 @@ jobs:
   # Runs packaging as part of the same required gate every PR and push runs,
   # instead of gating it on which files changed.
   packaging:
+    name: Packaging
     uses: ./.github/workflows/release-check.yml
 
   # Standalone from build-and-test: doesn't need Agda or VS Code at all, just
   # a headless browser, so it isn't part of the OS/Agda matrix above.
   webview-test:
+    name: Webview Test
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -344,6 +310,7 @@ jobs:
   # Catches the workflow YAML/ShellCheck mistakes actionlint finds locally,
   # so they can't reach master unnoticed.
   workflow-lint:
+    name: Lint Workflows
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -360,6 +327,7 @@ jobs:
   # matrix's exact, version-coupled job names. Fails unless every desktop
   # matrix leg, the webview test, packaging, and the workflow lint all succeeded.
   ci-success:
+    name: CI Success
     if: always()
     needs: [ build-and-test, webview-test, packaging, workflow-lint ]
     runs-on: ubuntu-latest
