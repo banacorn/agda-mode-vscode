@@ -96,7 +96,9 @@ let parseError: string => Dict.t<array<string>> = raw => {
 let parseGoalType: string => Dict.t<array<string>> = raw => {
   let markGoal = ((line, _)) => line->String.match(%re("/^Goal:/"))->Option.map(_ => "goal")
   let markHave = ((line, _)) => line->String.match(%re("/^Have:/"))->Option.map(_ => "have")
-  let markMetas = ((line, _)) => line->String.match(%re("/\u2014{60}/g"))->Option.map(_ => "metas")
+  // Agda 2.9 labels the delimiter before a non-empty context: "\u2014\u2014\u2014\u2014 Context \u2014\u2014\u2014\u2014\u2026"
+  let markMetas = ((line, _)) =>
+    line->String.match(%re("/\u2014{60}|^\u2014{4} Context \u2014+$/"))->Option.map(_ => "metas")
   let partiteGoalTypeContext = xs =>
     xs->Emacs__Parser.Dictionary.partite(line =>
       switch markGoal(line) {
