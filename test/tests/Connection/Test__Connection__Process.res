@@ -199,6 +199,83 @@ describe("Process Interface", () => {
     })
   })
 
+  Async.it(
+    "Agda endpoint should settle a request when stdout contains a bare `Warning:` (issue #228)",
+    async () => {
+      let restoreSpawn: unit => unit = %raw(`(() => {
+        const cp = require("node:child_process");
+        const originalSpawn = cp.spawn;
+
+        cp.spawn = function () {
+          const handlers = {};
+          let stdoutData;
+
+          return {
+            stdout: {
+              on: function (event, cb) {
+                if (event === "data") stdoutData = cb;
+                return this;
+              },
+            },
+            stderr: {
+              on: function () {
+                return this;
+              },
+            },
+            stdin: {
+              write: function () {
+                stdoutData(Buffer.from("Warning: \n"));
+                return true;
+              },
+            },
+            pid: 464646,
+            on: function (event, cb) {
+              handlers[event] = cb;
+              return this;
+            },
+            kill: function () {
+              if (handlers["close"]) handlers["close"](1);
+              return true;
+            },
+          };
+        };
+
+        return () => {
+          cp.spawn = originalSpawn;
+        };
+      })()`)
+
+      let error = ref(None)
+      let outcome = ref(TimedOut)
+      let _ = switch await (async () => {
+        let endpoint = await Connection__Endpoint__Agda.make(
+          ~cwd=NodeJs.Process.cwd(NodeJs.Process.process),
+          "fake-agda",
+          "2.6.3",
+        )
+        let completion = endpoint
+          ->Connection__Endpoint__Agda.sendRequest("request", _response => Promise.resolve())
+          ->Promise.thenResolve(result => Settled(result))
+        let timeout = Util.Promise_.setTimeout(250)->Promise.thenResolve(_ => TimedOut)
+        outcome := (await Promise.race([completion, timeout]))
+        await endpoint->Connection__Endpoint__Agda.destroy
+      })() {
+      | _ => ()
+      | exception exn =>
+        error := Some(exn)
+        ()
+      }
+
+      restoreSpawn()
+      error.contents->Option.forEach(exn => raise(exn))
+
+      Assert.deepStrictEqual(
+        outcome.contents,
+        Settled(Error(ResponseParseError(Response(0, A("Warning:"))))),
+      )
+    },
+  )
+
   describe("Use `echo` as the testing subject", () => {
     // TODO: fix this test case on Windows
     Async.it_skip(
