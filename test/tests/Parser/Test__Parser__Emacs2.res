@@ -38,9 +38,50 @@ x : ℕ`
     ])
     Assert.deepStrictEqual(actual, expected)
   })
+
+  // #371: Agda 2.9 (master) labels the delimiter before a non-empty context
+  // with "Context" (agda/agda@bd82cf22). Without a context, the delimiter
+  // is still the plain 60-dash line.
+  it("should parse goal + labeled context delimiter + context", () => {
+    let raw = `Goal: Type
+———— Context ———————————————————————————————————————————————
+A : Type`
+    let actual = Emacs__Parser2.parseGoalType(raw)
+    let expected = Dict.fromArray([("goal", ["Goal: Type"]), ("interactionMetas", ["A : Type"])])
+    Assert.deepStrictEqual(actual, expected)
+  })
+
+  it("should parse goal + have + labeled context delimiter + context", () => {
+    let raw = `Goal: ℕ
+Have: ℕ
+———— Context ———————————————————————————————————————————————
+y : ℕ
+x : ℕ`
+    let actual = Emacs__Parser2.parseGoalType(raw)
+    let expected = Dict.fromArray([
+      ("goal", ["Goal: ℕ"]),
+      ("have", ["Have: ℕ"]),
+      ("interactionMetas", ["y : ℕ", "x : ℕ"]),
+    ])
+    Assert.deepStrictEqual(actual, expected)
+  })
 })
 
 describe("when running Emacs__Parser2.parseGoalType and Emacs__Parser2.render together", () => {
+  // #371: the labeled and the plain delimiter must render identically.
+  it("should render a labeled context delimiter like the plain one", () => {
+    let labeled = `Goal: Type
+———— Context ———————————————————————————————————————————————
+A : Type`
+    let plain = `Goal: Type
+————————————————————————————————————————————————————————————
+A : Type`
+    let actual = labeled->Emacs__Parser2.parseGoalType->Emacs__Parser2.render
+    let expected = plain->Emacs__Parser2.parseGoalType->Emacs__Parser2.render
+    Assert.deepStrictEqual(actual, expected)
+    Assert.deepStrictEqual(Array.length(actual), 2)
+  })
+
   // #337: Agda line-wraps a goal type that's too long for its own
   // fixed-width display. `parseGoalType` keeps each wrapped physical line
   // as a separate array entry; `render` then rejoins them with
