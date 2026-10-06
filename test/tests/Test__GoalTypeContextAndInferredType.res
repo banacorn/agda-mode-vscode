@@ -23,14 +23,11 @@ let run = normalization => {
     )
 
     let filteredResponses = responses->Array.filter(filteredResponse)
+    let delimiter = await AgdaMode.contextDelimiter()
     Assert.deepStrictEqual(
       filteredResponses,
       [
-        DisplayInfo(
-          GoalType(
-            "Goal: ℕ\nHave: ℕ\n————————————————————————————————————————————————————————————\nb : Bool\ny : ℕ\nx : ℕ",
-          ),
-        ),
+        DisplayInfo(GoalType("Goal: ℕ\nHave: ℕ\n" ++ delimiter ++ "\nb : Bool\ny : ℕ\nx : ℕ")),
       ],
     )
   })
