@@ -20,11 +20,13 @@ describe("agda-mode.give", () => {
     )
 
     let filteredResponses = responses->Array.filter(filteredResponse)
+    // Agda 2.9 no longer ends the goal list with a line break
+    let goals = (await AgdaMode.versionGTE("agda", "2.9.0")) ? "?1 : ℕ" : "?1 : ℕ\n"
     Assert.deepStrictEqual(
       filteredResponses,
       [
         GiveAction(0, GiveNoParen),
-        DisplayInfo(AllGoalsWarnings("*All Goals*", "?1 : ℕ\n")),
+        DisplayInfo(AllGoalsWarnings("*All Goals*", goals)),
         InteractionPoints([1]),
       ],
     )
