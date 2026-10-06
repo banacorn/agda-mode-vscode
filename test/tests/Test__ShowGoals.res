@@ -20,7 +20,10 @@ let run = normalization => {
     
     switch ctx.state.agdaVersion {
     | Some(version) =>
-      let expectedAllGoalsWarningsBody = if Util.Version.gte(version, "2.8.0") {
+      let expectedAllGoalsWarningsBody = if Util.Version.gte(version, "2.9.0") {
+        // Agda 2.9.0+ puts the type of a constraint on its own line, has one space before `[ at`, and has no blank line before the error
+        `?0 : ℕ\n?1 : ℕ\n?2 : ℕ\n?3 : _11\nSort _10 [ at ${filepath}:11.19-31 ]\n_11\n  : _10 [ at ${filepath}:11.19-31 ]\n_14\n  : ℕ [ at ${filepath}:11.19-31 ]\n———— Error —————————————————————————————————————————————————\nerror: [UnsolvedConstraints]\nUnsolved constraints`
+      } else if Util.Version.gte(version, "2.8.0") {
         // Agda 2.8.0+ uses dot format for positions and includes error codes
         `?0 : ℕ\n?1 : ℕ\n?2 : ℕ\n?3 : _11\nSort _10  [ at ${filepath}:11.19-31 ]\n_11 : _10  [ at ${filepath}:11.19-31 ]\n_14 : ℕ  [ at ${filepath}:11.19-31 ]\n\n———— Error —————————————————————————————————————————————————\nerror: [UnsolvedConstraints]\nUnsolved constraints`
       } else if Util.Version.gte(version, "2.7.0") {
