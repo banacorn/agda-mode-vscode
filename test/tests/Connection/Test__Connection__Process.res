@@ -276,6 +276,108 @@ describe("Process Interface", () => {
     },
   )
 
+  // TEMPORARY FAKE. Agda 2.9 (master) labels the delimiter before a non-empty
+  // context with "Context" (agda/agda@bd82cf22), but CI has no Agda 2.9 yet, so
+  // this test fakes the process. Once CI runs against Agda 2.9, replace it with
+  // a real-Agda test (e.g. Test__GoalTypeAndContext) and delete this fake.
+  Async.it(
+    "Agda endpoint should deliver a goal type with a labeled `Context` delimiter that renders like the plain one (issue #371)",
+    async () => {
+      let installFakeAgda: string => unit => unit = %raw(`(stdout) => {
+        const cp = require("node:child_process");
+        const originalSpawn = cp.spawn;
+
+        cp.spawn = function () {
+          const handlers = {};
+          let stdoutData;
+
+          return {
+            stdout: {
+              on: function (event, cb) {
+                if (event === "data") stdoutData = cb;
+                return this;
+              },
+            },
+            stderr: {
+              on: function () {
+                return this;
+              },
+            },
+            stdin: {
+              write: function () {
+                stdoutData(Buffer.from(stdout));
+                return true;
+              },
+            },
+            pid: 371371,
+            on: function (event, cb) {
+              handlers[event] = cb;
+              return this;
+            },
+            kill: function () {
+              if (handlers["close"]) handlers["close"](1);
+              return true;
+            },
+          };
+        };
+
+        return () => {
+          cp.spawn = originalSpawn;
+        };
+      }`)
+
+      let labeled = "Goal: Type\n———— Context ———————————————————————————————————————————————\nA : Type"
+      let plain = "Goal: Type\n————————————————————————————————————————————————————————————\nA : Type"
+      let reply =
+        "Agda2> \n(agda2-info-action \"*Goal type etc.*\" \"" ++
+        labeled->String.replaceRegExp(%re("/\n/g"), "\\n") ++ "\" nil)\nAgda2> \n"
+      let restoreSpawn = installFakeAgda(reply)
+
+      let error = ref(None)
+      let outcome = ref(TimedOut)
+      let rendered = ref([])
+      let _ = switch await (async () => {
+        let endpoint = await Connection__Endpoint__Agda.make(
+          ~cwd=NodeJs.Process.cwd(NodeJs.Process.process),
+          "fake-agda",
+          "2.9.0",
+        )
+        let completion =
+          endpoint
+          ->Connection__Endpoint__Agda.sendRequest("request", response => {
+            switch response {
+            | DisplayInfo(GoalType(body)) =>
+              rendered :=
+                Array.concat(
+                  rendered.contents,
+                  [body->Emacs__Parser2.parseGoalType->Emacs__Parser2.render],
+                )
+            | _ => ()
+            }
+            Promise.resolve()
+          })
+          ->Promise.thenResolve(result => Settled(result))
+        let timeout = Util.Promise_.setTimeout(250)->Promise.thenResolve(_ => TimedOut)
+        outcome := (await Promise.race([completion, timeout]))
+        await endpoint->Connection__Endpoint__Agda.destroy
+      })() {
+      | _ => ()
+      | exception exn =>
+        error := Some(exn)
+        ()
+      }
+
+      restoreSpawn()
+      error.contents->Option.forEach(exn => raise(exn))
+
+      Assert.deepStrictEqual(outcome.contents, Settled(Ok()))
+      Assert.deepStrictEqual(
+        rendered.contents,
+        [plain->Emacs__Parser2.parseGoalType->Emacs__Parser2.render],
+      )
+    },
+  )
+
   describe("Use `echo` as the testing subject", () => {
     // TODO: fix this test case on Windows
     Async.it_skip(
