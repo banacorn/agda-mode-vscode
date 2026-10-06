@@ -1293,6 +1293,61 @@ describe("Connection__Switch", () => {
           }
         )
 
+      // Records every `child_process.spawn` call (arguments and cwd) until the
+      // returned function is called, which restores `spawn` and returns the log.
+      let spySpawn: unit => (unit => array<{"args": array<string>, "cwd": Js.Undefined.t<string>}>) = %raw(`() => {
+        const cp = require("node:child_process");
+        const original = cp.spawn;
+        const calls = [];
+        cp.spawn = function (command, args, options) {
+          calls.push({ args: args, cwd: options && options.cwd });
+          return original.apply(this, arguments);
+        };
+        return () => {
+          cp.spawn = original;
+          return calls;
+        };
+      }`)
+
+      // `switchCandidate` must start Agda in the directory chosen for the
+      // document (issue #152), not in the extension host's cwd.
+      Async.it("should start the switched-to Agda in the document's directory", async () => {
+        let documentPath = NodeJs.Path.join([NodeJs.Os.tmpdir(), "Issue152Wiring.agda"])
+        let mockEditor: VSCode.TextEditor.t = %raw(`(fileName, uri) => ({ document: { fileName, uri } })`)(
+          documentPath,
+          VSCode.Uri.file(documentPath),
+        )
+        let state = State.make(
+          "test-id",
+          makeMockPlatformWithBareCommands(),
+          {
+            State.inputMethod: Chan.make(),
+            responseHandled: Chan.make(),
+            commandHandled: Chan.make(),
+            log: Chan.make(),
+          },
+          VSCode.Uri.file(NodeJs.Os.tmpdir()),
+          VSCode.Uri.file(NodeJs.Process.cwd(NodeJs.Process.process)),
+          Memento.make(None),
+          mockEditor,
+          None,
+        )
+
+        let stopSpy = spySpawn()
+        let calls = switch await Connection.switchCandidate(state, "agda") {
+        | () => stopSpy()
+        | exception exn =>
+          let _ = stopSpy()
+          raise(exn)
+        }
+
+        let interactionCwds =
+          calls
+          ->Array.filter(call => call["args"]->Array.includes("--interaction"))
+          ->Array.map(call => call["cwd"])
+        Assert.deepStrictEqual(interactionCwds, [Js.Undefined.return(NodeJs.Os.tmpdir())])
+      })
+
       Async.it(
         "should keep existing shared connection when switch target cannot be established",
         async () => {
