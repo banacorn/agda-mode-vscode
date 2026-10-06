@@ -38,7 +38,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
-        agda: ["Agda-2.6.4", "Agda-2.7.0", "Agda-2.8.0"]
+        agda: ["Agda-2.6.4", "Agda-2.7.0", "Agda-2.8.0", "Agda-2.9.0"]
         include:
           - agda: "Agda-2.6.4"
             agda-version: "Agda-2.6.4.3"
@@ -49,6 +49,10 @@ jobs:
           - agda: "Agda-2.8.0"
             agda-version: "Agda-2.8.0"
             stack-config: ".github/stack/stack-Agda-2.8.0.yaml"
+          # Unreleased: the commit is pinned in the stack config
+          - agda: "Agda-2.9.0"
+            agda-version: "Agda"
+            stack-config: ".github/stack/stack-Agda-2.9.0.yaml"
       fail-fast: false
 
     # Steps represent a sequence of tasks that will be executed as part of the job
