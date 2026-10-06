@@ -1,0 +1,12 @@
+resolver: lts-24.1
+compiler: ghc-9.10.2
+# Allow a newer minor version of GHC than the snapshot specifies
+compiler-check: newer-minor
+
+packages: []
+
+# Agda 2.9 is unreleased, so build a pinned commit of Agda's master branch
+# (2026-10-05, green on Agda's own CI). Bump the commit on purpose, not automatically.
+extra-deps:
+- git: https://github.com/agda/agda.git
+  commit: da66a8c75f11d10699a6b38b261efdf244b66f2a
