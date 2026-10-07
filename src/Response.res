@@ -210,7 +210,13 @@ let parse = (xs: Parser.SExpression.t): result<t, Parser.Error.t> => {
       switch xs[1] {
       | Some(A(status)) =>
         let pulp = status->String.split(",")
-        Ok(Status(pulp->Array.includes("Checked"), pulp->Array.includes("ShowImplicit"), false))
+        Ok(
+          Status(
+            pulp->Array.includes("Checked"),
+            pulp->Array.includes("ShowImplicit"),
+            pulp->Array.includes("ShowIrrelevant"),
+          ),
+        )
       | _ => Ok(Status(false, false, false))
       }
     | Some(A("agda2-maybe-goto")) =>
