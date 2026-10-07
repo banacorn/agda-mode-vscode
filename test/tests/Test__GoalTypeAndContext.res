@@ -29,6 +29,37 @@ let run = normalization => {
     )
   })
 
+  // Agda 2.9 labels the line between the goal and the context with "Context" (issue #371).
+  // The goal and the context must render the same as with the plain line of older Agda.
+  Async.it("should render the goal and the context the same on every Agda version", async () => {
+    let ctx = await AgdaMode.makeAndLoad(filename)
+    let responses = await ctx.state->State__Connection.sendRequestAndCollectResponses(
+      Request.GoalTypeAndContext(
+        normalization,
+        {
+          index: 0,
+          indexString: "0",
+          start: 281,
+          end: 288,
+        },
+      ),
+    )
+    await ctx->AgdaMode.quit
+
+    let rendered = responses->Array.filterMap(response =>
+      switch response {
+      | DisplayInfo(GoalType(body)) =>
+        Some(body->Emacs__Parser2.parseGoalType->Emacs__Parser2.render)
+      | _ => None
+      }
+    )
+    let plain = "Goal: ℕ\n————————————————————————————————————————————————————————————\nb : Bool\ny : ℕ\nx : ℕ"
+    Assert.deepStrictEqual(
+      rendered,
+      [plain->Emacs__Parser2.parseGoalType->Emacs__Parser2.render],
+    )
+  })
+
   Async.it("should work", async () => {
     let ctx = await AgdaMode.makeAndLoad(filename)
     await AgdaMode.execute(ctx, GoalTypeAndContext(normalization), ~cursor=VSCode.Position.make(15, 26))
