@@ -2,6 +2,8 @@
 type face =
   | Background(string)
   | Foreground(string)
+  | BackgroundUnderlined(string)
+  | ForegroundUnderlined(string)
 
 type t = {
   light: face,
@@ -17,19 +19,21 @@ let toDecorations = (input: array<(t, VSCode.Range.t)>): Map.t<
   // speed things up by aggregating decorations of the same kind
   let backgroundColorDict: Dict.t<array<VSCode.Range.t>> = Dict.make()
   let foregroundColorDict: Dict.t<array<VSCode.Range.t>> = Dict.make()
+  let backgroundUnderlinedColorDict: Dict.t<array<VSCode.Range.t>> = Dict.make()
+  let foregroundUnderlinedColorDict: Dict.t<array<VSCode.Range.t>> = Dict.make()
+
+  let addToDict = (dict, color, range) =>
+    switch Dict.get(dict, color) {
+    | None => Dict.set(dict, color, [range])
+    | Some(ranges) => ranges->Array.push(range)
+    }
 
   let addFaceToDict = (face: face, range) =>
     switch face {
-    | Background(color) =>
-      switch Dict.get(backgroundColorDict, color) {
-      | None => Dict.set(backgroundColorDict, color, [range])
-      | Some(ranges) => ranges->Array.push(range)
-      }
-    | Foreground(color) =>
-      switch Dict.get(foregroundColorDict, color) {
-      | None => Dict.set(foregroundColorDict, color, [range])
-      | Some(ranges) => ranges->Array.push(range)
-      }
+    | Background(color) => addToDict(backgroundColorDict, color, range)
+    | Foreground(color) => addToDict(foregroundColorDict, color, range)
+    | BackgroundUnderlined(color) => addToDict(backgroundUnderlinedColorDict, color, range)
+    | ForegroundUnderlined(color) => addToDict(foregroundUnderlinedColorDict, color, range)
     }
 
   // convert Aspects to colors and collect them in the dict
@@ -59,6 +63,20 @@ let toDecorations = (input: array<(t, VSCode.Range.t)>): Map.t<
     | Some(existingRanges) => Map.set(resultDict, decoration, [...existingRanges, ...ranges])
     }
   })
+  backgroundUnderlinedColorDict->Dict.forEachWithKey((ranges, color) => {
+    let decoration = Editor.Decoration.createBackgroundWithColor(~underline=true, color)
+    switch Map.get(resultDict, decoration) {
+    | None => Map.set(resultDict, decoration, ranges)
+    | Some(existingRanges) => Map.set(resultDict, decoration, [...existingRanges, ...ranges])
+    }
+  })
+  foregroundUnderlinedColorDict->Dict.forEachWithKey((ranges, color) => {
+    let decoration = Editor.Decoration.createTextWithColor(~underline=true, color)
+    switch Map.get(resultDict, decoration) {
+    | None => Map.set(resultDict, decoration, ranges)
+    | Some(existingRanges) => Map.set(resultDict, decoration, [...existingRanges, ...ranges])
+    }
+  })
 
   resultDict
 }
@@ -69,6 +87,8 @@ let toDecoration = (self: t): Editor.Decoration.t => {
     switch color {
     | Background(color) => Editor.Decoration.createBackgroundWithColor(color)
     | Foreground(color) => Editor.Decoration.createTextWithColor(color)
+    | BackgroundUnderlined(color) => Editor.Decoration.createBackgroundWithColor(~underline=true, color)
+    | ForegroundUnderlined(color) => Editor.Decoration.createTextWithColor(~underline=true, color)
     }
 
   let theme = VSCode.Window.activeColorTheme->VSCode.ColorTheme.kind
