@@ -155,7 +155,7 @@ module ALSResponse = {
       | "ResponseStatus" =>
         Payload(
           pair(bool, bool)->map(((checked, displayImplicit)) => ResponseNonLast(
-            Response.Status(checked, displayImplicit),
+            Response.Status(checked, displayImplicit, false),
           )),
         )
       | "ResponseRunningInfo" =>
