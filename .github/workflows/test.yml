@@ -30,8 +30,8 @@ jobs:
     # Runs on all major platforms
     runs-on: ${{ matrix.os }}
     # Observed cache-hit runs land in 3-11 min; a cold Agda build from source
-    # (stack install) has taken as long as ~27 min on Windows.
-    timeout-minutes: 40
+    # (stack install) takes ~30-40 min on Windows and macOS with Agda 2.9.0.
+    timeout-minutes: 90
     env:
       # Shared with the Agda cache key below, so a bump here invalidates it too.
       GHC_VERSION: "9.10.2"
