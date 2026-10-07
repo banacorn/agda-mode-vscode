@@ -81,7 +81,7 @@ describe("when parsing a response containing an escaped string value", () => {
 })
 
 describe("when parsing an agda2-status-action response", () => {
-  // `Status(checked, displayImplicit)`
+  // `Status(checked, displayImplicit, displayIrrelevant)`
   let check = (flags, expected) =>
     it(
       "should parse \"" ++ flags ++ "\"",
@@ -91,10 +91,40 @@ describe("when parsing an agda2-status-action response", () => {
       },
     )
 
-  check("", Response.Status(false, false))
-  check("Checked", Response.Status(true, false))
-  check("ShowImplicit", Response.Status(false, true))
-  check("Checked,ShowImplicit", Response.Status(true, true))
+  check("", Response.Status(false, false, false))
+  check("Checked", Response.Status(true, false, false))
+  check("ShowImplicit", Response.Status(false, true, false))
+  check("ShowIrrelevant", Response.Status(false, false, true))
+  check("Checked,ShowImplicit", Response.Status(true, true, false))
+  check("Checked,ShowImplicit,ShowIrrelevant", Response.Status(true, true, true))
+})
+
+describe("when decoding a ResponseStatus from the Agda Language Server", () => {
+  let check = (contents, expected) =>
+    it(
+      "should decode " ++ contents,
+      () => {
+        let json = JSON.parseExn(`{"tag": "ResponseStatus", "contents": ${contents}}`)
+        let actual = JsonCombinators.Json.Decode.decode(
+          json,
+          Connection__Endpoint__ALS.ALSResponse.decode,
+        )
+        Assert.deepStrictEqual(
+          actual,
+          Ok(Connection__Endpoint__ALS.ALSResponse.ResponseNonLast(expected)),
+        )
+      },
+    )
+
+  // current ALS: two flags, irrelevant arguments unknown
+  check("[false, false]", Response.Status(false, false, false))
+  check("[true, false]", Response.Status(true, false, false))
+  check("[false, true]", Response.Status(false, true, false))
+  check("[true, true]", Response.Status(true, true, false))
+  // future ALS: three flags
+  check("[false, false, true]", Response.Status(false, false, true))
+  check("[true, false, true]", Response.Status(true, false, true))
+  check("[true, true, true]", Response.Status(true, true, true))
 })
 
 describe("when parsing responses", () =>

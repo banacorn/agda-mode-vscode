@@ -722,7 +722,7 @@ let filteredResponse = response =>
   | HighlightingInfoDirect(_) => false
   | CompleteHighlightingAndMakePromptReappear => false
   // status & running info
-  | Status(_, _) => false
+  | Status(_, _, _) => false
   | RunningInfo(_, _) => false
   | _ => true
   }
