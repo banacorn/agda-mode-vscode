@@ -80,6 +80,23 @@ describe("when parsing a response containing an escaped string value", () => {
   )
 })
 
+describe("when parsing an agda2-status-action response", () => {
+  // `Status(checked, displayImplicit)`
+  let check = (flags, expected) =>
+    it(
+      "should parse \"" ++ flags ++ "\"",
+      () => {
+        let actual = Response.parse(parseSingle("(agda2-status-action \"" ++ flags ++ "\")"))
+        Assert.deepStrictEqual(actual, Ok(expected))
+      },
+    )
+
+  check("", Response.Status(false, false))
+  check("Checked", Response.Status(true, false))
+  check("ShowImplicit", Response.Status(false, true))
+  check("Checked,ShowImplicit", Response.Status(true, true))
+})
+
 describe("when parsing responses", () =>
   Golden.getGoldenFilepathsSync("../../../../test/tests/Parser/Response")->Array.forEach(filepath =>
     Async.it(
