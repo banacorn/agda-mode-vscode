@@ -175,7 +175,9 @@ jobs:
           echo "Version of Agda = $(agda -V)"
 
       - name: 💾 Cache Agda in ${{ env.DIST  }}
-        if:   always() && (steps.agda-artefacts.outputs.cache-hit != 'true' || steps.check-agda.outputs.found == 'false')
+        # No always(): a cancelled or failed install must not save the empty
+        # $DIST, because the key can't be overwritten once it exists.
+        if:   success() && (steps.agda-artefacts.outputs.cache-hit != 'true' || steps.check-agda.outputs.found == 'false')
         uses: actions/cache/save@v5
         with:
           path: ${{ env.DIST  }}
