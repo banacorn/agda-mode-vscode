@@ -1,6 +1,64 @@
 open Mocha
 
 describe("Token", () => {
+  describe("Highlighting__AgdaAspect.parse", () => {
+    it("should parse every aspect name that Agda 2.8.0 sends", () => {
+      // atoms from `toAtoms` in Agda.Interaction.Highlighting.Common:
+      // the lowercased `show` of Aspect, OtherAspect and NameKind
+      // (`Constructor` is split into `inductiveconstructor` and `coinductiveconstructor`)
+      let expected: array<(string, Highlighting__AgdaAspect.t)> = [
+        // Aspect
+        ("comment", Comment),
+        ("keyword", Keyword),
+        ("string", String),
+        ("number", Number),
+        ("hole", Hole),
+        ("symbol", Symbol),
+        ("primitivetype", PrimitiveType),
+        ("pragma", Pragma),
+        ("background", Background),
+        ("markup", Markup),
+        // OtherAspect
+        ("error", Error),
+        ("errorwarning", ErrorWarning),
+        ("dottedpattern", DottedPattern),
+        ("unsolvedmeta", UnsolvedMeta),
+        ("unsolvedconstraint", UnsolvedConstraint),
+        ("terminationproblem", TerminationProblem),
+        ("positivityproblem", PositivityProblem),
+        ("deadcode", Deadcode),
+        ("shadowingintelescope", ShadowingInTelescope),
+        ("coverageproblem", CoverageProblem),
+        ("typechecks", TypeChecks),
+        ("missingdefinition", MissingDefinition),
+        ("instanceproblem", InstanceProblem),
+        ("cosmeticproblem", CosmeticProblem),
+        ("catchallclause", CatchallClause),
+        ("confluenceproblem", ConfluenceProblem),
+        // NameKind
+        ("bound", Bound),
+        ("generalizable", Generalizable),
+        ("inductiveconstructor", ConstructorInductive),
+        ("coinductiveconstructor", ConstructorCoInductive),
+        ("datatype", Datatype),
+        ("field", Field),
+        ("function", Function),
+        ("module", Module),
+        ("postulate", Postulate),
+        ("primitive", Primitive),
+        ("record", Record),
+        ("argument", Argument),
+        ("macro", Macro),
+        // Name's operator flag
+        ("operator", Operator),
+      ]
+      Assert.deepStrictEqual(
+        expected->Array.map(((name, _)) => (name, Highlighting__AgdaAspect.parse(name))),
+        expected,
+      )
+    })
+  })
+
   describe("Token.parse", () => {
     it(
       "should return None for atomic SExpression",

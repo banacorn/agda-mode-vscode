@@ -35,27 +35,34 @@ module Decoration = {
     editor->TextEditor.setDecorations(decoration, ranges)
   }
 
-  let createBackgroundPrim = (backgroundColor: VSCode.StringOr.t<ThemeColor.t>) => {
+  let createBackgroundPrim = (~textDecoration=?, backgroundColor: VSCode.StringOr.t<ThemeColor.t>) => {
     let rangeBehavior = DecorationRangeBehavior.ClosedClosed
-    let options = DecorationRenderOptions.t(~backgroundColor, ~rangeBehavior, ())
+    let options = DecorationRenderOptions.t(~backgroundColor, ~rangeBehavior, ~textDecoration?, ())
     Window.createTextEditorDecorationType(options)
   }
 
   let createBackground = (style: backgroundStyle) =>
     createBackgroundPrim(VSCode.StringOr.make(Others(ThemeColor.make(style))))
 
-  let createBackgroundWithColor = (color: color) =>
-    createBackgroundPrim(VSCode.StringOr.make(String(color)))
+  let createBackgroundWithColor = (~underline=false, color: color) =>
+    createBackgroundPrim(
+      ~textDecoration=?underline ? Some("underline") : None,
+      VSCode.StringOr.make(String(color)),
+    )
 
-  let createTextPrim = (color: VSCode.StringOr.t<ThemeColor.t>) => {
+  let createTextPrim = (~textDecoration=?, color: VSCode.StringOr.t<ThemeColor.t>) => {
     let rangeBehavior = DecorationRangeBehavior.ClosedClosed
-    let options = DecorationRenderOptions.t(~color, ~rangeBehavior, ())
+    let options = DecorationRenderOptions.t(~color, ~rangeBehavior, ~textDecoration?, ())
     Window.createTextEditorDecorationType(options)
   }
   let createText = (style: backgroundStyle) =>
     createTextPrim(VSCode.StringOr.make(Others(ThemeColor.make(style))))
 
-  let createTextWithColor = (color: color) => createTextPrim(VSCode.StringOr.make(String(color)))
+  let createTextWithColor = (~underline=false, color: color) =>
+    createTextPrim(
+      ~textDecoration=?underline ? Some("underline") : None,
+      VSCode.StringOr.make(String(color)),
+    )
 
   let createTextOverlayPrim = (color: VSCode.StringOr.t<ThemeColor.t>, text: string) => {
     let after = ThemableDecorationAttachmentRenderOptions.t(~contentText=text, ~color, ())
