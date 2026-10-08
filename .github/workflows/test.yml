@@ -91,10 +91,10 @@ jobs:
         with:
           path: .vscode-test
           # 1.136.2 must match the pinned `vscodeVersion` in test/RunTestFromCLI.res.
-          key: vscode-${{ runner.os }}-${{ runner.arch }}-1.136.2-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-              vscode-${{ runner.os }}-${{ runner.arch }}-
-        
+          # Keyed on the version alone: a lockfile change must not create another
+          # ~300 MB copy of the same VS Code.
+          key: vscode-${{ runner.os }}-${{ runner.arch }}-1.136.2
+
       - name: ⏬ Setup Node.js environment
         uses: actions/setup-node@v6
         with:
