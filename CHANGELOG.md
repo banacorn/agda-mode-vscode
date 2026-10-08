@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.10.5 - 2026-10-08
+
+### Added
+- #382: Add `ErrorWarning`, `ShadowingInTelescope`, `MissingDefinition`, `InstanceProblem` and `CosmeticProblem` highlighting aspects, with Emacs-matching styles and underlines
+- Support Agda 2.9.0, verified in CI against a build from a pinned Agda master commit
+
+### Fixed
+- #152: Start native Agda in the workspace folder, or the file's directory, instead of the host's working directory
+- #371: Accept the labeled `———— Context ————` delimiter introduced by Agda 2.9 when parsing goal types
+- #380: Read the `agda2-status-action` flags in the order Agda declares them, so `Checked` and `ShowImplicit` are no longer swapped
+- #380: Read the `ShowIrrelevant` flag from Agda, and accept both 2- and 3-flag ALS statuses
+- #382: Color `UnsolvedConstraint` yellow, matching `agda2-highlight-unsolved-constraint-face`
+
+### Changed
+- Add regression tests for #152, #228, #371 and #380, and cover `InferTypeGlobal`, `ShowConstraints` and `ShowGoals` against Agda in every normalization mode
+- Cache `node_modules` in CI, key the VS Code cache on the pinned version alone, stop saving an empty Agda cache when the install fails, and allow 90 minutes per Build and Test job
+
 ## v0.10.4 - 2026-10-05
 
 ### Fixed
