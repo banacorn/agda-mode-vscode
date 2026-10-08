@@ -14,15 +14,20 @@ type t =
   | Markup
   | // the OtherAspect part
   Error
+  | ErrorWarning
   | DottedPattern
   | UnsolvedMeta
   | UnsolvedConstraint
   | TerminationProblem
   | PositivityProblem
   | Deadcode
+  | ShadowingInTelescope
   | CoverageProblem
   | IncompletePattern
   | TypeChecks
+  | MissingDefinition
+  | InstanceProblem
+  | CosmeticProblem
   | CatchallClause
   | ConfluenceProblem
   | // the NameKind part
@@ -57,15 +62,20 @@ let toString = x =>
   | Markup => "Markup"
   // the OtherAspect part
   | Error => "Error"
+  | ErrorWarning => "ErrorWarning"
   | DottedPattern => "DottedPattern"
   | UnsolvedMeta => "UnsolvedMeta"
   | UnsolvedConstraint => "UnsolvedConstraint"
   | TerminationProblem => "TerminationProblem"
   | PositivityProblem => "PositivityProblem"
   | Deadcode => "Deadcode"
+  | ShadowingInTelescope => "ShadowingInTelescope"
   | CoverageProblem => "CoverageProblem"
   | IncompletePattern => "IncompletePattern"
   | TypeChecks => "TypeChecks"
+  | MissingDefinition => "MissingDefinition"
+  | InstanceProblem => "InstanceProblem"
+  | CosmeticProblem => "CosmeticProblem"
   | CatchallClause => "CatchallClause"
   | ConfluenceProblem => "ConfluenceProblem"
   // the NameKind part
@@ -100,15 +110,20 @@ let parse = x =>
   | "markup" => Markup
 
   | "error" => Error
+  | "errorwarning" => ErrorWarning
   | "dottedpattern" => DottedPattern
   | "unsolvedmeta" => UnsolvedMeta
   | "unsolvedconstraint" => UnsolvedConstraint
   | "terminationproblem" => TerminationProblem
   | "positivityproblem" => PositivityProblem
   | "deadcode" => Deadcode
+  | "shadowingintelescope" => ShadowingInTelescope
   | "coverageproblem" => CoverageProblem
   | "incompletepattern" => IncompletePattern
   | "typechecks" => TypeChecks
+  | "missingdefinition" => MissingDefinition
+  | "instanceproblem" => InstanceProblem
+  | "cosmeticproblem" => CosmeticProblem
   | "catchallclause" => CatchallClause
   | "confluenceproblem" => ConfluenceProblem
 
@@ -143,6 +158,20 @@ let toTokenTypeAndModifiersAndDecoration: t => (
   let typeWithModifier = (t: Highlighting__SemanticToken.TokenType.t, m: Highlighting__SemanticToken.TokenModifier.t) =>
     ((Some(t), [m, Agda]), None)
   let nothing = ((None, []), None)
+  let underlinedForeground = (light, dark) => (
+    (None, [Highlighting__SemanticToken.TokenModifier.Agda]),
+    Some({
+      Highlighting__Decoration.light: ForegroundUnderlined(light),
+      dark: ForegroundUnderlined(dark),
+    }),
+  )
+  let underlinedBackground = (light, dark) => (
+    (None, []),
+    Some({
+      Highlighting__Decoration.light: BackgroundUnderlined(light),
+      dark: BackgroundUnderlined(dark),
+    }),
+  )
   let backgroundOnly = (light, dark) => (
     (None, []),
     Some({Highlighting__Decoration.light: Background(light), dark: Background(dark)}),
@@ -161,16 +190,21 @@ let toTokenTypeAndModifiersAndDecoration: t => (
   | Background => nothing
   | Markup => nothing
   // the OtherAspect part
-  | Error => ((None, [Agda]), None)
+  | Error => underlinedForeground("#FF0000", "#FF0000")
+  | ErrorWarning => underlinedBackground("#F08080", "#802400")
   | DottedPattern => nothing
   | UnsolvedMeta => backgroundOnly("#FFFF00", "#806B00")
-  | UnsolvedConstraint => backgroundOnly("#FFA07A", "#802400")
+  | UnsolvedConstraint => backgroundOnly("#FFFF00", "#806B00")
   | TerminationProblem => backgroundOnly("#FFA07A", "#802400")
   | PositivityProblem => backgroundOnly("#CD853F", "#803F00")
   | Deadcode => backgroundOnly("#A9A9A9", "#808080")
+  | ShadowingInTelescope => backgroundOnly("#A9A9A9", "#808080")
   | CoverageProblem => backgroundOnly("#F5DEB3", "#805300")
   | IncompletePattern => backgroundOnly("#800080", "#800080")
   | TypeChecks => nothing
+  | MissingDefinition => backgroundOnly("#FFA500", "#804040")
+  | InstanceProblem => backgroundOnly("#F5DEB3", "#805300")
+  | CosmeticProblem => backgroundOnly("#F5F5F5", "#404040")
   | CatchallClause => backgroundOnly("#F5F5F5", "#404040")
   | ConfluenceProblem => backgroundOnly("#FFC0CB", "#800080")
   // the NameKind part

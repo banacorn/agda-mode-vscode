@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.10.5 - 2026-10-08
+
+### Added
+- #382: Add `ErrorWarning`, `ShadowingInTelescope`, `MissingDefinition`, `InstanceProblem` and `CosmeticProblem` highlighting aspects, with Emacs-matching styles and underlines
+- Support Agda 2.9.0, verified in CI against a build from a pinned Agda master commit
+
+### Fixed
+- #152: Start native Agda in the workspace folder, or the file's directory, instead of the host's working directory
+- #371: Accept the labeled `———— Context ————` delimiter introduced by Agda 2.9 when parsing goal types
+- #380: Read the `agda2-status-action` flags in the order Agda declares them, so `Checked` and `ShowImplicit` are no longer swapped
+- #380: Read the `ShowIrrelevant` flag from Agda, and accept both 2- and 3-flag ALS statuses
+- #382: Color `UnsolvedConstraint` yellow, matching `agda2-highlight-unsolved-constraint-face`
+
+### Changed
+- Add regression tests for #152, #228, #371 and #380, and cover `InferTypeGlobal`, `ShowConstraints` and `ShowGoals` against Agda in every normalization mode
+- Cache `node_modules` in CI, key the VS Code cache on the pinned version alone, stop saving an empty Agda cache when the install fails, and allow 90 minutes per Build and Test job
+
+## v0.10.4 - 2026-10-05
+
+### Fixed
+- #129: Place the Agda panel with VS Code's own new-group commands, and size the bottom panel with a 70/30 split
+- #243: Fix stale background highlighting that stayed painted after reloading with `C-c C-l`
+
+### Changed
+- #129: Add regression tests for the panel layout
+- #215: Add a regression test for `Agda: Auto` removing the next hole in literate files
+- #248: Add a regression test for duplicate goal numbers on rapid loads
+- Release from the Test workflow, with the git tag as a third release target
+- Make the Agda presence check report found instead of failing, and give workflow jobs readable names
+
 ## v0.10.3 - 2026-09-25
 
 ### Added

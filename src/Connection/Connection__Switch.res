@@ -298,6 +298,7 @@ let switchAgdaVersion = async (state: State.t, selectedPath: string) => {
     [(selectedPath, Core.Error.Establish.FromConfig)],
     ~onProbeFlow,
     ~onEstablishFlow,
+    ~cwd=Core.workingDirectoryForDocument(state.document),
   ) {
   | Ok(conn) =>
     try {

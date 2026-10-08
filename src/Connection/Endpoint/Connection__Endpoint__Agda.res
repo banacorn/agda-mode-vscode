@@ -5,7 +5,7 @@ module Process = Connection__Transport__Process
 module type Module = {
   type t
   // lifecycle
-  let make: (string, string) => promise<t>
+  let make: (~cwd: string, string, string) => promise<t>
   let destroy: t => promise<unit>
   // messaging
   let sendRequest: (t, string, Response.t => promise<unit>) => promise<result<unit, Error.t>>
@@ -84,10 +84,10 @@ module Module: Module = {
     )->ignore
   }
 
-  let make = async (path, version) => {
+  let make = async (~cwd, path, version) => {
     let args = Array.concat(["--interaction"], Config.Connection.getCommandLineOptions())
     let conn = {
-      process: Process.make(path, args),
+      process: Process.make(~cwd, path, args),
       version,
       path,
       chan: Chan.make(),

@@ -125,6 +125,8 @@ type t =
       bool,
       // Are implicit arguments displayed?
       bool,
+      // Are irrelevant arguments displayed?
+      bool,
     )
   // agda2-maybe-goto
   | JumpToError(filepath, int)
@@ -162,9 +164,9 @@ let toString = x =>
     (" " ++ (annotations->Array.length->string_of_int ++ " annotations")))
   | HighlightingInfoIndirect(filepath) => "HighlightingInfoIndirect " ++ filepath
   | HighlightingInfoIndirectJSON(filepath) => "HighlightingInfoIndirectJSON " ++ filepath
-  | Status(displayed, checked) =>
+  | Status(checked, displayImplicit, _displayIrrelevant) =>
     "Status: implicit arguments " ++
-    ((displayed ? "displayed, " : "not displayed, ") ++
+    ((displayImplicit ? "displayed, " : "not displayed, ") ++
     ("module " ++ (checked ? "type checked" : "not type checked")))
   | JumpToError(filepath, n) => "JumpToError " ++ (filepath ++ (" " ++ string_of_int(n)))
   | InteractionPoints(points) => "InteractionPoints " ++ points->Util.Pretty.array(string_of_int)
@@ -208,8 +210,14 @@ let parse = (xs: Parser.SExpression.t): result<t, Parser.Error.t> => {
       switch xs[1] {
       | Some(A(status)) =>
         let pulp = status->String.split(",")
-        Ok(Status(pulp->Array.includes("ShowImplicit"), pulp->Array.includes("Checked")))
-      | _ => Ok(Status(false, false))
+        Ok(
+          Status(
+            pulp->Array.includes("Checked"),
+            pulp->Array.includes("ShowImplicit"),
+            pulp->Array.includes("ShowIrrelevant"),
+          ),
+        )
+      | _ => Ok(Status(false, false, false))
       }
     | Some(A("agda2-maybe-goto")) =>
       switch xs[1] {

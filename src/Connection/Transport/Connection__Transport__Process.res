@@ -29,7 +29,7 @@ let errorMessageIndicatesNotFound = msg =>
 module type Module = {
   type t
   // lifetime: same as the child process
-  let make: (~shell: bool=?, string, array<string>) => t
+  let make: (~shell: bool=?, ~cwd: string=?, string, array<string>) => t
   let destroy: t => promise<unit>
   // messaging
   let send: (t, string) => bool
@@ -41,6 +41,15 @@ module type Module = {
   let onOutput: (t, output => unit) => unit => unit
 }
 module Module: Module = {
+  type spawnOptions = {
+    shell: bool,
+    cwd?: string,
+  }
+
+  @module("node:child_process") @val
+  external spawnWithOptions: (string, array<string>, spawnOptions) => NodeJs.ChildProcess.t =
+    "spawn"
+
   type output =
     | Stdout(string)
     | Stderr(string)
@@ -62,15 +71,15 @@ module Module: Module = {
     mutable status: status,
   }
 
-  let make = (~shell=true, path, args) => {
+  let make = (~shell=true, ~cwd=?, path, args) => {
     let chan = Chan.make()
     let stderr = ref("")
     // spawn the child process
     let process = if shell {
       let command = "\"" ++ path ++ "\""
-      NodeJs.ChildProcess.spawnWith(command, args, %raw(`{shell : true}`))
+      spawnWithOptions(command, args, {shell: true, ?cwd})
     } else {
-      NodeJs.ChildProcess.spawn(path, args)
+      spawnWithOptions(path, args, {shell: false, ?cwd})
     }
 
     // on `data` from `stdout`

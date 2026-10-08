@@ -154,9 +154,15 @@ module ALSResponse = {
         )
       | "ResponseStatus" =>
         Payload(
-          pair(bool, bool)->map(((checked, displayImplicit)) => ResponseNonLast(
-            Response.Status(checked, displayImplicit),
-          )),
+          // older ALS sends two flags (no irrelevant-arguments flag), newer ALS sends three
+          oneOf([
+            tuple3(bool, bool, bool)->map(((checked, displayImplicit, displayIrrelevant)) => ResponseNonLast(
+              Response.Status(checked, displayImplicit, displayIrrelevant),
+            )),
+            pair(bool, bool)->map(((checked, displayImplicit)) => ResponseNonLast(
+              Response.Status(checked, displayImplicit, false),
+            )),
+          ]),
         )
       | "ResponseRunningInfo" =>
         Payload(

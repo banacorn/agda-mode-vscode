@@ -128,7 +128,7 @@ let rec handle = async (
         state.tokens->Tokens.addJSONFilePath(filepath)
       }
     | ClearHighlighting => state.tokens->Tokens.reset
-    | Status(_checked, _displayImplicit) => // display(
+    | Status(_checked, _displayImplicit, _displayIrrelevant) => // display(
       //   "Status",
       //   Some(
       //     "Typechecked: "

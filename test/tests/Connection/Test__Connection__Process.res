@@ -12,6 +12,65 @@ module StatusIntrospection = {
   @get external tag: t => option<string> = "TAG"
 }
 
+module Fs = {
+  type rmOptions = {recursive: bool, force: bool}
+  @val @scope("process") external execPath: string = "execPath"
+  @module("node:fs") external mkdtempSync: string => string = "mkdtempSync"
+  @module("node:fs") external realpathSync: string => string = "realpathSync"
+  @module("node:fs") external writeFileSync: (string, string) => unit = "writeFileSync"
+  @module("node:fs") external rmSync: (string, rmOptions) => unit = "rmSync"
+}
+
+type cwdProbe = {
+  exitCode: option<int>,
+  stdout: string,
+  stderr: string,
+  error: option<string>,
+}
+
+// Spawn `path args` through `Process.make ~cwd` and report what the child
+// printed. The child is always unsubscribed from and destroyed.
+let probeChild = async (~shell, ~cwd, path, args): cwdProbe => {
+  let process = Process.make(~shell, ~cwd, path, args)
+  let stdout = ref("")
+  let stderr = ref("")
+  let (exited, resolve, _) = Util.Promise_.pending()
+  let unsubscribe = process->Process.onOutput(output =>
+    switch output {
+    | Stdout(chunk) => stdout := stdout.contents ++ chunk
+    | Stderr(chunk) => stderr := stderr.contents ++ chunk
+    | Event(OnExit(code)) => resolve({exitCode: Some(code), stdout: "", stderr: "", error: None})
+    | Event(event) =>
+      resolve({exitCode: None, stdout: "", stderr: "", error: Some(Process.Event.toString(event))})
+    }
+  )
+  let timeout =
+    Util.Promise_.setTimeout(8000)->Promise.thenResolve(_ => {
+      exitCode: None,
+      stdout: "",
+      stderr: "",
+      error: Some("timed out"),
+    })
+  let outcome = await Promise.race([exited, timeout])
+  unsubscribe()
+  let _ = await Process.destroy(process)
+  {...outcome, stdout: stdout.contents, stderr: stderr.contents}
+}
+
+// Run `f` with a fresh temporary directory, removed even if `f` throws.
+let withTempDir = async f => {
+  let dir = Fs.mkdtempSync(NodeJs.Path.join([NodeJs.Os.tmpdir(), "agda-mode-cwd-"]))
+  let cleanup = () => Fs.rmSync(dir, {recursive: true, force: true})
+  switch await f(dir) {
+  | result =>
+    cleanup()
+    result
+  | exception exn =>
+    cleanup()
+    raise(exn)
+  }
+}
+
 describe("Process Interface", () => {
   Async.it(
     "Agda endpoint should settle a request when the process writes to stderr",
@@ -62,7 +121,11 @@ describe("Process Interface", () => {
       let error = ref(None)
       let outcome = ref(TimedOut)
       let _ = switch await (async () => {
-        let endpoint = await Connection__Endpoint__Agda.make("fake-agda", "2.8.0")
+        let endpoint = await Connection__Endpoint__Agda.make(
+          ~cwd=NodeJs.Process.cwd(NodeJs.Process.process),
+          "fake-agda",
+          "2.8.0",
+        )
         let completion = endpoint
           ->Connection__Endpoint__Agda.sendRequest("request", _response => Promise.resolve())
           ->Promise.thenResolve(result => Settled(result))
@@ -84,6 +147,132 @@ describe("Process Interface", () => {
       | Settled(Ok()) => Assert.fail("Expected stderr to produce an endpoint error")
       | TimedOut => Assert.fail("Agda endpoint request remained pending after stderr")
       }
+    },
+  )
+
+  describe("`~cwd`", () => {
+    // The child reports its own working directory, so this runs the real
+    // `spawn` on every platform. Both branches of `Process.make` are covered.
+    Async.it("direct spawn starts the child in the requested directory", async () => {
+      let actual = await withTempDir(async dir => {
+        let probe = await probeChild(
+          ~shell=false,
+          ~cwd=dir,
+          Fs.execPath,
+          ["-e", "process.stdout.write(process.cwd())"],
+        )
+        ({...probe, stdout: Fs.realpathSync(probe.stdout)}, Fs.realpathSync(dir))
+      })
+      let (probe, expectedCwd) = actual
+      Assert.deepStrictEqual(
+        probe,
+        {exitCode: Some(0), stdout: expectedCwd, stderr: "", error: None},
+      )
+    })
+
+    Async.it("shell spawn starts the child in the requested directory", async () => {
+      let actual = await withTempDir(async dir => {
+        // the script lives outside `dir`, so `dir` can only be the cwd
+        let scriptDir = Fs.mkdtempSync(NodeJs.Path.join([NodeJs.Os.tmpdir(), "agda-mode-cwd-script-"]))
+        let script = NodeJs.Path.join([scriptDir, "cwd.js"])
+        Fs.writeFileSync(script, "process.stdout.write(process.cwd())")
+        let probe = switch await probeChild(
+          ~shell=true,
+          ~cwd=dir,
+          Fs.execPath,
+          ["\"" ++ script ++ "\""],
+        ) {
+        | probe =>
+          Fs.rmSync(scriptDir, {recursive: true, force: true})
+          probe
+        | exception exn =>
+          Fs.rmSync(scriptDir, {recursive: true, force: true})
+          raise(exn)
+        }
+        ({...probe, stdout: Fs.realpathSync(probe.stdout)}, Fs.realpathSync(dir))
+      })
+      let (probe, expectedCwd) = actual
+      Assert.deepStrictEqual(
+        probe,
+        {exitCode: Some(0), stdout: expectedCwd, stderr: "", error: None},
+      )
+    })
+  })
+
+  Async.it(
+    "Agda endpoint should settle a request when stdout contains a bare `Warning:` (issue #228)",
+    async () => {
+      let restoreSpawn: unit => unit = %raw(`(() => {
+        const cp = require("node:child_process");
+        const originalSpawn = cp.spawn;
+
+        cp.spawn = function () {
+          const handlers = {};
+          let stdoutData;
+
+          return {
+            stdout: {
+              on: function (event, cb) {
+                if (event === "data") stdoutData = cb;
+                return this;
+              },
+            },
+            stderr: {
+              on: function () {
+                return this;
+              },
+            },
+            stdin: {
+              write: function () {
+                stdoutData(Buffer.from("Warning: \n"));
+                return true;
+              },
+            },
+            pid: 464646,
+            on: function (event, cb) {
+              handlers[event] = cb;
+              return this;
+            },
+            kill: function () {
+              if (handlers["close"]) handlers["close"](1);
+              return true;
+            },
+          };
+        };
+
+        return () => {
+          cp.spawn = originalSpawn;
+        };
+      })()`)
+
+      let error = ref(None)
+      let outcome = ref(TimedOut)
+      let _ = switch await (async () => {
+        let endpoint = await Connection__Endpoint__Agda.make(
+          ~cwd=NodeJs.Process.cwd(NodeJs.Process.process),
+          "fake-agda",
+          "2.6.3",
+        )
+        let completion = endpoint
+          ->Connection__Endpoint__Agda.sendRequest("request", _response => Promise.resolve())
+          ->Promise.thenResolve(result => Settled(result))
+        let timeout = Util.Promise_.setTimeout(250)->Promise.thenResolve(_ => TimedOut)
+        outcome := (await Promise.race([completion, timeout]))
+        await endpoint->Connection__Endpoint__Agda.destroy
+      })() {
+      | _ => ()
+      | exception exn =>
+        error := Some(exn)
+        ()
+      }
+
+      restoreSpawn()
+      error.contents->Option.forEach(exn => raise(exn))
+
+      Assert.deepStrictEqual(
+        outcome.contents,
+        Settled(Error(ResponseParseError(Response(0, A("Warning:"))))),
+      )
     },
   )
 

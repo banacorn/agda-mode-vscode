@@ -537,6 +537,14 @@ module AgdaMode = {
     }
   }
 
+  // The line between the goal and the context: a row of 60 dashes, which Agda 2.9 labels with "Context"
+  let contextDelimiter = async () =>
+    if await versionGTE("agda", "2.9.0") {
+      "———— Context " ++ String.repeat("—", 47)
+    } else {
+      String.repeat("—", 60)
+    }
+
   // check if a command exists in PATH, return the path if it exists
   let commandExists = async command => {
     let platformDeps = Desktop.make()
@@ -714,7 +722,7 @@ let filteredResponse = response =>
   | HighlightingInfoDirect(_) => false
   | CompleteHighlightingAndMakePromptReappear => false
   // status & running info
-  | Status(_, _) => false
+  | Status(_, _, _) => false
   | RunningInfo(_, _) => false
   | _ => true
   }

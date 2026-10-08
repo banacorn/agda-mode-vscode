@@ -30,15 +30,15 @@ jobs:
     # Runs on all major platforms
     runs-on: ${{ matrix.os }}
     # Observed cache-hit runs land in 3-11 min; a cold Agda build from source
-    # (stack install) has taken as long as ~27 min on Windows.
-    timeout-minutes: 40
+    # (stack install) takes ~30-40 min on Windows and macOS with Agda 2.9.0.
+    timeout-minutes: 90
     env:
       # Shared with the Agda cache key below, so a bump here invalidates it too.
       GHC_VERSION: "9.10.2"
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
-        agda: ["Agda-2.6.4", "Agda-2.7.0", "Agda-2.8.0"]
+        agda: ["Agda-2.6.4", "Agda-2.7.0", "Agda-2.8.0", "Agda-2.9.0"]
         include:
           - agda: "Agda-2.6.4"
             agda-version: "Agda-2.6.4.3"
@@ -49,6 +49,10 @@ jobs:
           - agda: "Agda-2.8.0"
             agda-version: "Agda-2.8.0"
             stack-config: ".github/stack/stack-Agda-2.8.0.yaml"
+          # Unreleased: the commit is pinned in the stack config
+          - agda: "Agda-2.9.0"
+            agda-version: "Agda"
+            stack-config: ".github/stack/stack-Agda-2.9.0.yaml"
       fail-fast: false
 
     # Steps represent a sequence of tasks that will be executed as part of the job
@@ -63,17 +67,6 @@ jobs:
         run: | 
           echo "DIST=${{ matrix.agda }}-${{ matrix.os }}"  >> "$GITHUB_ENV"
 
-      - name: 💾 Restore NPM dependencies
-        id: npm-cache
-        uses: actions/cache/restore@v5
-        with:
-          path: |
-            node_modules
-            ~/.npm
-          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
-          restore-keys: |
-            npm-${{ runner.os }}-
-
       - name: 💾 Restore Agda from ${{ env.DIST }}
         id:   agda-artefacts
         uses: actions/cache/restore@v5
@@ -87,14 +80,26 @@ jobs:
         with:
           path: .vscode-test
           # 1.136.2 must match the pinned `vscodeVersion` in test/RunTestFromCLI.res.
-          key: vscode-${{ runner.os }}-${{ runner.arch }}-1.136.2-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-              vscode-${{ runner.os }}-${{ runner.arch }}-
-        
+          # Keyed on the version alone: a lockfile change must not create another
+          # ~300 MB copy of the same VS Code.
+          key: vscode-${{ runner.os }}-${{ runner.arch }}-1.136.2
+
       - name: ⏬ Setup Node.js environment
+        id: setup-node
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
+
+      # Cache the installed node_modules and skip `npm ci` on an exact hit: `npm ci`
+      # spends most of its time cloning and packing git dependencies, which npm's
+      # download cache doesn't help. No restore-keys: a partial restore would just be
+      # deleted by `npm ci`.
+      - name: 💾 Cache node_modules
+        id: node-modules
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}-node${{ steps.setup-node.outputs.node-version }}-${{ hashFiles('package-lock.json', 'package.json') }}
 
       - name: 🛠️ Add ${{ env.DIST }}/bin to PATH
         run: echo "$(pwd)/$DIST/bin" >> "$GITHUB_PATH"
@@ -171,13 +176,16 @@ jobs:
           echo "Version of Agda = $(agda -V)"
 
       - name: 💾 Cache Agda in ${{ env.DIST  }}
-        if:   always() && (steps.agda-artefacts.outputs.cache-hit != 'true' || steps.check-agda.outputs.found == 'false')
+        # No always(): a cancelled or failed install must not save the empty
+        # $DIST, because the key can't be overwritten once it exists.
+        if:   success() && (steps.agda-artefacts.outputs.cache-hit != 'true' || steps.check-agda.outputs.found == 'false')
         uses: actions/cache/save@v5
         with:
           path: ${{ env.DIST  }}
           key: ${{ steps.agda-artefacts.outputs.cache-primary-key }}
     
       - name: ⏬ Install NPM Dependencies
+        if: steps.node-modules.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: 🔨 Build stuff
@@ -234,15 +242,6 @@ jobs:
           path: .vscode-test
           key: ${{ steps.vscode.outputs.cache-primary-key }}
 
-      - name: 💾 Cache NPM dependencies
-        if: always() && steps.npm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        with:
-          path: |
-            node_modules
-            ~/.npm
-          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
-
   # Runs packaging as part of the same required gate every PR and push runs,
   # instead of gating it on which files changed.
   packaging:
@@ -260,17 +259,6 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v6
 
-      - name: 💾 Restore NPM dependencies
-        id: npm-cache
-        uses: actions/cache/restore@v5
-        with:
-          path: |
-            node_modules
-            ~/.npm
-          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
-          restore-keys: |
-            npm-${{ runner.os }}-
-
       - name: 💾 Restore Playwright browsers
         id: playwright-cache
         uses: actions/cache/restore@v5
@@ -279,11 +267,20 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: ⏬ Setup Node.js environment
+        id: setup-node
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
 
+      - name: 💾 Cache node_modules
+        id: node-modules
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}-node${{ steps.setup-node.outputs.node-version }}-${{ hashFiles('package-lock.json', 'package.json') }}
+
       - name: ⏬ Install NPM Dependencies
+        if: steps.node-modules.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: ⏬ Install Playwright's Chromium
@@ -301,15 +298,6 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: 💾 Cache NPM dependencies
-        if: always() && steps.npm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        with:
-          path: |
-            node_modules
-            ~/.npm
-          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
 
   # Catches the workflow YAML/ShellCheck mistakes actionlint finds locally,
   # so they can't reach master unnoticed.

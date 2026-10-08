@@ -17,13 +17,18 @@ module type Module = {
     | ALSWASM(ALS.t, WASMLoader.t, string, alsVersionInfo) // connection, WASM loader, path, version
 
   // lifecycle
-  let make: (string, Error.Establish.pathSource) => promise<result<t, Error.Establish.t>>
+  let make: (
+    ~cwd: string=?,
+    string,
+    Error.Establish.pathSource,
+  ) => promise<result<t, Error.Establish.t>>
   let makeWithFallback: (
     Platform.t,
     Memento.t,
     VSCode.Uri.t,
     array<string>,
     Chan.t<Log.t>,
+    ~cwd: string=?,
   ) => promise<result<t, Error.t>>
   let toString: t => string
   let getPath: t => string
@@ -34,12 +39,14 @@ module type Module = {
     array<(string, Error.Establish.pathSource)>,
     ~onProbeFlow: Log.Connection.ProbeFlow.t => unit=?,
     ~onEstablishFlow: Log.Connection.EstablishFlow.t => unit=?,
+    ~cwd: string=?,
   ) => promise<result<t, Error.Establish.t>>
   let fromDownloads: (
     Platform.t,
     Memento.t,
     VSCode.Uri.t,
     ~onEstablishFlow: Log.Connection.EstablishFlow.t => unit=?,
+    ~cwd: string=?,
   ) => promise<result<t, Error.Establish.t>>
 
   // messaging
@@ -52,6 +59,8 @@ module type Module = {
 
   // utility
   let checkForPrebuiltDataDirectory: string => promise<option<string>>
+  let workingDirectory: (~workspaceFolderPath: option<string>, ~documentPath: string) => string
+  let workingDirectoryForDocument: VSCode.TextDocument.t => string
 
   type probeResult =
     | IsAgda(string) // Agda version
@@ -149,6 +158,21 @@ module Module: Module = {
     | Error(_) => None
     }
   }
+
+  // Directory a native Agda process starts in: the workspace folder containing
+  // the document, or the document's own directory for a loose file.
+  let workingDirectory = (~workspaceFolderPath, ~documentPath) =>
+    switch workspaceFolderPath {
+    | Some(folder) => folder
+    | None => NodeJs.Path.dirname(documentPath)
+    }
+
+  let workingDirectoryForDocument = document =>
+    workingDirectory(
+      ~workspaceFolderPath=VSCode.Workspace.getWorkspaceFolder(VSCode.TextDocument.uri(document))
+      ->Option.map(folder => folder->VSCode.WorkspaceFolder.uri->VSCode.Uri.fsPath),
+      ~documentPath=VSCode.TextDocument.fileName(document),
+    )
 
   type probeResult =
     | IsAgda(string) // Agda version
@@ -279,13 +303,14 @@ module Module: Module = {
     source: Error.Establish.pathSource,
     ~pathForErrors: string=resolvedPathForErrors(resolved),
     ~onProbeFlow: Log.Connection.ProbeFlow.t => unit=_ => (),
+    ~cwd: string,
   ): result<
     t,
     Error.Establish.t,
   > => {
     switch await probeResolved(resolved, ~onProbeFlow) {
     | Ok(path, IsAgda(agdaVersion)) =>
-      let connection = await Agda.make(path, agdaVersion)
+      let connection = await Agda.make(~cwd, path, agdaVersion)
       Ok(Agda(connection, path, agdaVersion))
     | Ok(path, IsALS(alsVersion, agdaVersion, lspOptions)) =>
       switch await ALS.make(
@@ -391,10 +416,12 @@ module Module: Module = {
     }
   }
 
-  let make = async (rawpath: string, source: Error.Establish.pathSource): result<
-    t,
-    Error.Establish.t,
-  > => await makeResolved(resolvedFromRawResource(rawpath), source)
+  let make = async (
+    ~cwd=NodeJs.Process.cwd(NodeJs.Process.process),
+    rawpath: string,
+    source: Error.Establish.pathSource,
+  ): result<t, Error.Establish.t> =>
+    await makeResolved(resolvedFromRawResource(rawpath), source, ~cwd)
 
   // Combinator: try each task in array until one succeeds, or return all failures
   let tryUntilSuccess = async (xs: array<unit => promise<result<'b, 'e>>>): result<
@@ -422,6 +449,7 @@ module Module: Module = {
     candidate: Candidate.t,
     source: Error.Establish.pathSource,
     ~onProbeFlow: Log.Connection.ProbeFlow.t => unit=_ => (),
+    ~cwd: string,
   ): result<t, Error.Establish.t> => {
     module PlatformOps = unpack(platformDeps)
     switch await Candidate.resolve(
@@ -438,7 +466,7 @@ module Module: Module = {
       | Candidate.Command(command) => Error.Establish.FromCommandLookup(command)
       | Candidate.Resource(_) => source
       }
-      await makeResolved(resolved, resolvedSource, ~onProbeFlow)
+      await makeResolved(resolved, resolvedSource, ~onProbeFlow, ~cwd)
     | Error(commandError) =>
       switch candidate {
       | Candidate.Command(command) => Error(Error.Establish.fromCommandError(command, commandError))
@@ -454,12 +482,13 @@ module Module: Module = {
     entries: array<(string, Error.Establish.pathSource)>,
     ~onProbeFlow: Log.Connection.ProbeFlow.t => unit=_ => (),
     ~onEstablishFlow: Log.Connection.EstablishFlow.t => unit=_ => (),
+    ~cwd=NodeJs.Process.cwd(NodeJs.Process.process),
   ): result<t, Error.Establish.t> => {
     let tasks = entries->Array.map(((raw, source)) => {
       let candidate = Candidate.make(raw)
       () => {
         onEstablishFlow(Log.Connection.EstablishFlow.CandidateAttempted(raw, source))
-        tryCandidate(platformDeps, candidate, source, ~onProbeFlow)
+        tryCandidate(platformDeps, candidate, source, ~onProbeFlow, ~cwd)
       }
     })
 
@@ -480,6 +509,7 @@ module Module: Module = {
     memento: Memento.t,
     globalStorageUri: VSCode.Uri.t,
     ~onEstablishFlow: Log.Connection.EstablishFlow.t => unit=_ => (),
+    ~cwd=NodeJs.Process.cwd(NodeJs.Process.process),
   ): result<t, Error.Establish.t> => {
     module PlatformOps = unpack(platformDeps)
     let failDownloadFallback = (error: Error.Establish.t) => {
@@ -635,14 +665,14 @@ module Module: Module = {
 
         switch downloadResult {
         | Ok((path, source)) =>
-          switch await make(path, source) {
+          switch await make(path, source, ~cwd) {
           | Ok(connection) => Ok(connection)
           | Error(nativeError) =>
             // Native path failed to connect — try WASM fallback on desktop
             if !(path->String.endsWith(".wasm")) {
               switch await tryWasmFallback(~path, ~source) {
               | Ok(wasmPath) =>
-                switch await make(wasmPath, source) {
+                switch await make(wasmPath, source, ~cwd) {
                 | Ok(connection) => Ok(connection)
                 | Error(wasmError) =>
                   failDownloadFallback(
@@ -679,6 +709,7 @@ module Module: Module = {
     globalStorageUri: VSCode.Uri.t,
     paths: array<string>,
     logChannel: Chan.t<Log.t>,
+    ~cwd=NodeJs.Process.cwd(NodeJs.Process.process),
   ): result<t, Error.t> => {
     let logConnection = connection => {
       let establishKind = switch connection {
@@ -733,7 +764,13 @@ module Module: Module = {
 
     // Try step 0 (preferred candidate) -> step 1 (config paths) -> download fallback.
     // Command probes are not part of the resolution chain.
-    switch await fromPathsOrCommands(platformDeps, preferredEntries, ~onEstablishFlow, ~onProbeFlow) {
+    switch await fromPathsOrCommands(
+      platformDeps,
+      preferredEntries,
+      ~onEstablishFlow,
+      ~onProbeFlow,
+      ~cwd,
+    ) {
     | Ok(connection) =>
       logConnection(connection)
       Ok(connection)
@@ -743,6 +780,7 @@ module Module: Module = {
         pathsWithSource,
         ~onEstablishFlow,
         ~onProbeFlow,
+        ~cwd,
       ) {
       | Ok(connection) =>
         logConnection(connection)
@@ -755,6 +793,7 @@ module Module: Module = {
         memento,
         globalStorageUri,
         ~onEstablishFlow,
+        ~cwd,
       ) {
       | Ok(connection) =>
         logConnection(connection)
