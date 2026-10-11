@@ -150,7 +150,7 @@ let toTokenTypeAndModifiersAndDecoration: t => (
     option<Highlighting__SemanticToken.TokenType.t>,
     array<Highlighting__SemanticToken.TokenModifier.t>,
   ), // Type of Semantic Token // Modifiers of Semantic Token
-  option<Highlighting__Decoration.t>, // background decoration colors of light/dark themes
+  option<Highlighting__Decoration.t>, // decoration colored by a theme color id
 ) = x => {
   // helper constructor
   let typeOnly = (t: Highlighting__SemanticToken.TokenType.t) =>
