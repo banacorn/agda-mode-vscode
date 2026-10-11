@@ -59,6 +59,82 @@ describe("Token", () => {
     })
   })
 
+  describe("Highlighting__AgdaAspect.toTokenTypeAndModifiersAndDecoration", () => {
+    // https://github.com/banacorn/agda-mode-vscode/issues/156
+    it("should map every aspect to its token type, modifiers and decoration", () => {
+      let underlinedForeground = (light, dark): option<Highlighting__Decoration.t> =>
+        Some({light: ForegroundUnderlined(light), dark: ForegroundUnderlined(dark)})
+      let underlinedBackground = (light, dark): option<Highlighting__Decoration.t> =>
+        Some({light: BackgroundUnderlined(light), dark: BackgroundUnderlined(dark)})
+      let backgroundOnly = (light, dark): option<Highlighting__Decoration.t> =>
+        Some({light: Background(light), dark: Background(dark)})
+
+      let expected: array<(
+        Highlighting__AgdaAspect.t,
+        (
+          (
+            option<Highlighting__SemanticToken.TokenType.t>,
+            array<Highlighting__SemanticToken.TokenModifier.t>,
+          ),
+          option<Highlighting__Decoration.t>,
+        ),
+      )> = [
+        // Aspect
+        (Comment, ((Some(Comment), [Agda]), None)),
+        (Keyword, ((Some(Keyword), [Agda]), None)),
+        (String, ((Some(String), [Agda]), None)),
+        (Number, ((Some(Number), [Agda]), None)),
+        (Hole, ((None, []), None)),
+        (Symbol, ((None, []), None)),
+        (PrimitiveType, ((Some(Type), [Primitive, Agda]), None)),
+        (Pragma, ((None, []), None)),
+        (Background, ((None, []), None)),
+        (Markup, ((None, []), None)),
+        // OtherAspect
+        (Error, ((None, [Agda]), underlinedForeground("#FF0000", "#FF0000"))),
+        (ErrorWarning, ((None, []), underlinedBackground("#F08080", "#802400"))),
+        (DottedPattern, ((None, []), None)),
+        (UnsolvedMeta, ((None, []), backgroundOnly("#FFFF00", "#806B00"))),
+        (UnsolvedConstraint, ((None, []), backgroundOnly("#FFFF00", "#806B00"))),
+        (TerminationProblem, ((None, []), backgroundOnly("#FFA07A", "#802400"))),
+        (PositivityProblem, ((None, []), backgroundOnly("#CD853F", "#803F00"))),
+        (Deadcode, ((None, []), backgroundOnly("#A9A9A9", "#808080"))),
+        (ShadowingInTelescope, ((None, []), backgroundOnly("#A9A9A9", "#808080"))),
+        (CoverageProblem, ((None, []), backgroundOnly("#F5DEB3", "#805300"))),
+        (IncompletePattern, ((None, []), backgroundOnly("#800080", "#800080"))),
+        (TypeChecks, ((None, []), None)),
+        (MissingDefinition, ((None, []), backgroundOnly("#FFA500", "#804040"))),
+        (InstanceProblem, ((None, []), backgroundOnly("#F5DEB3", "#805300"))),
+        (CosmeticProblem, ((None, []), backgroundOnly("#F5F5F5", "#404040"))),
+        (CatchallClause, ((None, []), backgroundOnly("#F5F5F5", "#404040"))),
+        (ConfluenceProblem, ((None, []), backgroundOnly("#FFC0CB", "#800080"))),
+        // NameKind
+        (Bound, ((Some(Variable), [Agda]), None)),
+        (Generalizable, ((Some(Variable), [Agda]), None)),
+        (ConstructorInductive, ((Some(EnumMember), [Agda]), None)),
+        (ConstructorCoInductive, ((Some(EnumMember), [CoInductive, Agda]), None)),
+        (Datatype, ((Some(Type), [Agda]), None)),
+        (Field, ((Some(Property), [Agda]), None)),
+        (Function, ((Some(Function), [Agda]), None)),
+        (Module, ((Some(Namespace), [Agda]), None)),
+        (Postulate, ((Some(Function), [Abstract, Agda]), None)),
+        (Primitive, ((Some(Type), [Primitive, Agda]), None)),
+        (Record, ((Some(Class), [Agda]), None)),
+        (Argument, ((Some(Parameter), [Agda]), None)),
+        (Macro, ((Some(Macro), [Agda]), None)),
+        // Name's operator flag
+        (Operator, ((Some(Operator), []), None)),
+      ]
+      Assert.deepStrictEqual(
+        expected->Array.map(((aspect, _)) => (
+          aspect,
+          Highlighting__AgdaAspect.toTokenTypeAndModifiersAndDecoration(aspect),
+        )),
+        expected,
+      )
+    })
+  })
+
   describe("Token.parse", () => {
     it(
       "should return None for atomic SExpression",

@@ -217,8 +217,8 @@ let toTokenTypeAndModifiersAndDecoration: t => (
   | Function => typeOnly(Function)
   | Module => typeOnly(Namespace)
   | Postulate => typeWithModifier(Function, Abstract)
-  | Primitive => typeWithModifier(String, Primitive)
-  | Record => typeOnly(Struct)
+  | Primitive => typeWithModifier(Type, Primitive)
+  | Record => typeOnly(Class)
   | Argument => typeOnly(Parameter)
   | Macro => typeOnly(Macro)
   // when the second field of Aspect.Name is True
