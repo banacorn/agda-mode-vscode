@@ -62,12 +62,11 @@ describe("Token", () => {
   describe("Highlighting__AgdaAspect.toTokenTypeAndModifiersAndDecoration", () => {
     // https://github.com/banacorn/agda-mode-vscode/issues/156
     it("should map every aspect to its token type, modifiers and decoration", () => {
-      let underlinedForeground = (light, dark): option<Highlighting__Decoration.t> =>
-        Some({light: ForegroundUnderlined(light), dark: ForegroundUnderlined(dark)})
-      let underlinedBackground = (light, dark): option<Highlighting__Decoration.t> =>
-        Some({light: BackgroundUnderlined(light), dark: BackgroundUnderlined(dark)})
-      let backgroundOnly = (light, dark): option<Highlighting__Decoration.t> =>
-        Some({light: Background(light), dark: Background(dark)})
+      let underlinedForeground = (id): option<Highlighting__Decoration.t> =>
+        Some(ForegroundUnderlined(id))
+      let underlinedBackground = (id): option<Highlighting__Decoration.t> =>
+        Some(BackgroundUnderlined(id))
+      let backgroundOnly = (id): option<Highlighting__Decoration.t> => Some(Background(id))
 
       let expected: array<(
         Highlighting__AgdaAspect.t,
@@ -91,23 +90,23 @@ describe("Token", () => {
         (Background, ((None, []), None)),
         (Markup, ((None, []), None)),
         // OtherAspect
-        (Error, ((None, [Agda]), underlinedForeground("#FF0000", "#FF0000"))),
-        (ErrorWarning, ((None, []), underlinedBackground("#F08080", "#802400"))),
+        (Error, ((None, [Agda]), underlinedForeground("agdaMode.error"))),
+        (ErrorWarning, ((None, []), underlinedBackground("agdaMode.errorWarning"))),
         (DottedPattern, ((None, []), None)),
-        (UnsolvedMeta, ((None, []), backgroundOnly("#FFFF00", "#806B00"))),
-        (UnsolvedConstraint, ((None, []), backgroundOnly("#FFFF00", "#806B00"))),
-        (TerminationProblem, ((None, []), backgroundOnly("#FFA07A", "#802400"))),
-        (PositivityProblem, ((None, []), backgroundOnly("#CD853F", "#803F00"))),
-        (Deadcode, ((None, []), backgroundOnly("#A9A9A9", "#808080"))),
-        (ShadowingInTelescope, ((None, []), backgroundOnly("#A9A9A9", "#808080"))),
-        (CoverageProblem, ((None, []), backgroundOnly("#F5DEB3", "#805300"))),
-        (IncompletePattern, ((None, []), backgroundOnly("#800080", "#800080"))),
+        (UnsolvedMeta, ((None, []), backgroundOnly("agdaMode.unsolvedMeta"))),
+        (UnsolvedConstraint, ((None, []), backgroundOnly("agdaMode.unsolvedConstraint"))),
+        (TerminationProblem, ((None, []), backgroundOnly("agdaMode.terminationProblem"))),
+        (PositivityProblem, ((None, []), backgroundOnly("agdaMode.positivityProblem"))),
+        (Deadcode, ((None, []), backgroundOnly("agdaMode.deadcode"))),
+        (ShadowingInTelescope, ((None, []), backgroundOnly("agdaMode.shadowingInTelescope"))),
+        (CoverageProblem, ((None, []), backgroundOnly("agdaMode.coverageProblem"))),
+        (IncompletePattern, ((None, []), backgroundOnly("agdaMode.incompletePattern"))),
         (TypeChecks, ((None, []), None)),
-        (MissingDefinition, ((None, []), backgroundOnly("#FFA500", "#804040"))),
-        (InstanceProblem, ((None, []), backgroundOnly("#F5DEB3", "#805300"))),
-        (CosmeticProblem, ((None, []), backgroundOnly("#F5F5F5", "#404040"))),
-        (CatchallClause, ((None, []), backgroundOnly("#F5F5F5", "#404040"))),
-        (ConfluenceProblem, ((None, []), backgroundOnly("#FFC0CB", "#800080"))),
+        (MissingDefinition, ((None, []), backgroundOnly("agdaMode.missingDefinition"))),
+        (InstanceProblem, ((None, []), backgroundOnly("agdaMode.instanceProblem"))),
+        (CosmeticProblem, ((None, []), backgroundOnly("agdaMode.cosmeticProblem"))),
+        (CatchallClause, ((None, []), backgroundOnly("agdaMode.catchallClause"))),
+        (ConfluenceProblem, ((None, []), backgroundOnly("agdaMode.confluenceProblem"))),
         // NameKind
         (Bound, ((Some(Variable), [Agda]), None)),
         (Generalizable, ((Some(Variable), [Agda]), None)),

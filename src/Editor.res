@@ -41,8 +41,11 @@ module Decoration = {
     Window.createTextEditorDecorationType(options)
   }
 
-  let createBackground = (style: backgroundStyle) =>
-    createBackgroundPrim(VSCode.StringOr.make(Others(ThemeColor.make(style))))
+  let createBackground = (~underline=false, style: backgroundStyle) =>
+    createBackgroundPrim(
+      ~textDecoration=?underline ? Some("underline") : None,
+      VSCode.StringOr.make(Others(ThemeColor.make(style))),
+    )
 
   let createBackgroundWithColor = (~underline=false, color: color) =>
     createBackgroundPrim(
@@ -55,8 +58,11 @@ module Decoration = {
     let options = DecorationRenderOptions.t(~color, ~rangeBehavior, ~textDecoration?, ())
     Window.createTextEditorDecorationType(options)
   }
-  let createText = (style: backgroundStyle) =>
-    createTextPrim(VSCode.StringOr.make(Others(ThemeColor.make(style))))
+  let createText = (~underline=false, style: backgroundStyle) =>
+    createTextPrim(
+      ~textDecoration=?underline ? Some("underline") : None,
+      VSCode.StringOr.make(Others(ThemeColor.make(style))),
+    )
 
   let createTextWithColor = (~underline=false, color: color) =>
     createTextPrim(
