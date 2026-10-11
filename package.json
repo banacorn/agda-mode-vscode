@@ -66,6 +66,158 @@
 		"vscode-languageclient": "^8.0.0"
 	},
 	"contributes": {
+		"colors": [
+			{
+				"id": "agdaMode.error",
+				"description": "Agda error underline",
+				"defaults": {
+					"light": "#FF0000",
+					"dark": "#FF0000",
+					"highContrast": "#FF0000",
+					"highContrastLight": "#FF0000"
+				}
+			},
+			{
+				"id": "agdaMode.errorWarning",
+				"description": "Agda fatal warning",
+				"defaults": {
+					"light": "#F08080",
+					"dark": "#802400",
+					"highContrast": "#802400",
+					"highContrastLight": "#F08080"
+				}
+			},
+			{
+				"id": "agdaMode.unsolvedMeta",
+				"description": "Agda unsolved meta variable",
+				"defaults": {
+					"light": "#FFFF00",
+					"dark": "#806B00",
+					"highContrast": "#806B00",
+					"highContrastLight": "#FFFF00"
+				}
+			},
+			{
+				"id": "agdaMode.unsolvedConstraint",
+				"description": "Agda unsolved constraint that is not connected to a meta variable",
+				"defaults": {
+					"light": "#FFFF00",
+					"dark": "#806B00",
+					"highContrast": "#806B00",
+					"highContrastLight": "#FFFF00"
+				}
+			},
+			{
+				"id": "agdaMode.terminationProblem",
+				"description": "Agda termination problem",
+				"defaults": {
+					"light": "#FFA07A",
+					"dark": "#802400",
+					"highContrast": "#802400",
+					"highContrastLight": "#FFA07A"
+				}
+			},
+			{
+				"id": "agdaMode.positivityProblem",
+				"description": "Agda positivity problem",
+				"defaults": {
+					"light": "#CD853F",
+					"dark": "#803F00",
+					"highContrast": "#803F00",
+					"highContrastLight": "#CD853F"
+				}
+			},
+			{
+				"id": "agdaMode.deadcode",
+				"description": "Agda dead code, such as unreachable clauses",
+				"defaults": {
+					"light": "#A9A9A9",
+					"dark": "#808080",
+					"highContrast": "#808080",
+					"highContrastLight": "#A9A9A9"
+				}
+			},
+			{
+				"id": "agdaMode.shadowingInTelescope",
+				"description": "Agda repeated variable name that shadows another in a telescope",
+				"defaults": {
+					"light": "#A9A9A9",
+					"dark": "#808080",
+					"highContrast": "#808080",
+					"highContrastLight": "#A9A9A9"
+				}
+			},
+			{
+				"id": "agdaMode.coverageProblem",
+				"description": "Agda coverage problem",
+				"defaults": {
+					"light": "#F5DEB3",
+					"dark": "#805300",
+					"highContrast": "#805300",
+					"highContrastLight": "#F5DEB3"
+				}
+			},
+			{
+				"id": "agdaMode.incompletePattern",
+				"description": "Agda incomplete pattern",
+				"defaults": {
+					"light": "#800080",
+					"dark": "#800080",
+					"highContrast": "#800080",
+					"highContrastLight": "#800080"
+				}
+			},
+			{
+				"id": "agdaMode.missingDefinition",
+				"description": "Agda type declaration with a missing definition",
+				"defaults": {
+					"light": "#FFA500",
+					"dark": "#804040",
+					"highContrast": "#804040",
+					"highContrastLight": "#FFA500"
+				}
+			},
+			{
+				"id": "agdaMode.instanceProblem",
+				"description": "Agda instance problem",
+				"defaults": {
+					"light": "#F5DEB3",
+					"dark": "#805300",
+					"highContrast": "#805300",
+					"highContrastLight": "#F5DEB3"
+				}
+			},
+			{
+				"id": "agdaMode.cosmeticProblem",
+				"description": "Agda cosmetic problem",
+				"defaults": {
+					"light": "#F5F5F5",
+					"dark": "#404040",
+					"highContrast": "#404040",
+					"highContrastLight": "#F5F5F5"
+				}
+			},
+			{
+				"id": "agdaMode.catchallClause",
+				"description": "Agda catchall clause",
+				"defaults": {
+					"light": "#F5F5F5",
+					"dark": "#404040",
+					"highContrast": "#404040",
+					"highContrastLight": "#F5F5F5"
+				}
+			},
+			{
+				"id": "agdaMode.confluenceProblem",
+				"description": "Agda confluence problem",
+				"defaults": {
+					"light": "#FFC0CB",
+					"dark": "#800080",
+					"highContrast": "#800080",
+					"highContrastLight": "#FFC0CB"
+				}
+			}
+		],
 		"semanticTokenModifiers": [
 			{
 				"id": "agda",

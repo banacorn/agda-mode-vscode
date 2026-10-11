@@ -158,24 +158,13 @@ let toTokenTypeAndModifiersAndDecoration: t => (
   let typeWithModifier = (t: Highlighting__SemanticToken.TokenType.t, m: Highlighting__SemanticToken.TokenModifier.t) =>
     ((Some(t), [m, Agda]), None)
   let nothing = ((None, []), None)
-  let underlinedForeground = (light, dark) => (
+  // the ids are theme colors contributed in package.json ("contributes.colors")
+  let underlinedForeground = id => (
     (None, [Highlighting__SemanticToken.TokenModifier.Agda]),
-    Some({
-      Highlighting__Decoration.light: ForegroundUnderlined(light),
-      dark: ForegroundUnderlined(dark),
-    }),
+    Some(Highlighting__Decoration.ForegroundUnderlined(id)),
   )
-  let underlinedBackground = (light, dark) => (
-    (None, []),
-    Some({
-      Highlighting__Decoration.light: BackgroundUnderlined(light),
-      dark: BackgroundUnderlined(dark),
-    }),
-  )
-  let backgroundOnly = (light, dark) => (
-    (None, []),
-    Some({Highlighting__Decoration.light: Background(light), dark: Background(dark)}),
-  )
+  let underlinedBackground = id => ((None, []), Some(Highlighting__Decoration.BackgroundUnderlined(id)))
+  let backgroundOnly = id => ((None, []), Some(Highlighting__Decoration.Background(id)))
 
   switch x {
   | Hole => nothing
@@ -190,23 +179,23 @@ let toTokenTypeAndModifiersAndDecoration: t => (
   | Background => nothing
   | Markup => nothing
   // the OtherAspect part
-  | Error => underlinedForeground("#FF0000", "#FF0000")
-  | ErrorWarning => underlinedBackground("#F08080", "#802400")
+  | Error => underlinedForeground("agdaMode.error")
+  | ErrorWarning => underlinedBackground("agdaMode.errorWarning")
   | DottedPattern => nothing
-  | UnsolvedMeta => backgroundOnly("#FFFF00", "#806B00")
-  | UnsolvedConstraint => backgroundOnly("#FFFF00", "#806B00")
-  | TerminationProblem => backgroundOnly("#FFA07A", "#802400")
-  | PositivityProblem => backgroundOnly("#CD853F", "#803F00")
-  | Deadcode => backgroundOnly("#A9A9A9", "#808080")
-  | ShadowingInTelescope => backgroundOnly("#A9A9A9", "#808080")
-  | CoverageProblem => backgroundOnly("#F5DEB3", "#805300")
-  | IncompletePattern => backgroundOnly("#800080", "#800080")
+  | UnsolvedMeta => backgroundOnly("agdaMode.unsolvedMeta")
+  | UnsolvedConstraint => backgroundOnly("agdaMode.unsolvedConstraint")
+  | TerminationProblem => backgroundOnly("agdaMode.terminationProblem")
+  | PositivityProblem => backgroundOnly("agdaMode.positivityProblem")
+  | Deadcode => backgroundOnly("agdaMode.deadcode")
+  | ShadowingInTelescope => backgroundOnly("agdaMode.shadowingInTelescope")
+  | CoverageProblem => backgroundOnly("agdaMode.coverageProblem")
+  | IncompletePattern => backgroundOnly("agdaMode.incompletePattern")
   | TypeChecks => nothing
-  | MissingDefinition => backgroundOnly("#FFA500", "#804040")
-  | InstanceProblem => backgroundOnly("#F5DEB3", "#805300")
-  | CosmeticProblem => backgroundOnly("#F5F5F5", "#404040")
-  | CatchallClause => backgroundOnly("#F5F5F5", "#404040")
-  | ConfluenceProblem => backgroundOnly("#FFC0CB", "#800080")
+  | MissingDefinition => backgroundOnly("agdaMode.missingDefinition")
+  | InstanceProblem => backgroundOnly("agdaMode.instanceProblem")
+  | CosmeticProblem => backgroundOnly("agdaMode.cosmeticProblem")
+  | CatchallClause => backgroundOnly("agdaMode.catchallClause")
+  | ConfluenceProblem => backgroundOnly("agdaMode.confluenceProblem")
   // the NameKind part
   | Bound => typeOnly(Variable)
   | Generalizable => typeOnly(Variable)
