@@ -92,6 +92,75 @@ By default, this command is bound to VS Code's layout-independent `[Backslash]` 
 
 Cancel `agdaMode.inputMethod.enable` in the settings to disable the input method.
 
+## Highlighting
+
+### Names
+
+Names are colored with VS Code's semantic tokens, so your color theme decides how they look.
+Each kind of name gets a token type:
+
+| Name                                            | Token type                          |
+| ----------------------------------------------- | ----------------------------------- |
+| keywords, comments, strings, numbers            | `keyword`, `comment`, `string`, `number` |
+| datatypes                                       | `type`                              |
+| records                                         | `class`                             |
+| constructors                                    | `enumMember`                        |
+| coinductive constructors                        | `enumMember` with `coInductive`     |
+| record fields                                   | `property`                          |
+| functions                                       | `function`                          |
+| postulates                                      | `function` with `abstract`          |
+| modules                                         | `namespace`                         |
+| bound variables                                 | `variable`                          |
+| arguments                                       | `parameter`                         |
+| macros                                          | `macro`                             |
+| operators                                       | `operator`                          |
+| built-in sorts (`Set`, `Prop`) and `primitive` functions | `type` with `primitive`    |
+
+Most tokens also carry the `agda` modifier, so a rule for `*.agda` selects all of them.
+To change a color, add a rule to the `editor.semanticTokenColorCustomizations` setting:
+
+```json
+"editor.semanticTokenColorCustomizations": {
+    "rules": {
+        "type.primitive": "#C586C0"
+    }
+}
+```
+
+### Problem markers
+
+Problem markers, such as unsolved metas and termination problems, are drawn as backgrounds and underlines.
+Their colors are theme colors named `agdaMode.*`, and you can override them in the `workbench.colorCustomizations` setting:
+
+```json
+"workbench.colorCustomizations": {
+    "agdaMode.unsolvedMeta": "#FF00FF",
+    "agdaMode.deadcode": "#33333388"
+}
+```
+
+These colors can be overridden.
+The defaults follow the faces of Agda's Emacs mode (`agda2-highlight-*-face`).
+`agdaMode.error` is the color of the underlined text; the others are background colors.
+
+| Id                             | Light     | Dark      |
+| ------------------------------ | --------- | --------- |
+| `agdaMode.error`               | `#FF0000` | `#FF0000` |
+| `agdaMode.errorWarning`        | `#F08080` | `#802400` |
+| `agdaMode.unsolvedMeta`        | `#FFFF00` | `#806B00` |
+| `agdaMode.unsolvedConstraint`  | `#FFFF00` | `#806B00` |
+| `agdaMode.terminationProblem`  | `#FFA07A` | `#802400` |
+| `agdaMode.positivityProblem`   | `#CD853F` | `#803F00` |
+| `agdaMode.deadcode`            | `#A9A9A9` | `#808080` |
+| `agdaMode.shadowingInTelescope`| `#A9A9A9` | `#808080` |
+| `agdaMode.coverageProblem`     | `#F5DEB3` | `#805300` |
+| `agdaMode.incompletePattern`   | `#800080` | `#800080` |
+| `agdaMode.missingDefinition`   | `#FFA500` | `#804040` |
+| `agdaMode.instanceProblem`     | `#F5DEB3` | `#805300` |
+| `agdaMode.cosmeticProblem`     | `#F5F5F5` | `#404040` |
+| `agdaMode.catchallClause`      | `#F5F5F5` | `#404040` |
+| `agdaMode.confluenceProblem`   | `#FFC0CB` | `#800080` |
+
 ## Debug Buffer
 
 Execute `Agda: Open Debug Buffer` in the *Command Palette* to open it.
