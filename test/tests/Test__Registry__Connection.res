@@ -155,20 +155,29 @@ let makeControlledFactory = (): factory => {
   factory
 }
 
-// Every counted connection is destroyed exactly once, except the one held by Active.
-let assertNoLeaks = () => {
-  let activeConnection = switch Registry__Connection.status.contents {
+let activeConnection = () =>
+  switch Registry__Connection.status.contents {
   | Registry__Connection.Active(resource) => Some(resource.connection)
   | _ => None
   }
+
+// Every counted connection is destroyed exactly once, except the one held by Active.
+let assertNoLeaks = () => {
+  let active = activeConnection()
   registeredConnections.contents->Array.forEach(counted => {
-    let expected = switch activeConnection {
+    let expected = switch active {
     | Some(connection) if connection === counted.connection => 0
     | _ => 1
     }
     Assert.deepStrictEqual(counted.destroyCount(), expected)
   })
 }
+
+type landing =
+  | LandEmpty
+  | LandActive
+  | LandConnecting
+  | LandClosing
 
 let runCase = (name, body: unit => promise<unit>) =>
   Async.it(name, async () => {
@@ -699,4 +708,90 @@ describe("Registry__Connection shutdown reaches Empty from every registry state"
     Assert.deepStrictEqual(rInitiator.outcome, Ok(Error(cancellationError)))
     Assert.deepStrictEqual(rWaiter.outcome, Ok(Error(cancellationError)))
   })
+
+  // Factory 1 belongs to the cancelled attempt, factory 2 to the second attempt.
+  // The late Ok of factory 1 must not touch whatever state the registry is in by then.
+  let staleOkCase = (name, landing) =>
+    runCase(name, async () => {
+      let factory1 = makeControlledFactory()
+      let c1 = makeCountingConnection()
+      let waiterFactory = makeControlledFactory()
+      let factory2 = makeControlledFactory()
+      let c2 = makeCountingConnection(~held=landing == LandClosing)
+
+      let p1 = settles(Registry__Connection.acquire("owner-1", factory1.make), "p1")
+      await tick()
+      Assert.deepStrictEqual(Registry__Connection.inspect().status, "Connecting")
+      let w = settles(Registry__Connection.acquire("owner-3", waiterFactory.make), "w")
+      await tick()
+
+      // cancel the attempt
+      let s = settles(Registry__Connection.shutdown(), "s")
+      let rs = await s
+      let _ = await p1
+      let _ = await w
+      Assert.deepStrictEqual(rs.statusAtSettle, "Empty")
+
+      // land the second state
+      let p2 = switch landing {
+      | LandEmpty => None
+      | _ => Some(settles(Registry__Connection.acquire("owner-2", factory2.make), "p2"))
+      }
+      await tick()
+      let s2 = ref(None)
+      switch (landing, p2) {
+      | (LandConnecting, _) =>
+        Assert.deepStrictEqual(Registry__Connection.inspect().status, "Connecting")
+      | (LandActive, Some(p2)) =>
+        factory2.resolveOk(c2)
+        Assert.deepStrictEqual((await p2).outcome, Ok(Ok(c2.connection)))
+      | (LandClosing, Some(p2)) =>
+        factory2.resolveOk(c2)
+        Assert.deepStrictEqual((await p2).outcome, Ok(Ok(c2.connection)))
+        s2 := Some(settles(Registry__Connection.shutdown(), "s2"))
+        Assert.deepStrictEqual(Registry__Connection.inspect().status, "Closing")
+      | _ => ()
+      }
+
+      // the late result of the cancelled attempt
+      factory1.resolveOk(c1)
+      await tick()
+
+      // the landing state is untouched
+      switch landing {
+      | LandEmpty => Assert.deepStrictEqual(Registry__Connection.inspect().status, "Empty")
+      | LandActive =>
+        Assert.deepStrictEqual(Registry__Connection.inspect().status, "Active")
+        Assert.deepStrictEqual(activeConnection(), Some(c2.connection))
+        Assert.deepStrictEqual(Registry__Connection.inspect().userCount, 1)
+      | LandConnecting =>
+        Assert.deepStrictEqual(Registry__Connection.inspect().status, "Connecting")
+      | LandClosing => Assert.deepStrictEqual(Registry__Connection.inspect().status, "Closing")
+      }
+
+      // finish the second attempt
+      switch (landing, p2, s2.contents) {
+      | (LandConnecting, Some(p2), _) =>
+        factory2.resolveOk(c2)
+        Assert.deepStrictEqual((await p2).outcome, Ok(Ok(c2.connection)))
+        Assert.deepStrictEqual(Registry__Connection.inspect().status, "Active")
+        Assert.deepStrictEqual(activeConnection(), Some(c2.connection))
+        Assert.deepStrictEqual(Registry__Connection.inspect().userCount, 1)
+      | (LandClosing, _, Some(s2)) =>
+        c2.release()
+        let r2 = await s2
+        Assert.deepStrictEqual(r2.outcome, Ok())
+        Assert.deepStrictEqual(r2.statusAtSettle, "Empty")
+      | _ => ()
+      }
+
+      // last on purpose: a leftover waiter calls its factory only after the teardown
+      await tick()
+      Assert.deepStrictEqual(waiterFactory.callCount(), 0)
+    })
+
+  staleOkCase("6. late Ok of a cancelled attempt lands in Empty", LandEmpty)
+  staleOkCase("7. late Ok of a cancelled attempt lands in Active", LandActive)
+  staleOkCase("8. late Ok of a cancelled attempt lands in Connecting", LandConnecting)
+  staleOkCase("9. late Ok of a cancelled attempt lands in Closing", LandClosing)
 })
