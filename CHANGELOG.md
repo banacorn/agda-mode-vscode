@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.10.6 - 2026-10-12
+
+### Added
+- #389: Add an opt-in `agdaMode.inputMethod.directEdit` setting, off by default, that applies input method rewrites directly through `TextEditor.edit`, falling back to `workspace.applyEdit`
+- Contribute theme colors for problem markers, so themes and users can override the hardcoded backgrounds
+- README: Explain how to override highlighting colors with `semanticTokenColorCustomizations` and `colorCustomizations`
+
+### Fixed
+- #156: Map the `Primitive` aspect to the type token instead of string, and `Record` to class, so built-in sorts stop looking like strings
+- #391: Let shutdown cancel a connection that is still being established, and destroy the late result instead of letting it overwrite the registry
+
 ## v0.10.5 - 2026-10-08
 
 ### Added
