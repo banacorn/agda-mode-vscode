@@ -40,6 +40,183 @@ let makeDestroyThrowingConnection = (): Connection.t => {
   }`)
 }
 
+// Helpers for the "shutdown reaches Empty from every registry state" cases (#391)
+
+let settleDeadlineMs = 250
+
+type rejection
+type settled<'a> = {
+  outcome: result<'a, rejection>,
+  statusAtSettle: string,
+}
+
+@send external onSettled: (promise<'a>, 'a => unit, rejection => unit) => unit = "then"
+let makeError: string => 'e = %raw("message => new Error(message)")
+// a JS error rethrown through `raise` arrives wrapped as { RE_EXN_ID: "JsError", _1: error }
+let errorName: rejection => string = %raw(
+  "e => e && (e.RE_EXN_ID === 'JsError' ? e._1.name : e.name)"
+)
+
+let tick = () => Util.Promise_.setTimeout(0)
+
+// Apply at creation. The continuation is attached directly to the promise, so
+// `statusAtSettle` is the registry status at the moment the promise settles.
+let settles = (promise: promise<'a>, label: string): promise<settled<'a>> => {
+  let (result, resolve, reject) = Util.Promise_.pending()
+  let timer = Js.Global.setTimeout(
+    () => reject(makeError("did not settle within 250ms: " ++ label)),
+    settleDeadlineMs,
+  )
+  promise->onSettled(
+    value => {
+      Js.Global.clearTimeout(timer)
+      resolve({outcome: Ok(value), statusAtSettle: Registry__Connection.inspect().status})
+    },
+    exn => {
+      Js.Global.clearTimeout(timer)
+      resolve({outcome: Error(exn), statusAtSettle: Registry__Connection.inspect().status})
+    },
+  )
+  // an aborted case must not leave an unhandled deadline rejection behind
+  result->Promise.then(_ => Promise.resolve())->Promise.catch(_ => Promise.resolve())->ignore
+  result
+}
+
+type counted = {
+  connection: Connection.t,
+  destroyCount: unit => int,
+  release: unit => unit,
+}
+
+let registeredConnections: ref<array<counted>> = ref([])
+
+let makeCountingConnection = (~held=false): counted => {
+  let make: bool => counted = %raw(`(held) => {
+    let count = 0
+    let release = () => {}
+    let status = "Destroyed"
+    if (held) {
+      let resolve
+      const pending = new Promise(r => { resolve = r })
+      status = { TAG: "Destroying", _0: pending }
+      release = () => resolve()
+    }
+    return {
+      connection: {
+        TAG: "Agda",
+        _0: {
+          chan: { removeAllListeners: () => { count++ } },
+          process: { status },
+          encountedFirstPrompt: false,
+          version: "2.6.4",
+          path: "mock-path"
+        },
+        _1: "mock-path",
+        _2: "2.6.4"
+      },
+      destroyCount: () => count,
+      release
+    }
+  }`)
+  make(held)
+}
+
+type factory = {
+  make: unit => promise<result<Connection__Core.t, Connection__Core.Error.t>>,
+  resolveOk: counted => unit,
+  resolveError: unit => unit,
+  reject: exn => unit,
+  callCount: unit => int,
+}
+
+let registeredFactories: ref<array<factory>> = ref([])
+
+let cancellationError = Connection__Core.Error.Establish(
+  Connection__Core.Error.Establish.mergeMany([]),
+)
+
+let makeControlledFactory = (): factory => {
+  let (promise, resolve, reject) = Util.Promise_.pending()
+  let calls = ref(0)
+  let factory = {
+    make: () => {
+      calls := calls.contents + 1
+      promise
+    },
+    resolveOk: counted => {
+      registeredConnections := Array.concat(registeredConnections.contents, [counted])
+      resolve(Ok(counted.connection))
+    },
+    resolveError: () => resolve(Error(cancellationError)),
+    reject: exn => reject(exn),
+    callCount: () => calls.contents,
+  }
+  registeredFactories := Array.concat(registeredFactories.contents, [factory])
+  factory
+}
+
+// Every counted connection is destroyed exactly once, except the one held by Active.
+let assertNoLeaks = () => {
+  let activeConnection = switch Registry__Connection.status.contents {
+  | Registry__Connection.Active(resource) => Some(resource.connection)
+  | _ => None
+  }
+  registeredConnections.contents->Array.forEach(counted => {
+    let expected = switch activeConnection {
+    | Some(connection) if connection === counted.connection => 0
+    | _ => 1
+    }
+    Assert.deepStrictEqual(counted.destroyCount(), expected)
+  })
+}
+
+let runCase = (name, body: unit => promise<unit>) =>
+  Async.it(name, async () => {
+    Registry__Connection.status := Empty
+    registeredConnections := []
+    registeredFactories := []
+
+    let failure = ref(None)
+
+    let attempt = async () => {
+      await body()
+
+      let shutdownResult = await settles(Registry__Connection.shutdown(), "finish: shutdown")
+      Assert.deepStrictEqual(shutdownResult.statusAtSettle, "Empty")
+
+      let freshFactory = makeControlledFactory()
+      let fresh = makeCountingConnection()
+      let acquiring = settles(
+        Registry__Connection.acquire("owner-fresh", freshFactory.make),
+        "finish: fresh acquire",
+      )
+      freshFactory.resolveOk(fresh)
+      let freshResult = await acquiring
+      Assert.deepStrictEqual(freshResult.outcome, Ok(Ok(fresh.connection)))
+      Assert.deepStrictEqual(freshResult.statusAtSettle, "Active")
+      Assert.deepStrictEqual(Registry__Connection.inspect().userCount, 1)
+
+      // late orphan destruction is async
+      await tick()
+      assertNoLeaks()
+    }
+
+    switch await attempt() {
+    | () => ()
+    | exception exn => failure := Some(exn)
+    }
+
+    registeredFactories.contents->Array.forEach(factory => factory.resolveError())
+    registeredConnections.contents->Array.forEach(counted => counted.release())
+    await tick()
+    Registry__Connection.status := Empty
+
+    switch failure.contents {
+    | Some(exn) => raise(exn)
+    | None => ()
+    }
+  })
+
 describe("Registry__Connection", () => {
   Async.it("Singleton: acquire returns the same connection for different owners", async () => {
     await setup()
@@ -439,5 +616,61 @@ describe("Registry__Connection", () => {
       await AgdaMode.quit(agdaA)
       await AgdaMode.quit(agdaB)
     })
+  })
+})
+
+describe("Registry__Connection shutdown reaches Empty from every registry state", () => {
+  runCase("1. Empty: shutdown settles with Empty", async () => {
+    let result = await settles(Registry__Connection.shutdown(), "s")
+    Assert.deepStrictEqual(result.outcome, Ok())
+    Assert.deepStrictEqual(result.statusAtSettle, "Empty")
+  })
+
+  runCase("2. Active: shutdown settles with Empty", async () => {
+    let factory = makeControlledFactory()
+    let counted = makeCountingConnection()
+    let acquiring = Registry__Connection.acquire("owner-1", factory.make)
+    factory.resolveOk(counted)
+    Assert.deepStrictEqual(await acquiring, Ok(counted.connection))
+    Assert.deepStrictEqual(Registry__Connection.inspect().status, "Active")
+
+    let result = await settles(Registry__Connection.shutdown(), "s")
+    Assert.deepStrictEqual(result.outcome, Ok())
+    Assert.deepStrictEqual(result.statusAtSettle, "Empty")
+  })
+
+  runCase("3. Closing: concurrent shutdowns both wait for the teardown", async () => {
+    let factory = makeControlledFactory()
+    let held = makeCountingConnection(~held=true)
+    let acquiring = Registry__Connection.acquire("owner-1", factory.make)
+    factory.resolveOk(held)
+    Assert.deepStrictEqual(await acquiring, Ok(held.connection))
+
+    let s1 = settles(Registry__Connection.shutdown(), "s1")
+    let s2 = settles(Registry__Connection.shutdown(), "s2")
+    Assert.deepStrictEqual(Registry__Connection.inspect().status, "Closing")
+
+    held.release()
+    let r1 = await s1
+    let r2 = await s2
+    Assert.deepStrictEqual(r1.outcome, Ok())
+    Assert.deepStrictEqual(r1.statusAtSettle, "Empty")
+    Assert.deepStrictEqual(r2.outcome, Ok())
+    Assert.deepStrictEqual(r2.statusAtSettle, "Empty")
+  })
+
+  runCase("4. Closing: concurrent shutdowns when destroy throws", async () => {
+    let broken = makeDestroyThrowingConnection()
+    let _ = await Registry__Connection.acquire("owner-1", async () => Ok(broken))
+
+    let s1 = settles(Registry__Connection.shutdown(), "s1")
+    let s2 = settles(Registry__Connection.shutdown(), "s2")
+    let r1 = await s1
+    let r2 = await s2
+
+    Assert.deepStrictEqual(r1.outcome->Result.mapError(errorName), Error("TypeError"))
+    Assert.deepStrictEqual(r1.statusAtSettle, "Empty")
+    Assert.deepStrictEqual(r2.outcome, Ok())
+    Assert.deepStrictEqual(r2.statusAtSettle, "Empty")
   })
 })
