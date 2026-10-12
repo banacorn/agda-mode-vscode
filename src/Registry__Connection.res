@@ -15,6 +15,8 @@ module Connecting = {
   type t = {
     connectionEstablished: promise<result<Core.t, Core.Error.t>>,
     mutable releasedUsers: Belt.Set.String.t,
+    // Abandons this attempt: `connect` stops waiting for the factory and settles with an error.
+    cancel: unit => unit,
   }
 }
 
@@ -136,36 +138,73 @@ let rec acquire: (
 ) => promise<result<Core.t, Core.Error.t>> = async (id, make) => {
   let connect = async () => {
     let (connectionEstablished, resolve, _) = Util.Promise_.pending()
-    let connecting: Connecting.t = {connectionEstablished, releasedUsers: Belt.Set.String.empty}
+    let (cancelled, cancel, _) = Util.Promise_.pending()
+    let connecting: Connecting.t = {
+      connectionEstablished,
+      releasedUsers: Belt.Set.String.empty,
+      cancel: () => cancel(),
+    }
     status := Connecting(connecting)
     // Util.log("Registry__Connection: " ++ id ++ " is initiating connection", ())
 
-    let result = switch await make() {
-    | result => result
-    | exception _ =>
-      Error(Core.Error.Establish(Core.Error.Establish.mergeMany([])))
+    let failure = Error(Core.Error.Establish(Core.Error.Establish.mergeMany([])))
+    let factoryResult = switch make() {
+    | promise => promise->Promise.catch(_ => Promise.resolve(failure))
+    | exception _ => Promise.resolve(failure)
     }
 
-    switch result {
-    | Ok(connection) =>
-      // Increment only when a connection was actually established
-      makeCount := makeCount.contents + 1
-      let users = if connecting.releasedUsers->Belt.Set.String.has(id) {
-        Belt.Set.String.empty
-      } else {
-        Belt.Set.String.fromArray([id])
+    // A connection that arrives after its attempt was abandoned has no owner: destroy it
+    // outside the state machine, leaving whatever state the registry is in untouched.
+    let destroyOrphan = result =>
+      switch result {
+      | Ok(connection) =>
+        Core.destroy(Some(connection), Chan.make())
+        ->Promise.thenResolve(_ => ())
+        ->Promise.catch(_ => Promise.resolve())
+        ->ignore
+      | Error(_) => ()
       }
-      let resource: Resource.t = {
-        connection: connection,
-        users,
-        currentOwnerId: None,
-        queue: Promise.resolve(),
+
+    let isCurrent = () =>
+      switch status.contents {
+      | Connecting(current) => current === connecting
+      | _ => false
       }
-      status := Active(resource)
-    | Error(_) => status := Empty
+
+    switch await Promise.race([
+      factoryResult->Promise.thenResolve(result => Some(result)),
+      cancelled->Promise.thenResolve(_ => None),
+    ]) {
+    | Some(result) if isCurrent() =>
+      switch result {
+      | Ok(connection) =>
+        // Increment only when a connection was actually established
+        makeCount := makeCount.contents + 1
+        let users = if connecting.releasedUsers->Belt.Set.String.has(id) {
+          Belt.Set.String.empty
+        } else {
+          Belt.Set.String.fromArray([id])
+        }
+        let resource: Resource.t = {
+          connection: connection,
+          users,
+          currentOwnerId: None,
+          queue: Promise.resolve(),
+        }
+        status := Active(resource)
+      | Error(_) => status := Empty
+      }
+      resolve(result)
+      result
+    | Some(result) =>
+      destroyOrphan(result)
+      resolve(failure)
+      failure
+    | None =>
+      factoryResult->Promise.thenResolve(destroyOrphan)->ignore
+      resolve(failure)
+      failure
     }
-    resolve(result)
-    result
   }
 
   let wait = async (connecting: Connecting.t) => {
@@ -219,12 +258,14 @@ let release: ownerId => promise<unit> = async id => {
 }
 
 // Shutdown: Forcefully destroy the connection (e.g., on "Restart").
-let rec shutdown: unit => promise<unit> = async () => {
+// A connection still being established is abandoned, not waited for.
+let shutdown: unit => promise<unit> = async () => {
   switch status.contents {
   | Active(resource) => await terminate(resource)
   | Connecting(connecting) =>
+    status := Empty
+    connecting.cancel()
     let _ = await connecting.connectionEstablished
-    await shutdown()
   | Closing(connectionDestroyed) => await connectionDestroyed
   | Empty => ()
   }
