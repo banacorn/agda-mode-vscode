@@ -28,7 +28,19 @@ module Module: Module = {
         | UpdateView(sequence, translation, index) =>
           await State__View.Panel.updateIM(state, Update(sequence, translation, index))
         | Rewrite(replacements, resolve) =>
-          let _ = await Editor.Text.batchReplace(state.document, replacements)
+          // temporary and opt-in, see #389
+          let applied = if Config.InputMethod.getDirectEdit() {
+            try {
+              await Editor.Text.batchReplace'(state.editor, replacements)
+            } catch {
+            | _ => false
+            }
+          } else {
+            false
+          }
+          if !applied {
+            let _ = await Editor.Text.batchReplace(state.document, replacements)
+          }
           resolve()
         | Activate =>
           await State__View.Panel.display(state, Plain("Unicode input mode"), [])

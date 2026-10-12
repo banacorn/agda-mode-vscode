@@ -141,13 +141,14 @@ module Text = {
     )
     Workspace.applyEdit(workspaceEdit)
   }
-  // let batchReplace' = (editor, replacements) => {
-  //   editor->TextEditor.edit(editBuilder => {
-  //     replacements->Array.forEach(((range, text)) =>
-  //       editBuilder->TextEditorEdit.replaceAtRange(range, text)
-  //     )
-  //   }, None)
-  // }
+  // Applies the edit directly, skipping the bulk-edit service's round trip to the editor worker.
+  // Resolves to `false` if the editor can no longer be edited (e.g. disposed).
+  let batchReplace' = (editor, replacements) =>
+    editor->TextEditor.edit(editBuilder => {
+      replacements->Array.forEach(((range, text)) =>
+        editBuilder->TextEditorEdit.replaceAtRange(range, text)
+      )
+    }, None)
 
   let insert = (document, point, text) => {
     let workspaceEdit = WorkspaceEdit.make()
