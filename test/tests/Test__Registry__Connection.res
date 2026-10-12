@@ -673,4 +673,30 @@ describe("Registry__Connection shutdown reaches Empty from every registry state"
     Assert.deepStrictEqual(r2.outcome, Ok())
     Assert.deepStrictEqual(r2.statusAtSettle, "Empty")
   })
+
+  runCase("5. Connecting: shutdown cancels the initiator and a waiter", async () => {
+    let factory = makeControlledFactory()
+    let waiterFactory = makeControlledFactory()
+
+    let initiator = settles(Registry__Connection.acquire("owner-1", factory.make), "initiator")
+    await tick()
+    Assert.deepStrictEqual(Registry__Connection.inspect().status, "Connecting")
+    let waiter = settles(Registry__Connection.acquire("owner-3", waiterFactory.make), "waiter")
+    await tick()
+
+    let s1 = settles(Registry__Connection.shutdown(), "s1")
+    let s2 = settles(Registry__Connection.shutdown(), "s2")
+
+    let rs1 = await s1
+    let rs2 = await s2
+    let rInitiator = await initiator
+    let rWaiter = await waiter
+
+    Assert.deepStrictEqual(rs1.outcome, Ok())
+    Assert.deepStrictEqual(rs1.statusAtSettle, "Empty")
+    Assert.deepStrictEqual(rs2.outcome, Ok())
+    Assert.deepStrictEqual(rs2.statusAtSettle, "Empty")
+    Assert.deepStrictEqual(rInitiator.outcome, Ok(Error(cancellationError)))
+    Assert.deepStrictEqual(rWaiter.outcome, Ok(Error(cancellationError)))
+  })
 })
