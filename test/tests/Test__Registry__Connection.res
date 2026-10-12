@@ -179,11 +179,42 @@ type landing =
   | LandConnecting
   | LandClosing
 
+type late =
+  | LateOk
+  | LateError
+  | LateReject
+
+type unhandledRecorder = {
+  recorded: unit => array<rejection>,
+  stop: unit => unit,
+}
+
+let startRecording: unit => unhandledRecorder = %raw(`() => {
+  const recorded = []
+  const listener = reason => { recorded.push(reason) }
+  process.on("unhandledRejection", listener)
+  return {
+    recorded: () => recorded,
+    stop: () => { process.removeListener("unhandledRejection", listener) }
+  }
+}`)
+
+// Listens for `unhandledRejection` until `stop` is called. `runCase` stops every recorder
+// when the case ends, so a failing case cannot leave a listener behind.
+let activeRecorders: ref<array<unhandledRecorder>> = ref([])
+
+let recordUnhandledRejections = (): unhandledRecorder => {
+  let recorder = startRecording()
+  activeRecorders := Array.concat(activeRecorders.contents, [recorder])
+  recorder
+}
+
 let runCase = (name, body: unit => promise<unit>) =>
   Async.it(name, async () => {
     Registry__Connection.status := Empty
     registeredConnections := []
     registeredFactories := []
+    activeRecorders := []
 
     let failure = ref(None)
 
@@ -217,6 +248,7 @@ let runCase = (name, body: unit => promise<unit>) =>
 
     registeredFactories.contents->Array.forEach(factory => factory.resolveError())
     registeredConnections.contents->Array.forEach(counted => counted.release())
+    activeRecorders.contents->Array.forEach(recorder => recorder.stop())
     await tick()
     Registry__Connection.status := Empty
 
@@ -710,26 +742,38 @@ describe("Registry__Connection shutdown reaches Empty from every registry state"
   })
 
   // Factory 1 belongs to the cancelled attempt, factory 2 to the second attempt.
-  // The late Ok of factory 1 must not touch whatever state the registry is in by then.
-  let staleOkCase = (name, landing) =>
+  // The late outcome of factory 1 must not touch whatever state the registry is in by then.
+  // A waiter is only affected by a late Ok, so only the LateOk cases start one.
+  let staleCase = (name, landing, late) =>
     runCase(name, async () => {
       let factory1 = makeControlledFactory()
       let c1 = makeCountingConnection()
       let waiterFactory = makeControlledFactory()
       let factory2 = makeControlledFactory()
       let c2 = makeCountingConnection(~held=landing == LandClosing)
+      let unhandled = switch late {
+      | LateReject => Some(recordUnhandledRejections())
+      | _ => None
+      }
 
       let p1 = settles(Registry__Connection.acquire("owner-1", factory1.make), "p1")
       await tick()
       Assert.deepStrictEqual(Registry__Connection.inspect().status, "Connecting")
-      let w = settles(Registry__Connection.acquire("owner-3", waiterFactory.make), "w")
+      let w = switch late {
+      | LateOk =>
+        Some(settles(Registry__Connection.acquire("owner-3", waiterFactory.make), "w"))
+      | _ => None
+      }
       await tick()
 
       // cancel the attempt
       let s = settles(Registry__Connection.shutdown(), "s")
       let rs = await s
       let _ = await p1
-      let _ = await w
+      switch w {
+      | Some(w) => let _ = await w
+      | None => ()
+      }
       Assert.deepStrictEqual(rs.statusAtSettle, "Empty")
 
       // land the second state
@@ -754,8 +798,16 @@ describe("Registry__Connection shutdown reaches Empty from every registry state"
       }
 
       // the late result of the cancelled attempt
-      factory1.resolveOk(c1)
+      switch late {
+      | LateOk => factory1.resolveOk(c1)
+      | LateError => factory1.resolveError()
+      | LateReject => factory1.reject(Failure("late factory failure"))
+      }
       await tick()
+      switch unhandled {
+      | Some(recorder) => Assert.deepStrictEqual(recorder.recorded(), [])
+      | None => ()
+      }
 
       // the landing state is untouched
       switch landing {
@@ -790,8 +842,11 @@ describe("Registry__Connection shutdown reaches Empty from every registry state"
       Assert.deepStrictEqual(waiterFactory.callCount(), 0)
     })
 
-  staleOkCase("6. late Ok of a cancelled attempt lands in Empty", LandEmpty)
-  staleOkCase("7. late Ok of a cancelled attempt lands in Active", LandActive)
-  staleOkCase("8. late Ok of a cancelled attempt lands in Connecting", LandConnecting)
-  staleOkCase("9. late Ok of a cancelled attempt lands in Closing", LandClosing)
+  staleCase("6. late Ok of a cancelled attempt lands in Empty", LandEmpty, LateOk)
+  staleCase("7. late Ok of a cancelled attempt lands in Active", LandActive, LateOk)
+  staleCase("8. late Ok of a cancelled attempt lands in Connecting", LandConnecting, LateOk)
+  staleCase("9. late Ok of a cancelled attempt lands in Closing", LandClosing, LateOk)
+  staleCase("10. late Error of a cancelled attempt lands in Active", LandActive, LateError)
+  staleCase("11. late Error of a cancelled attempt lands in Connecting", LandConnecting, LateError)
+  staleCase("12. late rejection of a cancelled attempt lands in Empty", LandEmpty, LateReject)
 })
