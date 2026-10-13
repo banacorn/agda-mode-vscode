@@ -87,7 +87,7 @@ module Module: Module = {
   let make = async (~cwd, path, version) => {
     let args = Array.concat(["--interaction"], Config.Connection.getCommandLineOptions())
     let conn = {
-      process: Process.make(~cwd, path, args),
+      process: Process.make(~shell=false, ~cwd, path, args),
       version,
       path,
       chan: Chan.make(),
