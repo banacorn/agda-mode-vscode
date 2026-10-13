@@ -67,6 +67,8 @@ let run = async (path, args, ~timeout=10000, ~shell=true): result<'a, Error.t> =
       } else {
         resolve(Error(FromStderr(Some(code), stderr.contents)))
       }
+    | Process.Event(OnSignal(_) as event) =>
+      resolve(Error(FromOnError(Process.Event.toString(event))))
     | Process.Event(OnError(msg)) =>
       if msg != "" {
         if Process.errorMessageIndicatesNotFound(msg) {

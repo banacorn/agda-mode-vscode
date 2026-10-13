@@ -9,12 +9,14 @@ module Event = {
     | OnDestroyed // on `disconnect` (destroyed by the user)
     | OnError(string) // on `error`
     | OnExit(exitCode) // on `exit` or `close`
+    | OnSignal(signal) // on `close`, when a signal killed the process
 
   let toString = x =>
     switch x {
     | OnDestroyed => "Process destroyed"
     | OnError(error) => error
     | OnExit(code) => "Process exited with code " ++ string_of_int(code)
+    | OnSignal(signal) => "Process killed by signal " ++ signal
     }
 }
 
@@ -50,6 +52,14 @@ module Module: Module = {
   external spawnWithOptions: (string, array<string>, spawnOptions) => NodeJs.ChildProcess.t =
     "spawn"
 
+  // `NodeJs.ChildProcess.onClose` drops the signal, and has the code as never null
+  @send
+  external onClose: (
+    NodeJs.ChildProcess.t,
+    @as("close") _,
+    (Nullable.t<int>, Nullable.t<string>) => unit,
+  ) => NodeJs.ChildProcess.t = "on"
+
   type output =
     | Stdout(string)
     | Stderr(string)
@@ -57,7 +67,7 @@ module Module: Module = {
 
   type created = {
     process: NodeJs.ChildProcess.t,
-    promiseOnExit: promise<int>,
+    promiseOnExit: promise<Event.t>,
   }
 
   // internal status
@@ -107,9 +117,15 @@ module Module: Module = {
     )
 
     // on program exits AFTER streams are closed
+    // the code is null when a signal killed the process
     let promiseOnExit = Promise.make((resolve, _) => {
       process
-      ->NodeJs.ChildProcess.onClose(code => resolve(code))
+      ->onClose((code, signal) =>
+        switch Nullable.toOption(code) {
+        | Some(code) => resolve(Event.OnExit(code))
+        | None => resolve(Event.OnSignal(signal->Nullable.toOption->Option.getOr("unknown")))
+        }
+      )
       ->ignore
     })
 
@@ -121,7 +137,7 @@ module Module: Module = {
     ->ignore
 
     promiseOnExit
-    ->Promise.thenResolve(exitCode => chan->Chan.emit(Event(OnExit(exitCode))))
+    ->Promise.thenResolve(event => chan->Chan.emit(Event(event)))
     ->ignore
 
     {chan, status: Created({process, promiseOnExit})}
@@ -192,7 +208,7 @@ module Module: Module = {
   let onOutput = (self, callback) =>
     self.chan->Chan.on(output =>
       switch output {
-      | Event(OnExit(_)) =>
+      | Event(OnExit(_) | OnSignal(_)) =>
         switch self.status {
         | Destroying(_) => () // triggered by `destroy`
         | _ => callback(output)
