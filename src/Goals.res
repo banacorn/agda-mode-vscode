@@ -882,7 +882,9 @@ module Module: Module = {
     if Array.length(rewrites) != 0 {
       if isBusy(self) {
         // another scanAllGoals is already widening; queue a rescan instead of
-        // dropping this rewrite, since the in-flight one may also fail to apply
+        // dropping this rewrite, since the in-flight one may also fail to apply.
+        // That scan runs the rescan once its rewrite has finished; running it
+        // here would find the goals still busy and recurse without end.
         self.rescanPending = true
       } else {
         let originalCursorPosition = Editor.Cursor.get(editor)
@@ -908,14 +910,16 @@ module Module: Module = {
           // document underneath it); rescan against the current state
           self.rescanPending = true
         }
+
+        // run the rescan queued while this rewrite was in flight, or after it
+        // failed to apply
+        if self.rescanPending {
+          self.rescanPending = false
+          await scanAllGoals(self, editor, [])
+        }
       }
     } else {
       setNotBusy(self)
-    }
-
-    if self.rescanPending {
-      self.rescanPending = false
-      await scanAllGoals(self, editor, [])
     }
   }
 
