@@ -1386,7 +1386,7 @@
 					"type": "string",
 					"default": "",
 					"scope": "machine-overridable",
-					"description": "Command-line options for Agda or Agda Language Server, delimited by space, like you would in terminal, e.g. \"--without-K --safe\""
+					"description": "Command-line options for Agda or Agda Language Server, delimited by space, e.g. \"--without-K --safe\". Options are passed as is, not through a shell: '~' and '$VAR' are not expanded, and quotes do not group words, so an option cannot contain a space."
 				},
 				"agdaMode.connection.agdaLanguageServerPort": {
 					"type": "number",
