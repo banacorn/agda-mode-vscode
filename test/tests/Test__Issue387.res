@@ -124,7 +124,7 @@ describe("issue #387: Quit while Agda is busy", () => {
   // If quitting hung, a busy Agda is still running on the live connection and
   // would hold up every test after this one.
   Async.afterEach(async () => {
-    // Quitting kills the shell the extension spawned Agda through, which leaves
+    // A hung Quit may have killed a parent of Agda (such as a shell) and left
     // Agda running with no parent: it is no longer one of this process's
     // descendants, so it can only be found by the PIDs recorded beforehand.
     recordedAgda.contents->Array.forEach(killIfStillAgda)

@@ -135,7 +135,8 @@ module Module: Module = {
         // Destroy the channel immediately to prevent further events
         self.chan->Chan.destroy
 
-        // Forcefully kill the process tree immediately
+        // Forcefully kill the process immediately: on Unix only the process itself,
+        // its children are not killed; on Windows the whole process tree
         if OS.onUnix {
           NodeJs.ChildProcess.kill(process, "SIGKILL")
         } else {
