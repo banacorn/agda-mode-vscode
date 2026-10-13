@@ -553,7 +553,11 @@ module AgdaMode = {
       [(command, Connection.Error.Establish.FromConfig)],
     ) {
     | Error(errors) => raise(Failure(errors->Connection.Error.Establish.toString))
-    | Ok(connection) => Connection.getPath(connection)
+    | Ok(connection) =>
+      // only the path is wanted, so do not leave the Agda it started running
+      let path = Connection.getPath(connection)
+      let _ = await Connection.destroy(Some(connection), Chan.make())
+      path
     }
   }
 
