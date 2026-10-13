@@ -890,7 +890,15 @@ module Module: Module = {
         let originalCursorPosition = Editor.Cursor.get(editor)
         // set busy
         setBusy(self)
-        let applied = await Editor.Text.batchReplace(document, rewrites)
+        // only this scan clears the busy state it set, so clear it even when
+        // the rewrite rejects, or `waitUntilNotBusy` would wait forever
+        let applied = try {
+          await Editor.Text.batchReplace(document, rewrites)
+        } catch {
+        | exn =>
+          setNotBusy(self)
+          raise(exn)
+        }
         setNotBusy(self)
 
         // place the cursor inside a hole if it was there before the rewrite
@@ -918,8 +926,6 @@ module Module: Module = {
           await scanAllGoals(self, editor, [])
         }
       }
-    } else {
-      setNotBusy(self)
     }
   }
 
