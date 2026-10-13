@@ -9,16 +9,21 @@ open Test__Util
 // the same busy path without awaiting anything, so the calls nest until
 // JavaScript raises `RangeError: Maximum call stack size exceeded`.
 //
+// Relatedly, a scan with no rewrites calls `setNotBusy` although it never set
+// busy, clearing the busy state of a scan that is still rewriting.
+//
 //   AGDA_TEST_GLOB="Test__Issue396*.js" npm test
 
 // Holds the first `Editor.Text.batchReplace` until released, and counts every
-// call. Goals and Editor are imported by the tests from lib/js, while the
-// running extension uses its webpack bundle, so this patches the same compiled
-// Editor module that `Goals.scanAllGoals` calls here.
+// call. With `holdAfterApply`, the edit is applied first and the call is held
+// before it returns; otherwise it is held before the edit is applied.
+// Goals and Editor are imported by the tests from lib/js, while the running
+// extension uses its webpack bundle, so this patches the same compiled Editor
+// module that `Goals.scanAllGoals` calls here.
 module BatchReplaceGate = {
   type t
 
-  let install: unit => t = %raw(`function() {
+  let install: (~holdAfterApply: bool) => t = %raw(`function(holdAfterApply) {
     const Editor = require("../../src/Editor.bs.js");
     const original = Editor.$$Text.batchReplace;
     let resolveEntered;
@@ -29,10 +34,17 @@ module BatchReplaceGate = {
 
     Editor.$$Text.batchReplace = async function(document, replacements) {
       calls += 1;
-      if (calls === 1) {
+      if (calls !== 1) {
+        return original(document, replacements);
+      }
+      if (holdAfterApply) {
+        const applied = await original(document, replacements);
         resolveEntered();
         await released;
+        return applied;
       }
+      resolveEntered();
+      await released;
       return original(document, replacements);
     };
 
@@ -50,6 +62,53 @@ module BatchReplaceGate = {
   @send external calls: t => int = "calls"
 }
 
+let catchExn = async promise =>
+  try {
+    await promise
+    Ok()
+  } catch {
+  | exn => Error(exn)
+  }
+
+let raiseIfError = result =>
+  switch result {
+  | Ok() => ()
+  | Error(exn) => raise(exn)
+  }
+
+// Feeds document changes to a Goals instance, as `Main` does for the
+// extension's own (src/Main/Main.res, `onDocumentChange`).
+module ForwardChanges = {
+  type t = {
+    scans: array<promise<result<unit, exn>>>,
+    firstScan: promise<unit>,
+    disposable: VSCode.Disposable.t,
+  }
+
+  let make = (goals, editor) => {
+    let document = VSCode.TextEditor.document(editor)
+    let scans = []
+    let (firstScan, resolveFirstScan, _) = Util.Promise_.pending()
+    let disposable = VSCode.Workspace.onDidChangeTextDocument(event => {
+      if event->VSCode.TextDocumentChangeEvent.document == document {
+        let changes =
+          event
+          ->VSCode.TextDocumentChangeEvent.contentChanges
+          ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
+          ->Array.toReversed
+        if Array.length(changes) != 0 {
+          let scan = catchExn(goals->Goals.scanAllGoals(editor, changes))
+          scans->Array.push(scan)
+          resolveFirstScan()
+        }
+      }
+    })
+    {scans, firstScan, disposable}
+  }
+
+  let dispose = self => self.disposable->VSCode.Disposable.dispose->ignore
+}
+
 describe("issue #396: busy scanAllGoals queues a rescan", () => {
   This.timeout(10000)
 
@@ -59,39 +118,21 @@ describe("issue #396: busy scanAllGoals queues a rescan", () => {
   Async.before(async () => fileContent := (await File.read(Path.asset(filename))))
   Async.afterEach(async () => await File.write(Path.asset(filename), fileContent.contents))
 
-  let catchExn = async promise =>
-    try {
-      await promise
-      Ok()
-    } catch {
-    | exn => Error(exn)
-    }
-
-  Async.it("a scan that finds the goals busy returns without recursing", async () => {
+  // a Goals instance with one goal at the fixture's `?`
+  let setup = async () => {
     let editor = await File.open_(Path.asset(filename))
     let document = VSCode.TextEditor.document(editor)
     let questionMark = String.indexOf(Editor.Text.getAll(document), "?")
-
     let goals = Goals.make()
     goals->Goals.addGoalPositions([(questionMark, questionMark + 1)])
+    (editor, document, goals)
+  }
 
-    // Feed document changes to this Goals instance, as `Main` does for the
-    // extension's own (src/Main/Main.res, `onDocumentChange`).
-    let forwardedScans = []
-    let stopForwarding = VSCode.Workspace.onDidChangeTextDocument(event => {
-      if event->VSCode.TextDocumentChangeEvent.document == document {
-        let changes =
-          event
-          ->VSCode.TextDocumentChangeEvent.contentChanges
-          ->Array.map(TokenChange.fromTextDocumentContentChangeEvent)
-          ->Array.toReversed
-        if Array.length(changes) != 0 {
-          forwardedScans->Array.push(catchExn(goals->Goals.scanAllGoals(editor, changes)))
-        }
-      }
-    })
+  Async.it("a scan that finds the goals busy returns without recursing", async () => {
+    let (editor, document, goals) = await setup()
+    let forward = ForwardChanges.make(goals, editor)
 
-    let gate = BatchReplaceGate.install()
+    let gate = BatchReplaceGate.install(~holdAfterApply=false)
     // scan A: widens the `?` and holds the busy state at `batchReplace`
     let owner = catchExn(goals->Goals.resetGoalIndicesOnLoad(editor, [0]))
     await gate->BatchReplaceGate.entered
@@ -101,26 +142,15 @@ describe("issue #396: busy scanAllGoals queues a rescan", () => {
 
     gate->BatchReplaceGate.release
     let ownerResult = await owner
-    let forwardedResults = await Promise.all(forwardedScans)
+    let forwardedResults = await Promise.all(forward.scans)
     gate->BatchReplaceGate.restore
-    stopForwarding->VSCode.Disposable.dispose->ignore
+    forward->ForwardChanges.dispose
     let serialized = goals->Goals.serializeGoals
     goals->Goals.destroy
 
-    switch contenderResult {
-    | Ok() => ()
-    | Error(exn) => raise(exn)
-    }
-    switch ownerResult {
-    | Ok() => ()
-    | Error(exn) => raise(exn)
-    }
-    forwardedResults->Array.forEach(result =>
-      switch result {
-      | Ok() => ()
-      | Error(exn) => raise(exn)
-      }
-    )
+    raiseIfError(contenderResult)
+    raiseIfError(ownerResult)
+    forwardedResults->Array.forEach(raiseIfError)
     // A's deferred rescan sees its completed rewrite, so only A's batch reaches
     // `Editor.Text.batchReplace`
     Assert.deepStrictEqual(gate->BatchReplaceGate.calls, 1)
@@ -129,5 +159,34 @@ describe("issue #396: busy scanAllGoals queues a rescan", () => {
       fileContent.contents->String.replace("?", "{!   !}"),
     )
     Assert.deepStrictEqual(serialized, ["#0 [6:5-12)"])
+  })
+
+  Async.it("a scan with no rewrites leaves another scan's busy state alone", async () => {
+    let (editor, _, goals) = await setup()
+    let forward = ForwardChanges.make(goals, editor)
+
+    let gate = BatchReplaceGate.install(~holdAfterApply=true)
+    // scan A: widens the `?`, then holds the busy state before
+    // `batchReplace` returns
+    let owner = catchExn(goals->Goals.resetGoalIndicesOnLoad(editor, [0]))
+    await gate->BatchReplaceGate.entered
+
+    // the scan of A's own edit: the goal is now an intact hole, so it has
+    // nothing to rewrite and must not touch the busy state that A holds
+    await forward.firstScan
+    let earlyForwardedResults = await Promise.all(forward.scans)
+    let busyWhileOwnerHeld = goals->Goals.isBusy
+
+    gate->BatchReplaceGate.release
+    let ownerResult = await owner
+    let forwardedResults = await Promise.all(forward.scans)
+    gate->BatchReplaceGate.restore
+    forward->ForwardChanges.dispose
+    goals->Goals.destroy
+
+    earlyForwardedResults->Array.forEach(raiseIfError)
+    raiseIfError(ownerResult)
+    forwardedResults->Array.forEach(raiseIfError)
+    Assert.deepStrictEqual(busyWhileOwnerHeld, true)
   })
 })
