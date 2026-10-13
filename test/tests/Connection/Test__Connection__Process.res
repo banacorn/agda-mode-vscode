@@ -199,6 +199,24 @@ describe("Process Interface", () => {
     })
   })
 
+  // Agda is spawned without a shell (#387), so when a signal kills it there is
+  // no shell to turn the signal into an exit code, and the process has none.
+  // Windows has no signals to report.
+  if OS.onUnix {
+    Async.it("reports the signal that killed a child spawned without a shell", async () => {
+      let probe = await probeChild(
+        ~shell=false,
+        ~cwd=NodeJs.Os.tmpdir(),
+        Fs.execPath,
+        ["-e", "process.kill(process.pid, 'SIGKILL')"],
+      )
+      Assert.deepStrictEqual(
+        probe,
+        {exitCode: None, stdout: "", stderr: "", error: Some("Process killed by signal SIGKILL")},
+      )
+    })
+  }
+
   Async.it(
     "Agda endpoint should settle a request when stdout contains a bare `Warning:` (issue #228)",
     async () => {
