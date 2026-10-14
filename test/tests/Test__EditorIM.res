@@ -813,6 +813,49 @@ describe("Input Method (Editor)", () => {
   })
 })
 
+// Has its own document, because the test closes the editor.
+describe("Input Method (Editor) — closing the editor", () => {
+  let setup = ref(None)
+
+  Async.before(async () => {
+    let (editor, channels) = await activateExtensionAndOpenFile(Path.asset("Issue389.agda"), None)
+    setup := Some({editor, channels})
+  })
+
+  // Closing the editor right after typing "v" leaves the rewrite of "v" with no editor to apply to.
+  Async.it(
+    `Issue #389, should turn off when the editor is closed while a rewrite is pending`,
+    async () => {
+      let setup = acquire(setup)
+      let document = setup.editor->VSCode.TextEditor.document
+      let decorations = DecorationCounter.install()
+      let applyEdits = ApplyEditCounter.install()
+      let _ = await IM.activate(setup, ())
+      let _ = await VSCode.Window.showTextDocument(document, ())
+      let collected = IM.collectUntilRewriteApplied(setup)
+      let typed = VSCode.Commands.executeCommand1("type", {"text": "v"})
+      let closed = VSCode.Commands.executeCommand0("workbench.action.revertAndCloseActiveEditor")
+      let _ = await typed
+      let _ = await closed
+      let log = await collected
+      let applyEditCount = applyEdits->ApplyEditCounter.count
+      let liveDecorations = decorations->DecorationCounter.live
+      applyEdits->ApplyEditCounter.restore
+      decorations->DecorationCounter.restore
+      Assert.deepStrictEqual(
+        log,
+        [
+          [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "̌")]), UpdateView],
+          [RewriteApplied],
+          [Deactivate],
+        ],
+      )
+      Assert.equal(applyEditCount, 0)
+      Assert.equal(liveDecorations, 0)
+    },
+  )
+})
+
 describe("Input Method — deltas growth regression", () => {
   let setup = ref(None)
 
