@@ -37,7 +37,8 @@ module Input = {
 module Output = {
   type kind =
     | UpdateView(string, Translator.translation, int)
-    | Rewrite(array<(VSCode.Range.t, string)>, unit => unit)
+    // the callback is called with whether the rewrite was applied cleanly
+    | Rewrite(array<(VSCode.Range.t, string)>, bool => unit)
     | Activate
     | Deactivate
 
@@ -352,35 +353,35 @@ module Module: Module = {
       text,
     ))
 
-    let (promise, resolve, _) = Util.Promise_.pending()
-
-    // this promise will be resolved, once the real edits have been made
-    promise
-    ->Promise.finally(() => {
-      // redecorate instances
-      rewrites->Array.forEach(rewrite => {
-        rewrite.instance->Option.forEach(
-          instance => {
-            editor->Option.forEach(Instance.redecorate(instance, ...))
-          },
-        )
-      })
+    // called synchronously once the real edits have been made, or have failed
+    let complete = clean => {
+      // redecorate instances, unless they have been removed in the meantime
+      if clean {
+        rewrites->Array.forEach(rewrite => {
+          rewrite.instance->Option.forEach(
+            instance => {
+              if self.instances->Array.some(alive => alive === instance) {
+                editor->Option.forEach(Instance.redecorate(instance, ...))
+              }
+            },
+          )
+        })
+      }
 
       // unlock the semaphore
       self.semaphore = false
 
       // for testing
       logRewriteApplied(self)
-    })
-    ->Promise.done
+    }
 
     // deactivate if there are no instances left
     switch self.instances[0] {
     | None =>
       deactivate(self)
-      [Output.Rewrite(replacementRanges, resolve), Deactivate]
+      [Output.Rewrite(replacementRanges, complete), Deactivate]
     | Some(instance) => [
-        Output.Rewrite(replacementRanges, resolve),
+        Output.Rewrite(replacementRanges, complete),
         UpdateView(
           Buffer.toSequence(instance.buffer),
           instance.buffer.translation,
