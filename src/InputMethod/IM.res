@@ -429,6 +429,10 @@ module Module: Module = {
       } else {
         []
       }
+    | Candidate(_) if self.semaphore =>
+      // only one rewrite may be in flight, so turn off instead of rewriting again
+      deactivate(self)
+      [Output.Deactivate]
     | Candidate(action) =>
       let callback = switch action {
       | ChooseSymbol(symbol) => _ => Some(symbol)
