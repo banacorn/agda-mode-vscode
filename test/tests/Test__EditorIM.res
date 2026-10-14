@@ -17,6 +17,34 @@ let cleanup = async setup => {
   let _ = await setup.editor->VSCode.TextEditor.document->Editor.Text.replace(range, "")
 }
 
+// Holds the first `workspace.applyEdit` call until released.
+module ApplyEditGate = {
+  type t
+
+  let install: unit => t = %raw(`function () {
+    const vscode = require("vscode");
+    const original = vscode.workspace.applyEdit;
+    let enter;
+    let release;
+    const entered = new Promise(resolve => { enter = resolve; });
+    const released = new Promise(resolve => { release = resolve; });
+    vscode.workspace.applyEdit = async edit => {
+      enter();
+      await released;
+      return original.call(vscode.workspace, edit);
+    };
+    return {
+      entered,
+      release,
+      restore: () => { vscode.workspace.applyEdit = original; },
+    };
+  }`)
+
+  @get external entered: t => promise<unit> = "entered"
+  @send external release: t => unit = "release"
+  @send external restore: t => unit = "restore"
+}
+
 module IM = {
   include IM
 
@@ -68,6 +96,23 @@ module IM = {
       await promise
     } else {
       raise(Js.Exn.raiseError("Failed to insert " ++ char))
+    }
+  }
+
+  // inserts through `TextEditor.edit` rather than `workspace.applyEdit`, and
+  // returns without waiting for the input method to respond
+  let insertCharWithoutWaiting = async (setup, char) => {
+    let positions = Editor.Cursor.getMany(setup.editor)
+    let _ = await setup.editor->VSCode.TextEditor.edit(
+      edit => positions->Array.forEach(position => edit->VSCode.TextEditorEdit.insert(position, char)),
+      None,
+    )
+  }
+
+  let rec waitForRewriteApplied = async setup => {
+    let events = await wait(setup)
+    if !Array.includes(events, IM.Log.RewriteApplied) {
+      await waitForRewriteApplied(setup)
     }
   }
 
@@ -329,6 +374,27 @@ describe("Input Method (Editor)", () => {
           log,
         )
         Assert.equal("\n", document->Editor.Text.getAll->replaceCRLF)
+      },
+    )
+
+    // While a rewrite is pending, keys must still reach the input method.
+    // A gate holds the rewrite in place of a slow `workspace.applyEdit`.
+    Async.it(
+      `Issue #389, should translate a key typed while a rewrite is pending`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let _ = await IM.activate(setup, ())
+        let gate = ApplyEditGate.install()
+        await IM.insertCharWithoutWaiting(setup, "v")
+        await gate->ApplyEditGate.entered
+        await IM.insertCharWithoutWaiting(setup, "d")
+        let rewritten = IM.waitForRewriteApplied(setup)
+        gate->ApplyEditGate.release
+        await rewritten
+        gate->ApplyEditGate.restore
+        let _ = await IM.deactivate(setup)
+        Assert.equal(document->Editor.Text.getAll, "ď")
       },
     )
   })
