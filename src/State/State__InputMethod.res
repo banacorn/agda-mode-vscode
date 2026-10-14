@@ -21,27 +21,34 @@ module type Module = {
 
 module Module: Module = {
   module EditorIM = {
-    let handle = async (state: State.t, output): unit => {
+    let rec handle = async (state: State.t, output): unit => {
       open IM.Output
-      let handle = async kind =>
+      let handleKind = async kind =>
         switch kind {
         | UpdateView(sequence, translation, index) =>
           await State__View.Panel.updateIM(state, Update(sequence, translation, index))
-        | Rewrite(replacements, resolve) =>
-          // temporary and opt-in, see #389
-          let applied = if Config.InputMethod.getDirectEdit() {
-            try {
+        | Rewrite(replacements, complete) =>
+          // VS Code skips an edit whose range and text are both empty, so it would not change the version
+          let replacements =
+            replacements->Array.filter(((range, text)) => !(VSCode.Range.isEmpty(range) && text == ""))
+          if Array.length(replacements) == 0 {
+            complete(true)
+          } else {
+            // read the version right before the edit, in the same handler that computed the ranges
+            let base = state.document->VSCode.TextDocument.version
+            let applied = try {
               await Editor.Text.batchReplace'(state.editor, replacements)
             } catch {
             | _ => false
             }
-          } else {
-            false
+            // a clean edit raises the version by exactly one, see #389
+            let clean = applied && state.document->VSCode.TextDocument.version == base + 1
+            complete(clean)
+            // the document no longer matches the input method, so turn it off and keep the text
+            if !clean {
+              await handle(state, IM.run(state.editorIM, Some(state.editor), Deactivate))
+            }
           }
-          if !applied {
-            let _ = await Editor.Text.batchReplace(state.document, replacements)
-          }
-          resolve()
         | Activate =>
           await State__View.Panel.display(state, Plain("Unicode input mode"), [])
           State.Context.setIM(true)
@@ -50,7 +57,7 @@ module Module: Module = {
           State.Context.setIM(false)
           await State__View.Panel.updateIM(state, Deactivate)
         }
-      let _ = await output->Array.map(x => () => handle(x))->Util.Promise_.oneByOne
+      let _ = await output->Array.map(x => () => handleKind(x))->Util.Promise_.oneByOne
     }
 
     let runAndHandle = (state: State.t, action) =>
@@ -82,9 +89,9 @@ module Module: Module = {
         switch kind {
         | UpdateView(sequence, translation, index) =>
           await State__View.Panel.updateIM(state, Update(sequence, translation, index))
-        | Rewrite(rewrites, f) =>
-          // TODO, postpone calling f
-          f()
+        | Rewrite(rewrites, complete) =>
+          // the <input> is rewritten synchronously below, so the rewrite is always clean
+          complete(true)
 
           // iterate through an array of `rewrites`
           let replaced = ref(previous.contents)

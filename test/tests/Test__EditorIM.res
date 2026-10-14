@@ -945,25 +945,36 @@ describe("Input Method (Editor) — closing the editor", () => {
   })
 
   // Closing the editor right after typing "v" leaves the rewrite of "v" with no editor to apply to.
+  // The document stays open in a second editor, so closing the first one is immediate, with no save prompt.
   Async.it(
     `Issue #389, should turn off when the editor is closed while a rewrite is pending`,
     async () => {
       let setup = acquire(setup)
       let document = setup.editor->VSCode.TextEditor.document
+      let _ = await VSCode.Window.showTextDocument(
+        document,
+        ~column=VSCode.ViewColumn.Two,
+        ~preserveFocus=true,
+        (),
+      )
       let decorations = DecorationCounter.install()
       let applyEdits = ApplyEditCounter.install()
       let _ = await IM.activate(setup, ())
-      let _ = await VSCode.Window.showTextDocument(document, ())
       let collected = IM.collectUntilRewriteApplied(setup)
       let typed = VSCode.Commands.executeCommand1("type", {"text": "v"})
-      let closed = VSCode.Commands.executeCommand0("workbench.action.revertAndCloseActiveEditor")
+      let closed = VSCode.Commands.executeCommand0("workbench.action.closeActiveEditor")
       let _ = await typed
       let _ = await closed
       let log = await collected
+      let text = document->Editor.Text.getAll
       let applyEditCount = applyEdits->ApplyEditCounter.count
       let liveDecorations = decorations->DecorationCounter.live
       applyEdits->ApplyEditCounter.restore
       decorations->DecorationCounter.restore
+      // discard the typed "v" and close the second editor too
+      let _ = await VSCode.Window.showTextDocument(document, ~column=VSCode.ViewColumn.Two, ())
+      let _ = await VSCode.Commands.executeCommand0("workbench.action.revertAndCloseActiveEditor")
+      Assert.equal(text, "v")
       Assert.deepStrictEqual(
         log,
         [
