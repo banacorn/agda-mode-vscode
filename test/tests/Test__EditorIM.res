@@ -466,6 +466,77 @@ describe("Input Method (Editor)", () => {
     )
   })
 
+  describe("Rewrites that change nothing", () => {
+    // A key with no rewrite still completes, without turning the input method off.
+    Async.it(
+      `Issue #389, should stay on after a key that produces no rewrite`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let _ = await IM.activate(setup, ())
+        let _ = await IM.insertChar(setup, "l")
+        let collected = IM.collectUntilRewriteApplied(setup)
+        let _ = await IM.insertChar(setup, "a")
+        let log = await collected
+        Assert.deepStrictEqual(log, [[IM.Log.RewriteIssued([]), UpdateView], [RewriteApplied]])
+        let log = await IM.insertChar(setup, "m")
+        Assert.deepStrictEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
+        Assert.equal(document->Editor.Text.getAll, "←am")
+        let _ = await IM.deactivate(setup)
+      },
+    )
+
+    // Backspacing a composition to nothing issues an empty rewrite over an empty range.
+    Async.it(
+      `Issue #389, should turn off once after backspacing a composition to nothing`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let decorations = DecorationCounter.install()
+        let _ = await IM.activate(setup, ())
+        let _ = await IM.insertChar(setup, "a")
+        let collected = IM.collectUntilRewriteApplied(setup)
+        let _ = await IM.backspace(setup)
+        let log = await collected
+        let liveDecorations = decorations->DecorationCounter.live
+        decorations->DecorationCounter.restore
+        Assert.deepStrictEqual(
+          log,
+          [[IM.Log.RewriteIssued([(((0, 0), (0, 0)), "")]), Deactivate], [RewriteApplied]],
+        )
+        Assert.equal(document->Editor.Text.getAll, "")
+        Assert.equal(liveDecorations, 0)
+      },
+    )
+
+    // Browsing left at the first candidate rewrites the same symbol over itself, which is still an edit.
+    Async.it(
+      `Issue #389, should commit a rewrite of a symbol over itself and stay on`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let _ = await IM.activate(setup, ())
+        let _ = await IM.insertChar(setup, "b")
+        let before = document->VSCode.TextDocument.version
+        let collected = IM.collectUntilRewriteApplied(setup)
+        let _ = await IM.leftArrow(setup)
+        let log = await collected
+        let after = document->VSCode.TextDocument.version
+        Assert.deepStrictEqual(
+          log,
+          [[IM.Log.RewriteIssued([(((0, 0), (0, 1)), "♭")]), UpdateView], [RewriteApplied]],
+        )
+        Assert.equal(after, before + 1)
+        let log = await IM.insertChar(setup, "n")
+        Assert.deepStrictEqual(
+          log,
+          [IM.Log.RewriteIssued([(((0, 0), (0, 2)), "𝕟")]), Deactivate, RewriteApplied],
+        )
+        Assert.equal(document->Editor.Text.getAll, "𝕟")
+      },
+    )
+  })
+
   describe("Backspacing", () => {
     Async.it(
       `should work just fine`,
