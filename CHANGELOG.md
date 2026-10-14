@@ -8,10 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- #389: Apply input method rewrites always through `TextEditor.edit`, and turn the input method off when a rewrite can't be applied, keeping the text as typed
-
-### Removed
-- #389: Remove the `agdaMode.inputMethod.directEdit` setting, now that input method rewrites always go through `TextEditor.edit`
+- #389: With `agdaMode.inputMethod.directEdit` on, apply input method rewrites only through `TextEditor.edit`, without falling back to `workspace.applyEdit`, and turn the input method off when a rewrite can't be applied, keeping the text as typed
 
 ## v0.10.6 - 2026-10-12
 
