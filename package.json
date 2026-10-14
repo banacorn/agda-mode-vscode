@@ -1464,6 +1464,11 @@
 					"default": true,
 					"description": "Enable Unicode input method. Disable this if you are using a different input method extension like `latex-input`."
 				},
+				"agdaMode.inputMethod.directEdit": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Apply input method rewrites directly in the editor instead of through `workspace.applyEdit`, and turn the input method off when a rewrite can't be applied, keeping the text as typed. Try this if typing after `\\` lags in a heavily modified file with Git enabled. See [#389](https://github.com/banacorn/agda-mode-vscode/issues/389)."
+				},
 				"agdaMode.devMode.enabled": {
 					"type": "boolean",
 					"default": false,
