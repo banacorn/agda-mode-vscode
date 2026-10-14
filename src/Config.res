@@ -294,18 +294,6 @@ module InputMethod = {
     | _ => true // enabled by default
     }
   }
-
-  // temporary and opt-in, see #389
-  let getDirectEdit = () => {
-    let raw =
-      Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(
-        "inputMethod.directEdit",
-      )
-    switch raw {
-    | Some(true) => true
-    | _ => false // disabled by default
-    }
-  }
 }
 
 module Buffer = {
