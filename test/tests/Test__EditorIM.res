@@ -143,6 +143,7 @@ module IM = {
   // so it lands after the rewrite has been sent and before its reply can arrive
   let afterRewriteIssued = async (setup, action) => {
     let (issued, resolve, _) = Util.Promise_.pending()
+    let fired = ref(false)
     let destructor = setup.channels.inputMethod->Chan.on(batch => {
       let hasRewriteIssued = batch->Array.some(kind =>
         switch kind {
@@ -150,7 +151,8 @@ module IM = {
         | _ => false
         }
       )
-      if hasRewriteIssued {
+      if hasRewriteIssued && !fired.contents {
+        fired := true
         Promise.resolve()->Promise.then(action)->Promise.thenResolve(resolve)->ignore
       }
     })
@@ -828,6 +830,58 @@ describe("Input Method (Editor)", () => {
         let log = await IM.deactivate(setup)
         Assert.deepStrictEqual([IM.Log.Deactivate], log)
         Assert.equal("¡", document->Editor.Text.getAll)
+      },
+    )
+  })
+
+  describe("Candidates while a rewrite is pending", () => {
+    // Browsing while the rewrite of "v" is pending turns the input method off,
+    // instead of issuing a second rewrite.
+    Async.it(
+      `Issue #389, should turn off instead of rewriting again when browsing while a rewrite is pending`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let decorations = DecorationCounter.install()
+        let _ = await IM.activate(setup, ())
+        let _ = await VSCode.Window.showTextDocument(document, ())
+        // every batch, to tell at the end whether the input method is still on
+        let all = []
+        let stopRecording = setup.channels.inputMethod->Chan.on(batch => all->Array.push(batch))
+        let collected = IM.collectUntilRewriteApplied(setup)
+        let browsed = IM.afterRewriteIssued(setup, () =>
+          VSCode.Commands.executeCommand0("agda-mode.input-symbol[BrowseRight]")
+        )
+        let _ = await VSCode.Commands.executeCommand1("type", {"text": "v"})
+        await browsed
+        let log = await collected
+        stopRecording()
+        let liveDecorations = decorations->DecorationCounter.live
+        decorations->DecorationCounter.restore
+        // leave the input method off for the next test even if it stayed on
+        let stillOn =
+          all
+          ->Array.flat
+          ->Array.reduce(true, (on, kind) =>
+            switch kind {
+            | IM.Log.Activate => true
+            | Deactivate => false
+            | _ => on
+            }
+          )
+        if stillOn {
+          let _ = await IM.deactivate(setup)
+        }
+        Assert.deepStrictEqual(
+          log,
+          [
+            [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "̌")]), UpdateView],
+            [Deactivate],
+            [RewriteApplied],
+          ],
+        )
+        Assert.equal(document->Editor.Text.getAll, "̌")
+        Assert.equal(liveDecorations, 0)
       },
     )
   })
