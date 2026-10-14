@@ -17,31 +17,55 @@ let cleanup = async setup => {
   let _ = await setup.editor->VSCode.TextEditor.document->Editor.Text.replace(range, "")
 }
 
-// Holds the first `workspace.applyEdit` call until released.
-module ApplyEditGate = {
+// Counts `workspace.applyEdit` calls until restored.
+module ApplyEditCounter = {
   type t
 
   let install: unit => t = %raw(`function () {
     const vscode = require("vscode");
     const original = vscode.workspace.applyEdit;
-    let enter;
-    let release;
-    const entered = new Promise(resolve => { enter = resolve; });
-    const released = new Promise(resolve => { release = resolve; });
-    vscode.workspace.applyEdit = async edit => {
-      enter();
-      await released;
+    const counter = {
+      count: 0,
+      restore: () => { vscode.workspace.applyEdit = original; },
+    };
+    vscode.workspace.applyEdit = edit => {
+      counter.count += 1;
       return original.call(vscode.workspace, edit);
     };
+    return counter;
+  }`)
+
+  @get external count: t => int = "count"
+  @send external restore: t => unit = "restore"
+}
+
+// Counts the decorations created and not yet disposed until restored.
+// The handles VS Code returns are frozen, so each one is wrapped in a delegating object.
+module DecorationCounter = {
+  type t
+
+  let install: unit => t = %raw(`function () {
+    const vscode = require("vscode");
+    const original = vscode.window.createTextEditorDecorationType;
+    const live = new Set();
+    vscode.window.createTextEditorDecorationType = options => {
+      const handle = original.call(vscode.window, options);
+      live.add(handle);
+      return {
+        key: handle.key,
+        dispose: () => {
+          live.delete(handle);
+          handle.dispose();
+        },
+      };
+    };
     return {
-      entered,
-      release,
-      restore: () => { vscode.workspace.applyEdit = original; },
+      live: () => live.size,
+      restore: () => { vscode.window.createTextEditorDecorationType = original; },
     };
   }`)
 
-  @get external entered: t => promise<unit> = "entered"
-  @send external release: t => unit = "release"
+  @send external live: t => int = "live"
   @send external restore: t => unit = "restore"
 }
 
@@ -99,14 +123,20 @@ module IM = {
     }
   }
 
-  // inserts through `TextEditor.edit` rather than `workspace.applyEdit`, and
-  // returns without waiting for the input method to respond
-  let insertCharWithoutWaiting = async (setup, char) => {
-    let positions = Editor.Cursor.getMany(setup.editor)
-    let _ = await setup.editor->VSCode.TextEditor.edit(
-      edit => positions->Array.forEach(position => edit->VSCode.TextEditorEdit.insert(position, char)),
-      None,
-    )
+  // collects every log batch up to the one with `RewriteApplied`, then one macrotask more
+  let collectUntilRewriteApplied = async setup => {
+    let received = []
+    let (promise, resolve, _) = Util.Promise_.pending()
+    let destructor = setup.channels.inputMethod->Chan.on(batch => {
+      received->Array.push(batch)
+      if Array.includes(batch, IM.Log.RewriteApplied) {
+        resolve()
+      }
+    })
+    await promise
+    await Util.Promise_.setTimeout(0)
+    destructor()
+    received
   }
 
   let rec waitForRewriteApplied = async setup => {
@@ -377,24 +407,42 @@ describe("Input Method (Editor)", () => {
       },
     )
 
-    // While a rewrite is pending, keys must still reach the input method.
-    // A gate holds the rewrite in place of a slow `workspace.applyEdit`.
+    // A key typed while a rewrite is pending is dropped, so the rewrite can't be applied cleanly.
+    // Typing "v" and "d" back to back lets "d" land before the rewrite of "v" arrives.
     Async.it(
-      `Issue #389, should translate a key typed while a rewrite is pending`,
+      `Issue #389, should turn off and keep the text when a key is typed while a rewrite is pending`,
       async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
+        let decorations = DecorationCounter.install()
+        let applyEdits = ApplyEditCounter.install()
         let _ = await IM.activate(setup, ())
-        let gate = ApplyEditGate.install()
-        await IM.insertCharWithoutWaiting(setup, "v")
-        await gate->ApplyEditGate.entered
-        await IM.insertCharWithoutWaiting(setup, "d")
-        let rewritten = IM.waitForRewriteApplied(setup)
-        gate->ApplyEditGate.release
-        await rewritten
-        gate->ApplyEditGate.restore
-        let _ = await IM.deactivate(setup)
-        Assert.equal(document->Editor.Text.getAll, "ď")
+        let _ = await VSCode.Window.showTextDocument(document, ())
+        let collected = IM.collectUntilRewriteApplied(setup)
+        let typedV = VSCode.Commands.executeCommand1("type", {"text": "v"})
+        let typedD = VSCode.Commands.executeCommand1("type", {"text": "d"})
+        let _ = await typedV
+        let _ = await typedD
+        let log = await collected
+        let applyEditCount = applyEdits->ApplyEditCounter.count
+        let liveDecorations = decorations->DecorationCounter.live
+        applyEdits->ApplyEditCounter.restore
+        decorations->DecorationCounter.restore
+        // leave the input method off for the next test even if it stayed on
+        if !Array.some(log, batch => Array.includes(batch, IM.Log.Deactivate)) {
+          let _ = await IM.deactivate(setup)
+        }
+        Assert.deepStrictEqual(
+          log,
+          [
+            [IM.Log.RewriteIssued([(((0, 0), (0, 1)), "̌")]), UpdateView],
+            [RewriteApplied],
+            [Deactivate],
+          ],
+        )
+        Assert.equal(document->Editor.Text.getAll, "vd")
+        Assert.equal(applyEditCount, 0)
+        Assert.equal(liveDecorations, 0)
       },
     )
   })
