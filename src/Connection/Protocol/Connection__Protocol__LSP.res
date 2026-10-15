@@ -43,8 +43,8 @@ let fromJsPromise = async (promise: promise<'t>): result<'t, Js.Exn.t> => {
   }
 }
 
-// Register the server for plain text documents
-let documentSelector = (id): VSCode.DocumentSelector.t => [
+// Register the server for Agda documents
+let documentSelector: VSCode.DocumentSelector.t = LanguageId.all->Array.map(id =>
   VSCode.StringOr.make(
     Others({
       open VSCode.DocumentFilter
@@ -54,8 +54,8 @@ let documentSelector = (id): VSCode.DocumentSelector.t => [
         language: Some(id),
       }
     }),
-  ),
-]
+  )
+)
 
 module Module: Module = {
   open VSCode
@@ -130,7 +130,6 @@ module Module: Module = {
     }
 
     // Build shared parts, then select clientOptions maker depending on transport
-    let documentSelector = documentSelector(id)
 
     // Notify the server about file changes to '.clientrc files contained in the workspace
     let synchronize: FileSystemWatcher.t = Workspace.createFileSystemWatcher(
