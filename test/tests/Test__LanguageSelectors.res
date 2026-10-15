@@ -39,4 +39,21 @@ describe("Language selectors", () => {
       Assert.deepStrictEqual(sorted(actual), sorted(expected))
     },
   )
+
+  Async.it(
+    "should select exactly the Agda language IDs in contributes.languages for the language client",
+    async () => {
+      let expected = await readAgdaLanguageIds()
+
+      let actual =
+        Connection__Protocol__LSP.documentSelector("agda")->Array.filterMap(selector =>
+          switch VSCode.StringOr.classify(selector) {
+          | String(language) => Some(language)
+          | Others(filter) => filter.language
+          }
+        )
+
+      Assert.deepStrictEqual(sorted(actual), sorted(expected))
+    },
+  )
 })
