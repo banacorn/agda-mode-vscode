@@ -903,6 +903,32 @@ describe("Input Method (Editor)", () => {
     )
   })
 
+  describe("With directEdit off", () => {
+    // Typing goes through the `type` command, so only the rewrite reaches `workspace.applyEdit`.
+    Async.it(
+      `Issue #389, should apply rewrites through workspace.applyEdit when directEdit is off`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let _ = await IM.activate(setup, ())
+        let _ = await VSCode.Window.showTextDocument(document, ())
+        let applyEdits = ApplyEditCounter.install()
+        let collected = IM.collectUntilRewriteApplied(setup)
+        let _ = await VSCode.Commands.executeCommand1("type", {"text": "b"})
+        let log = await collected
+        let applyEditCount = applyEdits->ApplyEditCounter.count
+        applyEdits->ApplyEditCounter.restore
+        let _ = await IM.deactivate(setup)
+        Assert.deepStrictEqual(
+          log,
+          [[IM.Log.RewriteIssued([(((0, 0), (0, 1)), "♭")]), UpdateView], [RewriteApplied]],
+        )
+        Assert.equal(document->Editor.Text.getAll, "♭")
+        Assert.equal(applyEditCount, 1)
+      },
+    )
+  })
+
   describe("Multiple cursors at once", () => {
     let replaceCRLF = x => x->String.replaceRegExp(%re("/\r\n/g"), "\n") // RegEx updated to v10.1.4
 
