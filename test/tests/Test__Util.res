@@ -764,7 +764,7 @@ module Candidate = {
           }
           tempFile
         } else {
-          WindowsLauncher.wrap(tempFile)
+          await WindowsLauncher.wrap(tempFile)
         }
       } catch {
       | Js.Exn.Error(obj) =>
