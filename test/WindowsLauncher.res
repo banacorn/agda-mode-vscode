@@ -37,11 +37,16 @@ let compile = () =>
     let sourcePath = NodeJs.Path.join([NodeJs.Os.tmpdir(), "agda-mode-mock-launcher.cs"])
     let exePath = NodeJs.Path.join([NodeJs.Os.tmpdir(), "agda-mode-mock-launcher.exe"])
     NodeJs.Fs.writeFileSync(sourcePath, NodeJs.Buffer.fromString(source))
+    let start = Js.Date.now()
     let promise = Promise.make((resolve, reject) =>
       execFile(csc, ["/nologo", "/out:" ++ exePath, sourcePath], (error, _, _) =>
         switch Nullable.toOption(error) {
         | Some(error) => reject(error)
-        | None => resolve(exePath)
+        | None =>
+          // shows in CI logs how much of the test run the compile takes
+          let elapsed = Js.Date.now() -. start
+          Js.Console.log("[ test ] compiled mock launcher in " ++ Float.toFixed(elapsed) ++ "ms")
+          resolve(exePath)
         }
       )
     )
