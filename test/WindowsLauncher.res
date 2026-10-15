@@ -2,7 +2,8 @@
 // without one. This compiles, once per test run, a small `.exe` that runs the
 // `.bat` of the same name next to it, so batch-file mocks can be started directly.
 @module("node:child_process")
-external execFileSync: (string, array<string>) => unit = "execFileSync"
+external execFile: (string, array<string>, (Nullable.t<Js.Exn.t>, string, string) => unit) => unit =
+  "execFile"
 @module("node:fs") external copyFileSync: (string, string) => unit = "copyFileSync"
 
 let source = `using System.Diagnostics;
@@ -21,11 +22,14 @@ class Launcher {
 }
 `
 
-let compiled: ref<option<string>> = ref(None)
+// The compile is kept as a promise, so a caller that arrives while `csc.exe` is
+// still running waits for that compile instead of starting another one.
+let compiled: ref<option<promise<string>>> = ref(None)
 
+// `csc.exe` runs asynchronously, so the extension host keeps responding while it compiles
 let compile = () =>
   switch compiled.contents {
-  | Some(path) => path
+  | Some(promise) => promise
   | None =>
     let windir =
       NodeJs.Process.process->NodeJs.Process.env->Dict.get("WINDIR")->Option.getOr("C:\\Windows")
@@ -33,14 +37,21 @@ let compile = () =>
     let sourcePath = NodeJs.Path.join([NodeJs.Os.tmpdir(), "agda-mode-mock-launcher.cs"])
     let exePath = NodeJs.Path.join([NodeJs.Os.tmpdir(), "agda-mode-mock-launcher.exe"])
     NodeJs.Fs.writeFileSync(sourcePath, NodeJs.Buffer.fromString(source))
-    execFileSync(csc, ["/nologo", "/out:" ++ exePath, sourcePath])
-    compiled := Some(exePath)
-    exePath
+    let promise = Promise.make((resolve, reject) =>
+      execFile(csc, ["/nologo", "/out:" ++ exePath, sourcePath], (error, _, _) =>
+        switch Nullable.toOption(error) {
+        | Some(error) => reject(error)
+        | None => resolve(exePath)
+        }
+      )
+    )
+    compiled := Some(promise)
+    promise
   }
 
 // given the path of a `.bat`, puts a launcher `.exe` next to it and returns the `.exe`'s path
-let wrap = batPath => {
+let wrap = async batPath => {
   let exePath = String.slice(batPath, ~start=0, ~end=String.length(batPath) - 4) ++ ".exe"
-  copyFileSync(compile(), exePath)
+  copyFileSync(await compile(), exePath)
   exePath
 }
