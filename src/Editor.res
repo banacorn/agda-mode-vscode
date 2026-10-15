@@ -179,13 +179,7 @@ let reveal = (editor, range) =>
   editor->TextEditor.revealRange(range, Some(TextEditorRevealType.InCenterIfOutsideViewport))
 
 module Provider = {
-  let documentSelector = [
-    VSCode.StringOr.make(String("agda")),
-    VSCode.StringOr.make(String("lagda-markdown")),
-    VSCode.StringOr.make(String("lagda-rst")),
-    VSCode.StringOr.make(String("lagda-typst")),
-    VSCode.StringOr.make(String("lagda-tex")),
-  ]
+  let documentSelector = LanguageId.all->Array.map(id => VSCode.StringOr.make(String(id)))
   let registerDefinitionProvider = definitionProvider => {
     open DefinitionProvider
     Languages.registerDefinitionProvider(
