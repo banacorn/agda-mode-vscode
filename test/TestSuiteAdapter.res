@@ -36,7 +36,13 @@ let readTestGlob = () =>
   | None => "**/*.js"
   }
 
-let run = () => {
+let run = async () => {
+  // Compile the Windows mock launcher before Mocha starts, so no hook or test
+  // pays for `csc.exe` under Mocha's timeout
+  if !OS.onUnix {
+    let _ = await WindowsLauncher.compile()
+  }
+
   let testGlob = readTestGlob()
 
   // Create the mocha test
@@ -47,7 +53,7 @@ let run = () => {
 
   let testsRoot = NodeJs.Path.resolve([NodeJs.Global.dirname, "tests"])
 
-  Promise.make((resolve, reject) =>
+  await Promise.make((resolve, reject) =>
     Glob.glob(testGlob, {cwd: testsRoot}, (err, files) =>
       switch Nullable.toOption(err) {
       | Some(err) => reject(err)
