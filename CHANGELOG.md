@@ -5,10 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## [Unreleased]
+## v0.10.7 - 2026-10-15
+
+### Fixed
+- #387: Spawn Agda without a shell, so Quit kills Agda itself instead of leaving it orphaned and busy; `connection.commandLineOptions` are now passed as is, without shell expansion of `~`, `$VAR` or quotes, reported by [@jespercockx](https://github.com/jespercockx)
+- #387: Show the signal that killed Agda instead of exit code `null`, reported by [@jespercockx](https://github.com/jespercockx)
+- #396: Stop `Goals.scanAllGoals` from overflowing the stack when two scans overlap
 
 ### Changed
-- #389: With `agdaMode.inputMethod.directEdit` on, apply input method rewrites only through `TextEditor.edit`, without falling back to `workspace.applyEdit`, and turn the input method off when a rewrite can't be applied, keeping the text as typed
+- #389: With `agdaMode.inputMethod.directEdit` on, apply input method rewrites only through `TextEditor.edit`, without falling back to `workspace.applyEdit`, and turn the input method off when a rewrite can't be applied, keeping the text as typed, reported by [@tripack45](https://github.com/tripack45)
 
 ## v0.10.6 - 2026-10-12
 
