@@ -69,6 +69,23 @@ module DecorationCounter = {
   @send external restore: t => unit = "restore"
 }
 
+// runs `f` with `agdaMode.inputMethod.directEdit` on, then turns it back off
+let withDirectEdit = async f => {
+  let set = value =>
+    VSCode.Workspace.getConfiguration(Some("agdaMode"), None)->VSCode.WorkspaceConfiguration.updateGlobalSettings(
+      "inputMethod.directEdit",
+      value,
+      None,
+    )
+  await set(true)
+  switch await f() {
+  | () => await set(false)
+  | exception exn =>
+    await set(false)
+    raise(exn)
+  }
+}
+
 module IM = {
   include IM
 
@@ -432,7 +449,7 @@ describe("Input Method (Editor)", () => {
     // Typing "v" and "d" back to back lets "d" land before the rewrite of "v" arrives.
     Async.it(
       `Issue #389, should turn off and keep the text when a key is typed while a rewrite is pending`,
-      async () => {
+      async () => await withDirectEdit(async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let decorations = DecorationCounter.install()
@@ -464,7 +481,7 @@ describe("Input Method (Editor)", () => {
         Assert.equal(document->Editor.Text.getAll, "vd")
         Assert.equal(applyEditCount, 0)
         Assert.equal(liveDecorations, 0)
-      },
+      }),
     )
   })
 
@@ -472,7 +489,7 @@ describe("Input Method (Editor)", () => {
     // A key with no rewrite still completes, without turning the input method off.
     Async.it(
       `Issue #389, should stay on after a key that produces no rewrite`,
-      async () => {
+      async () => await withDirectEdit(async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let _ = await IM.activate(setup, ())
@@ -485,13 +502,13 @@ describe("Input Method (Editor)", () => {
         Assert.deepStrictEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
         Assert.equal(document->Editor.Text.getAll, "←am")
         let _ = await IM.deactivate(setup)
-      },
+      }),
     )
 
     // Backspacing a composition to nothing issues an empty rewrite over an empty range.
     Async.it(
       `Issue #389, should turn off once after backspacing a composition to nothing`,
-      async () => {
+      async () => await withDirectEdit(async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let decorations = DecorationCounter.install()
@@ -508,13 +525,13 @@ describe("Input Method (Editor)", () => {
         )
         Assert.equal(document->Editor.Text.getAll, "")
         Assert.equal(liveDecorations, 0)
-      },
+      }),
     )
 
     // Browsing left at the first candidate rewrites the same symbol over itself, which is still an edit.
     Async.it(
       `Issue #389, should commit a rewrite of a symbol over itself and stay on`,
-      async () => {
+      async () => await withDirectEdit(async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let _ = await IM.activate(setup, ())
@@ -535,7 +552,7 @@ describe("Input Method (Editor)", () => {
           [IM.Log.RewriteIssued([(((0, 0), (0, 2)), "𝕟")]), Deactivate, RewriteApplied],
         )
         Assert.equal(document->Editor.Text.getAll, "𝕟")
-      },
+      }),
     )
   })
 
@@ -617,7 +634,7 @@ describe("Input Method (Editor)", () => {
     // so the rewrite's completion must not draw it again.
     Async.it(
       `Issue #389, should leave no underline after hitting escape while a rewrite is pending`,
-      async () => {
+      async () => await withDirectEdit(async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let decorations = DecorationCounter.install()
@@ -642,7 +659,7 @@ describe("Input Method (Editor)", () => {
         )
         Assert.equal(document->Editor.Text.getAll, "̌")
         Assert.equal(liveDecorations, 0)
-      },
+      }),
     )
 
     Async.it(
@@ -839,7 +856,7 @@ describe("Input Method (Editor)", () => {
     // instead of issuing a second rewrite.
     Async.it(
       `Issue #389, should turn off instead of rewriting again when browsing while a rewrite is pending`,
-      async () => {
+      async () => await withDirectEdit(async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let decorations = DecorationCounter.install()
@@ -882,7 +899,7 @@ describe("Input Method (Editor)", () => {
         )
         Assert.equal(document->Editor.Text.getAll, "̌")
         Assert.equal(liveDecorations, 0)
-      },
+      }),
     )
   })
 
@@ -1002,7 +1019,7 @@ describe("Input Method (Editor) — closing the editor", () => {
   // The document stays open in a second editor, so closing the first one is immediate, with no save prompt.
   Async.it(
     `Issue #389, should turn off when the editor is closed while a rewrite is pending`,
-    async () => {
+    async () => await withDirectEdit(async () => {
       let setup = acquire(setup)
       let document = setup.editor->VSCode.TextEditor.document
       let _ = await VSCode.Window.showTextDocument(
@@ -1039,7 +1056,7 @@ describe("Input Method (Editor) — closing the editor", () => {
       )
       Assert.equal(applyEditCount, 0)
       Assert.equal(liveDecorations, 0)
-    },
+    }),
   )
 })
 
