@@ -46,7 +46,7 @@ describe("Language selectors", () => {
       let expected = await readAgdaLanguageIds()
 
       let actual =
-        Connection__Protocol__LSP.documentSelector("agda")->Array.filterMap(selector =>
+        Connection__Protocol__LSP.documentSelector->Array.filterMap(selector =>
           switch VSCode.StringOr.classify(selector) {
           | String(language) => Some(language)
           | Others(filter) => filter.language
