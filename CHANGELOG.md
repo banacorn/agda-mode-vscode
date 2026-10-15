@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.10.8 - 2026-10-15
+
+### Fixed
+- Shrink the extension icon from 1330×1330 to 1024×1024, so the Marketplace stops rejecting the publish
+
+### Changed
+- Fix intermittent before-all timeouts on Windows CI: compile the mock Agda launcher before Mocha starts, with `execFile` instead of `execFileSync`, and log how long it takes
+
 ## v0.10.7 - 2026-10-15
 
 ### Fixed
