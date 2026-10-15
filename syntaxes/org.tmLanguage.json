@@ -15,7 +15,7 @@
       "name": "markup.raw.block.org",
       "contentName": "meta.embedded.block.agda",
       "beginCaptures": {
-        "0": { "name": "keyword.control.agda.begin.org" }
+        "0": { "name": "keyword.control.agda.begin.org" },
         "1": { "name": "fenced_code.block.language.org" }
       },
       "endCaptures": {
