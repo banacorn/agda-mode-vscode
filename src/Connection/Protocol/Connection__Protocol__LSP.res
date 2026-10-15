@@ -43,6 +43,20 @@ let fromJsPromise = async (promise: promise<'t>): result<'t, Js.Exn.t> => {
   }
 }
 
+// Register the server for plain text documents
+let documentSelector = (id): VSCode.DocumentSelector.t => [
+  VSCode.StringOr.make(
+    Others({
+      open VSCode.DocumentFilter
+      {
+        scheme: Some("file"),
+        pattern: None,
+        language: Some(id),
+      }
+    }),
+  ),
+]
+
 module Module: Module = {
   open VSCode
 
@@ -116,19 +130,7 @@ module Module: Module = {
     }
 
     // Build shared parts, then select clientOptions maker depending on transport
-    // Register the server for plain text documents
-    let documentSelector: DocumentSelector.t = [
-      StringOr.make(
-        Others({
-          open DocumentFilter
-          {
-            scheme: Some("file"),
-            pattern: None,
-            language: Some(id),
-          }
-        }),
-      ),
-    ]
+    let documentSelector = documentSelector(id)
 
     // Notify the server about file changes to '.clientrc files contained in the workspace
     let synchronize: FileSystemWatcher.t = Workspace.createFileSystemWatcher(
