@@ -295,7 +295,9 @@ module InputMethod = {
     }
   }
 
-  // temporary and opt-in, see #389
+  // On trial, see #389. Off by default while `TextEditor.edit` and the reset on unclean rewrites
+  // are being tried out. If they hold up, they will become the only behaviour: this setting will
+  // then be removed, together with the `workspace.applyEdit` path it switches between.
   let getDirectEdit = () => {
     let raw =
       Workspace.getConfiguration(Some("agdaMode"), None)->WorkspaceConfiguration.get(

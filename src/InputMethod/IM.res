@@ -353,14 +353,16 @@ module Module: Module = {
       text,
     ))
 
+    let directEdit = Config.InputMethod.getDirectEdit()
+
     // called synchronously once the real edits have been made, or have failed
     let complete = clean => {
-      // redecorate instances, unless they have been removed in the meantime
+      // redecorate instances, unless (with directEdit on) they have been removed in the meantime
       if clean {
         rewrites->Array.forEach(rewrite => {
           rewrite.instance->Option.forEach(
             instance => {
-              if self.instances->Array.some(alive => alive === instance) {
+              if !directEdit || self.instances->Array.some(alive => alive === instance) {
                 editor->Option.forEach(Instance.redecorate(instance, ...))
               }
             },
@@ -429,8 +431,8 @@ module Module: Module = {
       } else {
         []
       }
-    | Candidate(_) if self.semaphore =>
-      // only one rewrite may be in flight, so turn off instead of rewriting again
+    | Candidate(_) if self.semaphore && Config.InputMethod.getDirectEdit() =>
+      // with directEdit on, only one rewrite may be in flight, so turn off instead of rewriting again
       deactivate(self)
       [Output.Deactivate]
     | Candidate(action) =>

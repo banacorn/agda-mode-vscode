@@ -28,26 +28,31 @@ module Module: Module = {
         | UpdateView(sequence, translation, index) =>
           await State__View.Panel.updateIM(state, Update(sequence, translation, index))
         | Rewrite(replacements, complete) =>
-          // VS Code skips an edit whose range and text are both empty, so it would not change the version
-          let replacements =
-            replacements->Array.filter(((range, text)) => !(VSCode.Range.isEmpty(range) && text == ""))
-          if Array.length(replacements) == 0 {
-            complete(true)
+          if Config.InputMethod.getDirectEdit() {
+            // VS Code skips an edit whose range and text are both empty, so it would not change the version
+            let replacements =
+              replacements->Array.filter(((range, text)) => !(VSCode.Range.isEmpty(range) && text == ""))
+            if Array.length(replacements) == 0 {
+              complete(true)
+            } else {
+              // read the version right before the edit, in the same handler that computed the ranges
+              let base = state.document->VSCode.TextDocument.version
+              let applied = try {
+                await Editor.Text.batchReplace'(state.editor, replacements)
+              } catch {
+              | _ => false
+              }
+              // a clean edit raises the version by exactly one, see #389
+              let clean = applied && state.document->VSCode.TextDocument.version == base + 1
+              complete(clean)
+              // the document no longer matches the input method, so turn it off and keep the text
+              if !clean {
+                await handle(state, IM.run(state.editorIM, Some(state.editor), Deactivate))
+              }
+            }
           } else {
-            // read the version right before the edit, in the same handler that computed the ranges
-            let base = state.document->VSCode.TextDocument.version
-            let applied = try {
-              await Editor.Text.batchReplace'(state.editor, replacements)
-            } catch {
-            | _ => false
-            }
-            // a clean edit raises the version by exactly one, see #389
-            let clean = applied && state.document->VSCode.TextDocument.version == base + 1
-            complete(clean)
-            // the document no longer matches the input method, so turn it off and keep the text
-            if !clean {
-              await handle(state, IM.run(state.editorIM, Some(state.editor), Deactivate))
-            }
+            let _ = await Editor.Text.batchReplace(state.document, replacements)
+            complete(true)
           }
         | Activate =>
           await State__View.Panel.display(state, Plain("Unicode input mode"), [])

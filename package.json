@@ -1467,7 +1467,7 @@
 				"agdaMode.inputMethod.directEdit": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "Apply input method rewrites directly in the editor instead of through `workspace.applyEdit`, and turn the input method off when a rewrite can't be applied, keeping the text as typed. Try this if typing after `\\` lags in a heavily modified file with Git enabled. See [#389](https://github.com/banacorn/agda-mode-vscode/issues/389)."
+					"markdownDescription": "**Experimental, on trial.** Apply input method rewrites directly in the editor instead of through `workspace.applyEdit`, and turn the input method off when a rewrite can't be applied, keeping the text as typed. Try this if typing after `\\` lags in a heavily modified file with Git enabled. If the trial goes well, this will become the default and the setting will be removed. See [#389](https://github.com/banacorn/agda-mode-vscode/issues/389)."
 				},
 				"agdaMode.devMode.enabled": {
 					"type": "boolean",
