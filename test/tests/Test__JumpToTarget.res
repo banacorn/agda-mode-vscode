@@ -246,6 +246,44 @@ describe("EventFromView.JumpToTarget", () => {
     }
   })
 
+  Async.it("should select the source location in a file with CRLF line endings", async () => {
+    let ctx = await AgdaMode.makeAndLoad(filename)
+    let otherFilepath = Path.asset("CrossFileCRLFSource.agda")
+
+    // `crlfTrue` in `  crlfTrue  : MyCRLFBool`
+    await jump(ctx, Link.SrcLoc(Range(Some(otherFilepath), [interval(4, 3, 11)])))
+
+    Assert.deepStrictEqual(
+      VSCode.Window.activeTextEditor->Option.map(editor => (
+        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
+        Editor.Selection.getMany(editor),
+      )),
+      Some((
+        otherFilepath,
+        [VSCode.Range.make(VSCode.Position.make(3, 2), VSCode.Position.make(3, 10))],
+      )),
+    )
+  })
+
+  Async.it("should select the source location in a literate Agda file", async () => {
+    let ctx = await AgdaMode.makeAndLoad(filename)
+    let otherFilepath = Path.asset("Issue214.lagda.md")
+
+    // `my-hole` in `my-hole = {!  !}`, inside the ```agda block
+    await jump(ctx, Link.SrcLoc(Range(Some(otherFilepath), [interval(9, 1, 8)])))
+
+    Assert.deepStrictEqual(
+      VSCode.Window.activeTextEditor->Option.map(editor => (
+        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
+        Editor.Selection.getMany(editor),
+      )),
+      Some((
+        otherFilepath,
+        [VSCode.Range.make(VSCode.Position.make(8, 0), VSCode.Position.make(8, 7))],
+      )),
+    )
+  })
+
   Async.it("should reveal a source location far down the file", async () => {
     let ctx = await AgdaMode.makeAndLoad("JumpToTargetFar.agda")
     // `target` on the last but one line, below the filler comments
