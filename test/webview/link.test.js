@@ -48,23 +48,24 @@ const run = async () => {
     assert.deepStrictEqual(pageErrors, [], "webview threw while rendering the repro payload")
 
     // Matched by substring, so they're found whether or not the class names
-    // are joined correctly.
-    const classLists = selector =>
+    // are joined correctly. Compares the raw attribute, since `classList`
+    // hides repeated classes and stray spaces.
+    const classAttributes = selector =>
       page.evaluate(
         selector =>
-          Array.from(document.querySelectorAll(selector), el => Array.from(el.classList)),
+          Array.from(document.querySelectorAll(selector), el => el.getAttribute("class")),
         selector,
       )
 
     assert.deepStrictEqual(
-      await classLists('.item-content [class*="component-link"]'),
-      [["component-link", "component-hole"]],
-      "a source location should be one element with separate component-link and component-hole classes",
+      await classAttributes('.item-content [class*="component-link"]'),
+      ["component-link component-hole"],
+      "a source location should be one element with the component-link and component-hole classes, each once",
     )
     assert.deepStrictEqual(
-      await classLists('.item-content [class*="codicon"]'),
-      [["codicon", "codicon-link"]],
-      "a source location's icon should have separate codicon and codicon-link classes",
+      await classAttributes('.item-content [class*="codicon"]'),
+      ["codicon codicon-link"],
+      "a source location's icon should have the codicon and codicon-link classes, with no stray spaces",
     )
 
     const link = page.locator('.item-content [class*="component-link"]')
