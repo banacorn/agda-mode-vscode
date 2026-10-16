@@ -116,4 +116,49 @@ describe("EventFromView.JumpToTarget", () => {
 
     Assert.deepStrictEqual(snapshot(ctx), before)
   })
+
+  Async.it("should reveal a source location far down the file", async () => {
+    let ctx = await AgdaMode.makeAndLoad("JumpToTargetFar.agda")
+    // `target` on the last but one line, below the filler comments
+    let target = VSCode.Range.make(VSCode.Position.make(301, 0), VSCode.Position.make(301, 6))
+    let isVisible = () =>
+      ctx.state.editor
+      ->VSCode.TextEditor.visibleRanges
+      ->Array.some(visible => visible->VSCode.Range.containsRange(target))
+    // the editor reports its new visible ranges only after it has scrolled,
+    // so wait for that (or give up after a while)
+    let waitUntilVisible = () =>
+      Promise.make((resolve, _) =>
+        if isVisible() {
+          resolve(true)
+        } else {
+          let disposable = ref(None)
+          let finish = () => {
+            disposable.contents->Option.forEach(VSCode.Disposable.dispose)
+            resolve(isVisible())
+          }
+          let timeout = setTimeout(finish, 2000)
+          disposable :=
+            Some(
+              VSCode.Window.onDidChangeTextEditorVisibleRanges(_ =>
+                if isVisible() {
+                  clearTimeout(timeout)
+                  finish()
+                }
+              ),
+            )
+        }
+      )
+
+    Editor.Cursor.set(ctx.state.editor, VSCode.Position.make(0, 0))
+    ctx.state.editor->VSCode.TextEditor.revealRange(
+      VSCode.Range.make(VSCode.Position.make(0, 0), VSCode.Position.make(0, 0)),
+      None,
+    )
+    Assert.deepStrictEqual(isVisible(), false)
+
+    await jump(ctx, Link.SrcLoc(Range(Some(Path.asset("JumpToTargetFar.agda")), [interval(302, 1, 7)])))
+
+    Assert.deepStrictEqual(await waitUntilVisible(), true)
+  })
 })
