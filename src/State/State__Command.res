@@ -10,6 +10,28 @@ let realpath = path =>
   | _ => path
   }
 
+// Agda counts columns in code points, VS Code in UTF-16 code units,
+// so walk the line's text to find where each column falls
+let toVSCodePosition = (document, position: Common.AgdaPosition.t) => {
+  let line = position.line - 1
+  let text = if line >= 0 && line < document->VSCode.TextDocument.lineCount {
+    document->VSCode.TextDocument.lineAt(line)->VSCode.TextLine.text
+  } else {
+    ""
+  }
+  let rec character = (offset, codePoints) =>
+    if codePoints <= 0 {
+      offset
+    } else {
+      switch text->String.codePointAt(offset) {
+      | Some(codePoint) => character(offset + (codePoint > 0xFFFF ? 2 : 1), codePoints - 1)
+      // past the end of the line
+      | None => offset + codePoints
+      }
+    }
+  VSCode.Position.make(line, character(0, position.col - 1))
+}
+
 // from Editor Command to Tasks
 let rec dispatchCommand = async (state: State.t, command): unit => {
   state.channels.log->Chan.emit(CommandDispatched(command))
@@ -449,31 +471,13 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
             Some(VSCode.TextDocumentShowOptions.make(~viewColumn, ())),
           )
 
-          // Agda counts columns in code points, VS Code in UTF-16 code units,
-          // so walk the line's text to find where each column falls
           let document = editor->VSCode.TextEditor.document
-          let toPosition = (position: Common.AgdaPosition.t) => {
-            let line = position.line - 1
-            let text = if line >= 0 && line < document->VSCode.TextDocument.lineCount {
-              document->VSCode.TextDocument.lineAt(line)->VSCode.TextLine.text
-            } else {
-              ""
-            }
-            let rec character = (offset, codePoints) =>
-              if codePoints <= 0 {
-                offset
-              } else {
-                switch text->String.codePointAt(offset) {
-                | Some(codePoint) => character(offset + (codePoint > 0xFFFF ? 2 : 1), codePoints - 1)
-                // past the end of the line
-                | None => offset + codePoints
-                }
-              }
-            VSCode.Position.make(line, character(0, position.col - 1))
-          }
           let ranges =
             intervals->Array.map(interval =>
-              VSCode.Range.make(toPosition(interval.start), toPosition(interval.end_))
+              VSCode.Range.make(
+                toVSCodePosition(document, interval.start),
+                toVSCodePosition(document, interval.end_),
+              )
             )
           // with no ranges, leave the cursor where it was
           if ranges->Array.length > 0 {
