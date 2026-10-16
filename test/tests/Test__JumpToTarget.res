@@ -25,6 +25,13 @@ describe("EventFromView.JumpToTarget", () => {
     Editor.Selection.getMany(ctx.state.editor),
   )
 
+  // the active editor's file and its selections
+  let activeSelections = () =>
+    VSCode.Window.activeTextEditor->Option.map(editor => (
+      editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
+      Editor.Selection.getMany(editor),
+    ))
+
   let jump = async (ctx: AgdaMode.t, link) =>
     await ctx.state->State__Command.dispatchCommand(EventFromView(JumpToTarget(link)))
 
@@ -128,10 +135,7 @@ describe("EventFromView.JumpToTarget", () => {
     await jump(ctx, Link.SrcLoc(Range(Some(otherFilepath), [interval(3, 6, 10)])))
 
     Assert.deepStrictEqual(
-      VSCode.Window.activeTextEditor->Option.map(editor => (
-        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
-        Editor.Selection.getMany(editor),
-      )),
+      activeSelections(),
       Some((
         otherFilepath,
         [VSCode.Range.make(VSCode.Position.make(2, 5), VSCode.Position.make(2, 9))],
@@ -150,10 +154,7 @@ describe("EventFromView.JumpToTarget", () => {
     await jump(ctx, Link.SrcLoc(Range(Some(otherFilepath), [])))
 
     Assert.deepStrictEqual(
-      VSCode.Window.activeTextEditor->Option.map(editor => (
-        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
-        Editor.Selection.getMany(editor),
-      )),
+      activeSelections(),
       Some((
         otherFilepath,
         [VSCode.Range.make(VSCode.Position.make(3, 2), VSCode.Position.make(3, 2))],
@@ -254,10 +255,7 @@ describe("EventFromView.JumpToTarget", () => {
     await jump(ctx, Link.SrcLoc(Range(Some(otherFilepath), [interval(4, 3, 11)])))
 
     Assert.deepStrictEqual(
-      VSCode.Window.activeTextEditor->Option.map(editor => (
-        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
-        Editor.Selection.getMany(editor),
-      )),
+      activeSelections(),
       Some((
         otherFilepath,
         [VSCode.Range.make(VSCode.Position.make(3, 2), VSCode.Position.make(3, 10))],
@@ -273,10 +271,7 @@ describe("EventFromView.JumpToTarget", () => {
     await jump(ctx, Link.SrcLoc(Range(Some(otherFilepath), [interval(9, 1, 8)])))
 
     Assert.deepStrictEqual(
-      VSCode.Window.activeTextEditor->Option.map(editor => (
-        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
-        Editor.Selection.getMany(editor),
-      )),
+      activeSelections(),
       Some((
         otherFilepath,
         [VSCode.Range.make(VSCode.Position.make(8, 0), VSCode.Position.make(8, 7))],
@@ -293,10 +288,7 @@ describe("EventFromView.JumpToTarget", () => {
     await jump(ctx, Link.SrcLoc(Range(Some(otherFilepath), [interval(3, 6, 10)])))
 
     Assert.deepStrictEqual(
-      VSCode.Window.activeTextEditor->Option.map(editor => (
-        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
-        Editor.Selection.getMany(editor),
-      )),
+      activeSelections(),
       Some((
         otherFilepath,
         [VSCode.Range.make(VSCode.Position.make(2, 7), VSCode.Position.make(2, 11))],
