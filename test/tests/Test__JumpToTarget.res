@@ -161,6 +161,62 @@ describe("EventFromView.JumpToTarget", () => {
     )
   })
 
+  Async.it("should reuse the editor of a file already open in another column", async () => {
+    let ctx = await AgdaMode.makeAndLoad(filename)
+    let otherFilepath = Path.asset("Lib.agda")
+    let otherDocument = await VSCode.Workspace.openTextDocumentWithFileName(otherFilepath)
+    // column Two holds the Agda panel, so open the other file in column Three,
+    // keeping the focus on the loaded file
+    let showInColumnThree = (~preserveFocus) =>
+      VSCode.Window.showTextDocumentWithShowOptions(
+        otherDocument,
+        Some(
+          VSCode.TextDocumentShowOptions.make(~viewColumn=VSCode.ViewColumn.Three, ~preserveFocus, ()),
+        ),
+      )
+    let _ = await showInColumnThree(~preserveFocus=true)
+    let visibleEditors = () =>
+      VSCode.Window.visibleTextEditors->Array.map(editor => (
+        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
+        editor->VSCode.TextEditor.viewColumn,
+      ))
+    let visibleBefore = visibleEditors()
+
+    let result = try {
+      // `Bool` in `data Bool : Set where`
+      await jump(ctx, Link.SrcLoc(Range(Some(otherFilepath), [interval(3, 6, 10)])))
+      Ok((
+        VSCode.Window.activeTextEditor->Option.map(editor => (
+          editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
+          editor->VSCode.TextEditor.viewColumn,
+          Editor.Selection.getMany(editor),
+        )),
+        visibleEditors(),
+      ))
+    } catch {
+    | exn => Error(exn)
+    }
+    // close the editor in column Three, so later tests start without that column
+    let _ = await showInColumnThree(~preserveFocus=false)
+    let _ = await VSCode.Commands.executeCommand0("workbench.action.closeActiveEditor")
+
+    switch result {
+    | Error(exn) => raise(exn)
+    | Ok(after) =>
+      Assert.deepStrictEqual(
+        after,
+        (
+          Some((
+            otherFilepath,
+            Some(VSCode.ViewColumn.Three),
+            [VSCode.Range.make(VSCode.Position.make(2, 5), VSCode.Position.make(2, 9))],
+          )),
+          visibleBefore,
+        ),
+      )
+    }
+  })
+
   Async.it("should select the source location in the current file when reached through a symlink", async () => {
     let ctx = await AgdaMode.makeAndLoad(filename)
     let tempDir = await mkdtemp(NodeJs.Path.join([NodeJs.Os.tmpdir(), "agda-mode-jump-"]))
