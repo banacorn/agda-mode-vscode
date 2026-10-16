@@ -117,6 +117,25 @@ describe("EventFromView.JumpToTarget", () => {
     Assert.deepStrictEqual(snapshot(ctx), before)
   })
 
+  Async.it("should open another file, focus it and select the source location", async () => {
+    let ctx = await AgdaMode.makeAndLoad(filename)
+    let otherFilepath = Path.asset("Lib.agda")
+
+    // `Bool` in `data Bool : Set where`
+    await jump(ctx, Link.SrcLoc(Range(Some(otherFilepath), [interval(3, 6, 10)])))
+
+    Assert.deepStrictEqual(
+      VSCode.Window.activeTextEditor->Option.map(editor => (
+        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
+        Editor.Selection.getMany(editor),
+      )),
+      Some((
+        otherFilepath,
+        [VSCode.Range.make(VSCode.Position.make(2, 5), VSCode.Position.make(2, 9))],
+      )),
+    )
+  })
+
   Async.it("should reveal a source location far down the file", async () => {
     let ctx = await AgdaMode.makeAndLoad("JumpToTargetFar.agda")
     // `target` on the last but one line, below the filler comments
