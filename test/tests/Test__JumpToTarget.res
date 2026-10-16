@@ -1,6 +1,9 @@
 open Mocha
 open Test__Util
 
+@module("node:fs/promises") external mkdtemp: string => promise<string> = "mkdtemp"
+@module("node:fs/promises") external symlink: (string, string) => promise<unit> = "symlink"
+
 describe("EventFromView.JumpToTarget", () => {
   let filename = "ModuleContents.agda"
   let filepath = Path.asset(filename)
@@ -134,6 +137,35 @@ describe("EventFromView.JumpToTarget", () => {
         [VSCode.Range.make(VSCode.Position.make(2, 5), VSCode.Position.make(2, 9))],
       )),
     )
+  })
+
+  Async.it("should select the source location in the current file when reached through a symlink", async () => {
+    let ctx = await AgdaMode.makeAndLoad(filename)
+    let tempDir = await mkdtemp(NodeJs.Path.join([NodeJs.Os.tmpdir(), "agda-mode-jump-"]))
+    let symlinkPath = NodeJs.Path.join([tempDir, filename])
+    await symlink(filepath, symlinkPath)
+    let (_, visibleBefore, _) = snapshot(ctx)
+
+    let result = try {
+      await jump(ctx, Link.SrcLoc(Range(Some(symlinkPath), [interval(5, 1, 5)])))
+      Ok(snapshot(ctx))
+    } catch {
+    | exn => Error(exn)
+    }
+    let _ = await FS.deleteRecursive(VSCode.Uri.file(tempDir))
+
+    switch result {
+    | Error(exn) => raise(exn)
+    | Ok(after) =>
+      Assert.deepStrictEqual(
+        after,
+        (
+          Some(filepath),
+          visibleBefore,
+          [VSCode.Range.make(VSCode.Position.make(4, 0), VSCode.Position.make(4, 4))],
+        ),
+      )
+    }
   })
 
   Async.it("should reveal a source location far down the file", async () => {
