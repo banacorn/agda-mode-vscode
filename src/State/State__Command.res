@@ -435,8 +435,10 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
         let fileName = Parser.filepath(fileName)
         // compare files by their real paths, so that a symlink and its target are the same file
         let target = realpath(fileName)
+        // skip documents of other schemes with the same path, e.g. the `git:` original of a diff editor
         let isTarget = document =>
-          realpath(Parser.filepath(document->VSCode.TextDocument.fileName)) == target
+          document->VSCode.TextDocument.uri->VSCode.Uri.scheme == "file" &&
+            realpath(Parser.filepath(document->VSCode.TextDocument.fileName)) == target
 
         // reuse the editor that already shows the target, or else open it in column One
         let shownIn =
