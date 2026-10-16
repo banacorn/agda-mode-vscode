@@ -284,6 +284,26 @@ describe("EventFromView.JumpToTarget", () => {
     )
   })
 
+  Async.it("should count columns in code points after astral characters", async () => {
+    let ctx = await AgdaMode.makeAndLoad(filename)
+    let otherFilepath = Path.asset("JumpToTargetAstral.agda")
+
+    // `Set1` in `𝐀𝐁 : Set1`: columns 6–10 in code points, as Agda counts them,
+    // but 7–11 in UTF-16 code units, since 𝐀 and 𝐁 take two each
+    await jump(ctx, Link.SrcLoc(Range(Some(otherFilepath), [interval(3, 6, 10)])))
+
+    Assert.deepStrictEqual(
+      VSCode.Window.activeTextEditor->Option.map(editor => (
+        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
+        Editor.Selection.getMany(editor),
+      )),
+      Some((
+        otherFilepath,
+        [VSCode.Range.make(VSCode.Position.make(2, 7), VSCode.Position.make(2, 11))],
+      )),
+    )
+  })
+
   Async.it("should reveal a source location far down the file", async () => {
     let ctx = await AgdaMode.makeAndLoad("JumpToTargetFar.agda")
     // `target` on the last but one line, below the filler comments
