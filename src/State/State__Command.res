@@ -422,56 +422,68 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
             isTarget(editor->VSCode.TextEditor.document)
           )
         let document = switch shownIn {
-        | Some(editor) => editor->VSCode.TextEditor.document
+        | Some(editor) => Some(editor->VSCode.TextEditor.document)
         | None =>
           switch VSCode.Workspace.textDocuments->Array.find(isTarget) {
-          | Some(document) => document
-          | None => await VSCode.Workspace.openTextDocumentWithFileName(fileName)
-          }
-        }
-        let viewColumn =
-          shownIn
-          ->Option.flatMap(VSCode.TextEditor.viewColumn)
-          ->Option.getOr(VSCode.ViewColumn.One)
-        let editor = await VSCode.Window.showTextDocumentWithShowOptions(
-          document,
-          Some(VSCode.TextDocumentShowOptions.make(~viewColumn, ())),
-        )
-
-        // Agda counts columns in code points, VS Code in UTF-16 code units,
-        // so walk the line's text to find where each column falls
-        let document = editor->VSCode.TextEditor.document
-        let toPosition = (position: Common.AgdaPosition.t) => {
-          let line = position.line - 1
-          let text = if line >= 0 && line < document->VSCode.TextDocument.lineCount {
-            document->VSCode.TextDocument.lineAt(line)->VSCode.TextLine.text
-          } else {
-            ""
-          }
-          let rec character = (offset, codePoints) =>
-            if codePoints <= 0 {
-              offset
-            } else {
-              switch text->String.codePointAt(offset) {
-              | Some(codePoint) => character(offset + (codePoint > 0xFFFF ? 2 : 1), codePoints - 1)
-              // past the end of the line
-              | None => offset + codePoints
-              }
+          | Some(document) => Some(document)
+          | None =>
+            try {
+              Some(await VSCode.Workspace.openTextDocumentWithFileName(fileName))
+            } catch {
+            | _ => None
             }
-          VSCode.Position.make(line, character(0, position.col - 1))
+          }
         }
-        let ranges =
-          intervals->Array.map(interval =>
-            VSCode.Range.make(toPosition(interval.start), toPosition(interval.end_))
+        switch document {
+        | None =>
+          // e.g. the file has been moved or deleted since Agda reported the location
+          state.channels.log->Chan.emit(Log.Others("JumpToTarget: cannot open " ++ fileName))
+          VSCode.Window.showErrorMessage("Cannot open " ++ fileName, [])->Promise.done
+        | Some(document) =>
+          let viewColumn =
+            shownIn
+            ->Option.flatMap(VSCode.TextEditor.viewColumn)
+            ->Option.getOr(VSCode.ViewColumn.One)
+          let editor = await VSCode.Window.showTextDocumentWithShowOptions(
+            document,
+            Some(VSCode.TextDocumentShowOptions.make(~viewColumn, ())),
           )
-        // with no ranges, leave the cursor where it was
-        if ranges->Array.length > 0 {
-          // set cursor selections
-          Editor.Selection.setMany(editor, ranges)
-          // scroll to that part of the document
-          ranges[0]->Option.forEach(range => {
-            editor->VSCode.TextEditor.revealRange(range, None)
-          })
+
+          // Agda counts columns in code points, VS Code in UTF-16 code units,
+          // so walk the line's text to find where each column falls
+          let document = editor->VSCode.TextEditor.document
+          let toPosition = (position: Common.AgdaPosition.t) => {
+            let line = position.line - 1
+            let text = if line >= 0 && line < document->VSCode.TextDocument.lineCount {
+              document->VSCode.TextDocument.lineAt(line)->VSCode.TextLine.text
+            } else {
+              ""
+            }
+            let rec character = (offset, codePoints) =>
+              if codePoints <= 0 {
+                offset
+              } else {
+                switch text->String.codePointAt(offset) {
+                | Some(codePoint) => character(offset + (codePoint > 0xFFFF ? 2 : 1), codePoints - 1)
+                // past the end of the line
+                | None => offset + codePoints
+                }
+              }
+            VSCode.Position.make(line, character(0, position.col - 1))
+          }
+          let ranges =
+            intervals->Array.map(interval =>
+              VSCode.Range.make(toPosition(interval.start), toPosition(interval.end_))
+            )
+          // with no ranges, leave the cursor where it was
+          if ranges->Array.length > 0 {
+            // set cursor selections
+            Editor.Selection.setMany(editor, ranges)
+            // scroll to that part of the document
+            ranges[0]->Option.forEach(range => {
+              editor->VSCode.TextEditor.revealRange(range, None)
+            })
+          }
         }
       | Hole(index) =>
         Editor.focus(state.document)
