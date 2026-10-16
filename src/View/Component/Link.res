@@ -90,10 +90,10 @@ let make = (~target=SrcLoc(NoRange), ~jump=false, ~hover=false, ~className=[], ~
 
   let link = React.useContext(Event.eventContext)
   switch sanitizedTarget {
-  | None => <span className={String.concatMany(" ", className)}> children </span>
+  | None => <span className={className->Array.join(" ")}> children </span>
   | Some(t) =>
     <span
-      className={String.concatMany(" ", ["component-link", ...className])}
+      className={["component-link", ...className]->Array.join(" ")}
       onClick={_ => {
         if jump {
           link->Chan.emit(Event.JumpToTarget(t))

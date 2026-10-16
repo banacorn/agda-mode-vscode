@@ -209,11 +209,11 @@ module Module = {
       ->Array.mapWithIndex((x, i) => {
         switch x {
         | Text(text, className) =>
-          let className = {String.concatMany(" ", className)}
+          let className = {className->Array.join(" ")}
           <span className key={string_of_int(i)}> {React.string(text)} </span>
         | Icon(kind, className) =>
           let className = Array.concat(["codicon", "codicon-" ++ kind], className)
-          let className = {String.concatMany(" ", className)}
+          let className = {className->Array.join(" ")}
           <div className key={string_of_int(i)} />
         | Link(range, children, className) =>
           let child = make(~value=RichText(children))
