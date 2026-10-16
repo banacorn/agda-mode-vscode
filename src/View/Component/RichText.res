@@ -149,8 +149,8 @@ module Module = {
   let srcLoc = range => RichText([
     Link(
       range,
-      [Icon("link ", []), Text(Common.AgdaRange.toString(range), [])],
-      ["component-link component-hole"],
+      [Icon("link", []), Text(Common.AgdaRange.toString(range), [])],
+      ["component-hole"],
     ),
   ])
 
