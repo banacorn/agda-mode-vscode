@@ -139,6 +139,28 @@ describe("EventFromView.JumpToTarget", () => {
     )
   })
 
+  Async.it("should open another file without moving its cursor when the source location has no intervals", async () => {
+    let ctx = await AgdaMode.makeAndLoad(filename)
+    let otherFilepath = Path.asset("Lib.agda")
+    // put the other file's cursor somewhere known, then go back to the loaded file
+    let otherEditor = await File.open_(otherFilepath)
+    Editor.Cursor.set(otherEditor, VSCode.Position.make(3, 2))
+    let _ = await File.open_(filepath)
+
+    await jump(ctx, Link.SrcLoc(Range(Some(otherFilepath), [])))
+
+    Assert.deepStrictEqual(
+      VSCode.Window.activeTextEditor->Option.map(editor => (
+        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
+        Editor.Selection.getMany(editor),
+      )),
+      Some((
+        otherFilepath,
+        [VSCode.Range.make(VSCode.Position.make(3, 2), VSCode.Position.make(3, 2))],
+      )),
+    )
+  })
+
   Async.it("should select the source location in the current file when reached through a symlink", async () => {
     let ctx = await AgdaMode.makeAndLoad(filename)
     let tempDir = await mkdtemp(NodeJs.Path.join([NodeJs.Os.tmpdir(), "agda-mode-jump-"]))
