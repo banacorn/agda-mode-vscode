@@ -3,6 +3,8 @@ open Test__Util
 
 @module("node:fs/promises") external mkdtemp: string => promise<string> = "mkdtemp"
 @module("node:fs/promises") external symlink: (string, string) => promise<unit> = "symlink"
+external toContentProvider: {"provideTextDocumentContent": VSCode.Uri.t => string} => VSCode.TextDocumentContentProvider.t =
+  "%identity"
 
 describe("EventFromView.JumpToTarget", () => {
   let filename = "ModuleContents.agda"
@@ -214,6 +216,62 @@ describe("EventFromView.JumpToTarget", () => {
           )),
           visibleBefore,
         ),
+      )
+    }
+  })
+
+  Async.it("should open the file on disk when a document of another scheme has the same path", async () => {
+    let ctx = await AgdaMode.makeAndLoad(filename)
+    let otherFilepath = Path.asset("Lib.agda")
+    // like the `git:` original of a diff editor: a read-only document whose
+    // file name is the path of the file on disk
+    let scheme = "agda-mode-test-git"
+    let provider = VSCode.Workspace.registerTextDocumentContentProvider(
+      scheme,
+      toContentProvider({"provideTextDocumentContent": _ => "-- old content\n"}),
+    )
+    let otherDocument = await VSCode.Workspace.openTextDocument(
+      VSCode.Uri.file(otherFilepath)->VSCode.Uri.with_({scheme: scheme}),
+    )
+    // column Two holds the Agda panel, so show it in column Three,
+    // keeping the focus on the loaded file
+    let showInColumnThree = (~preserveFocus) =>
+      VSCode.Window.showTextDocumentWithShowOptions(
+        otherDocument,
+        Some(
+          VSCode.TextDocumentShowOptions.make(~viewColumn=VSCode.ViewColumn.Three, ~preserveFocus, ()),
+        ),
+      )
+    let _ = await showInColumnThree(~preserveFocus=true)
+
+    let result = try {
+      // `Bool` in `data Bool : Set where`
+      await jump(ctx, Link.SrcLoc(Range(Some(otherFilepath), [interval(3, 6, 10)])))
+      Ok(
+        VSCode.Window.activeTextEditor->Option.map(editor => (
+          editor->VSCode.TextEditor.document->VSCode.TextDocument.uri->VSCode.Uri.scheme,
+          editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
+          Editor.Selection.getMany(editor),
+        )),
+      )
+    } catch {
+    | exn => Error(exn)
+    }
+    // close the editor in column Three, so later tests start without that column
+    let _ = await showInColumnThree(~preserveFocus=false)
+    let _ = await VSCode.Commands.executeCommand0("workbench.action.closeActiveEditor")
+    provider->VSCode.Disposable.dispose
+
+    switch result {
+    | Error(exn) => raise(exn)
+    | Ok(after) =>
+      Assert.deepStrictEqual(
+        after,
+        Some((
+          "file",
+          otherFilepath,
+          [VSCode.Range.make(VSCode.Position.make(2, 5), VSCode.Position.make(2, 9))],
+        )),
       )
     }
   })
