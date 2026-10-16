@@ -1,5 +1,15 @@
 open Command
 
+// resolves symlinks in `path`; returns it as is where that is not possible,
+// e.g. on the web, where there is no "node:fs"
+@module("node:fs") external realpathSync: string => string = "realpathSync"
+let realpath = path =>
+  try {
+    realpathSync(path)
+  } catch {
+  | _ => path
+  }
+
 // from Editor Command to Tasks
 let rec dispatchCommand = async (state: State.t, command): unit => {
   state.channels.log->Chan.emit(CommandDispatched(command))
@@ -395,25 +405,52 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       }
     | ConnectionStatusClicked => await dispatchCommand(SwitchAgdaVersion)
     | JumpToTarget(link) =>
-      Editor.focus(state.document)
-      let path = state.document->VSCode.TextDocument.fileName->Parser.filepath
       switch link {
-      | SrcLoc(NoRange) => ()
-      | SrcLoc(Range(None, _intervals)) => ()
+      | SrcLoc(NoRange)
+      | SrcLoc(Range(None, _)) =>
+        Editor.focus(state.document)
       | SrcLoc(Range(Some(fileName), intervals)) =>
         let fileName = Parser.filepath(fileName)
+        // compare files by their real paths, so that a symlink and its target are the same file
+        let target = realpath(fileName)
+        let isTarget = document =>
+          realpath(Parser.filepath(document->VSCode.TextDocument.fileName)) == target
 
-        // only select the ranges when it's on the same file
-        if Parser.filepath(path) == Parser.filepath(fileName) {
-          let ranges = intervals->Array.map(Common.AgdaInterval.toVSCodeRange)
+        // reuse the editor that already shows the target, or else open it in column One
+        let shownIn =
+          VSCode.Window.visibleTextEditors->Array.find(editor =>
+            isTarget(editor->VSCode.TextEditor.document)
+          )
+        let document = switch shownIn {
+        | Some(editor) => editor->VSCode.TextEditor.document
+        | None =>
+          switch VSCode.Workspace.textDocuments->Array.find(isTarget) {
+          | Some(document) => document
+          | None => await VSCode.Workspace.openTextDocumentWithFileName(fileName)
+          }
+        }
+        let viewColumn =
+          shownIn
+          ->Option.flatMap(VSCode.TextEditor.viewColumn)
+          ->Option.getOr(VSCode.ViewColumn.One)
+        let editor = await VSCode.Window.showTextDocumentWithShowOptions(
+          document,
+          Some(VSCode.TextDocumentShowOptions.make(~viewColumn, ())),
+        )
+
+        let ranges = intervals->Array.map(Common.AgdaInterval.toVSCodeRange)
+        // with no ranges, leave the cursor where it was
+        if ranges->Array.length > 0 {
           // set cursor selections
-          Editor.Selection.setMany(state.editor, ranges)
+          Editor.Selection.setMany(editor, ranges)
           // scroll to that part of the document
           ranges[0]->Option.forEach(range => {
-            state.editor->VSCode.TextEditor.revealRange(range, None)
+            editor->VSCode.TextEditor.revealRange(range, None)
           })
         }
-      | Hole(index) => Goals.setCursorByIndex(state.goals, state.editor, index)
+      | Hole(index) =>
+        Editor.focus(state.document)
+        Goals.setCursorByIndex(state.goals, state.editor, index)
       }
     }
   | Escape =>
