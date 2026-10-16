@@ -304,6 +304,25 @@ describe("EventFromView.JumpToTarget", () => {
     )
   })
 
+  Async.it("should show an error message when the file does not exist", async () => {
+    let ctx = await AgdaMode.makeAndLoad(filename)
+    let missingFilepath = Path.asset("JumpToTargetMissing.agda")
+    let listener = Log.collect(ctx.channels.log)
+
+    await jump(ctx, Link.SrcLoc(Range(Some(missingFilepath), [interval(1, 1, 2)])))
+
+    // the error popup can't be read from a test, so check the log entry written with it
+    Assert.deepStrictEqual(
+      listener(~filter=log =>
+        switch log {
+        | Log.Others(_) => true
+        | _ => false
+        }
+      ),
+      [Log.Others("JumpToTarget: cannot open " ++ missingFilepath)],
+    )
+  })
+
   Async.it("should reveal a source location far down the file", async () => {
     let ctx = await AgdaMode.makeAndLoad("JumpToTargetFar.agda")
     // `target` on the last but one line, below the filler comments
