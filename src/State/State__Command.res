@@ -432,9 +432,9 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
       | SrcLoc(Range(None, _)) =>
         Editor.focus(state.document)
       | SrcLoc(Range(Some(fileName), intervals)) =>
-        let fileName = Parser.filepath(fileName)
+        let path = Parser.filepath(fileName)
         // compare files by their real paths, so that a symlink and its target are the same file
-        let target = realpath(fileName)
+        let target = realpath(path)
         // skip documents of other schemes with the same path, e.g. the `git:` original of a diff editor
         let isTarget = document =>
           document->VSCode.TextDocument.uri->VSCode.Uri.scheme == "file" &&
@@ -452,7 +452,7 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
           | Some(document) => Some(document)
           | None =>
             try {
-              Some(await VSCode.Workspace.openTextDocumentWithFileName(fileName))
+              Some(await VSCode.Workspace.openTextDocumentWithFileName(path))
             } catch {
             | _ => None
             }
