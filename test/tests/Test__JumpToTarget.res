@@ -15,14 +15,18 @@ describe("EventFromView.JumpToTarget", () => {
     end_: {pos: 0, line, col: endCol},
   }
 
+  // VS Code reports file names with a lowercase drive letter on Windows,
+  // so compare paths in the form it reports them
+  let normalize = path => VSCode.Uri.file(path)->VSCode.Uri.fsPath
+
   // what a jump could change: the active editor's file, the files of the
   // visible editors, and the selections of the loaded editor
   let snapshot = (ctx: AgdaMode.t) => (
     VSCode.Window.activeTextEditor->Option.map(editor =>
-      editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+      editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->normalize
     ),
     VSCode.Window.visibleTextEditors->Array.map(editor =>
-      editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName
+      editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->normalize
     ),
     Editor.Selection.getMany(ctx.state.editor),
   )
@@ -30,7 +34,7 @@ describe("EventFromView.JumpToTarget", () => {
   // the active editor's file and its selections
   let activeSelections = () =>
     VSCode.Window.activeTextEditor->Option.map(editor => (
-      editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
+      editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->normalize,
       Editor.Selection.getMany(editor),
     ))
 
@@ -139,7 +143,7 @@ describe("EventFromView.JumpToTarget", () => {
     Assert.deepStrictEqual(
       activeSelections(),
       Some((
-        otherFilepath,
+        normalize(otherFilepath),
         [VSCode.Range.make(VSCode.Position.make(2, 5), VSCode.Position.make(2, 9))],
       )),
     )
@@ -158,7 +162,7 @@ describe("EventFromView.JumpToTarget", () => {
     Assert.deepStrictEqual(
       activeSelections(),
       Some((
-        otherFilepath,
+        normalize(otherFilepath),
         [VSCode.Range.make(VSCode.Position.make(3, 2), VSCode.Position.make(3, 2))],
       )),
     )
@@ -180,7 +184,7 @@ describe("EventFromView.JumpToTarget", () => {
     let _ = await showInColumnThree(~preserveFocus=true)
     let visibleEditors = () =>
       VSCode.Window.visibleTextEditors->Array.map(editor => (
-        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
+        editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->normalize,
         editor->VSCode.TextEditor.viewColumn,
       ))
     let visibleBefore = visibleEditors()
@@ -190,7 +194,7 @@ describe("EventFromView.JumpToTarget", () => {
       await jump(ctx, Link.SrcLoc(Range(Some(otherFilepath), [interval(3, 6, 10)])))
       Ok((
         VSCode.Window.activeTextEditor->Option.map(editor => (
-          editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
+          editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->normalize,
           editor->VSCode.TextEditor.viewColumn,
           Editor.Selection.getMany(editor),
         )),
@@ -210,7 +214,7 @@ describe("EventFromView.JumpToTarget", () => {
         after,
         (
           Some((
-            otherFilepath,
+            normalize(otherFilepath),
             Some(VSCode.ViewColumn.Three),
             [VSCode.Range.make(VSCode.Position.make(2, 5), VSCode.Position.make(2, 9))],
           )),
@@ -250,7 +254,7 @@ describe("EventFromView.JumpToTarget", () => {
       Ok(
         VSCode.Window.activeTextEditor->Option.map(editor => (
           editor->VSCode.TextEditor.document->VSCode.TextDocument.uri->VSCode.Uri.scheme,
-          editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName,
+          editor->VSCode.TextEditor.document->VSCode.TextDocument.fileName->normalize,
           Editor.Selection.getMany(editor),
         )),
       )
@@ -269,7 +273,7 @@ describe("EventFromView.JumpToTarget", () => {
         after,
         Some((
           "file",
-          otherFilepath,
+          normalize(otherFilepath),
           [VSCode.Range.make(VSCode.Position.make(2, 5), VSCode.Position.make(2, 9))],
         )),
       )
@@ -297,7 +301,7 @@ describe("EventFromView.JumpToTarget", () => {
       Assert.deepStrictEqual(
         after,
         (
-          Some(filepath),
+          Some(normalize(filepath)),
           visibleBefore,
           [VSCode.Range.make(VSCode.Position.make(4, 0), VSCode.Position.make(4, 4))],
         ),
@@ -315,7 +319,7 @@ describe("EventFromView.JumpToTarget", () => {
     Assert.deepStrictEqual(
       activeSelections(),
       Some((
-        otherFilepath,
+        normalize(otherFilepath),
         [VSCode.Range.make(VSCode.Position.make(3, 2), VSCode.Position.make(3, 10))],
       )),
     )
@@ -331,7 +335,7 @@ describe("EventFromView.JumpToTarget", () => {
     Assert.deepStrictEqual(
       activeSelections(),
       Some((
-        otherFilepath,
+        normalize(otherFilepath),
         [VSCode.Range.make(VSCode.Position.make(8, 0), VSCode.Position.make(8, 7))],
       )),
     )
@@ -348,7 +352,7 @@ describe("EventFromView.JumpToTarget", () => {
     Assert.deepStrictEqual(
       activeSelections(),
       Some((
-        otherFilepath,
+        normalize(otherFilepath),
         [VSCode.Range.make(VSCode.Position.make(2, 7), VSCode.Position.make(2, 11))],
       )),
     )
