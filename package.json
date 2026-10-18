@@ -1347,7 +1347,7 @@
 			},
 			{
 				"command": "agda-mode.lookup-symbol",
-				"key": "ctrl+x ctrl+=",
+				"key": "ctrl+u ctrl+x ctrl+=",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !terminalFocus"
 			},
 			{
