@@ -1305,8 +1305,8 @@
 			},
 			{
 				"command": "agda-mode.switch-agda-version",
-				"key": "ctrl+x ctrl+s",
-				"mac": "ctrl+x ctrl+s",
+				"key": "ctrl+c ctrl+x ctrl+s",
+				"mac": "ctrl+c ctrl+x ctrl+s",
 				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && !editorHasSelection && editorTextFocus"
 			},
 			{
