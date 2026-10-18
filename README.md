@@ -47,7 +47,7 @@ Commands working with terms or types (marked with the 🎚 emoji below) can be p
 | module contents 🎚                       | <kbd>C-c</kbd> <kbd>C-o</kbd> |
 | search definitions in scope 🎚           | <kbd>C-c</kbd> <kbd>C-z</kbd> |
 | compute normal form 🎚                  | <kbd>C-c</kbd> <kbd>C-n</kbd> |
-| switch to a different installation of Agda or ALS | <kbd>C-x</kbd> <kbd>C-s</kbd> |
+| switch to a different installation of Agda or ALS | <kbd>C-c</kbd> <kbd>C-x</kbd> <kbd>C-s</kbd> |
 | Unicode symbol input sequences lookup   | <kbd>C-x</kbd> <kbd>C-=</kbd> |
 
 [^1]: Normalisation prefixes only have an effect on Agda 2.9.0 and higher for this command.
