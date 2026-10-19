@@ -7,6 +7,25 @@ module TextEncoder = {
   @send external encode: (t, string) => Uint8Array.t = "encode"
 }
 
+// the providers, invoked through VS Code's own commands
+@module("vscode") @scope("commands")
+external provideDocumentSemanticTokens: (
+  @as("vscode.provideDocumentSemanticTokens") _,
+  VSCode.Uri.t,
+) => promise<Nullable.t<{..}>> = "executeCommand"
+@module("vscode") @scope("commands")
+external executeDefinitionProvider: (
+  @as("vscode.executeDefinitionProvider") _,
+  VSCode.Uri.t,
+  VSCode.Position.t,
+) => promise<array<VSCode.LocationLink.t>> = "executeCommand"
+@module("vscode") @scope("commands")
+external executeHoverProvider: (
+  @as("vscode.executeHoverProvider") _,
+  VSCode.Uri.t,
+  VSCode.Position.t,
+) => promise<array<VSCode.Hover.t>> = "executeCommand"
+
 // VS Code refuses a content provider for "vsls", one of its own schemes,
 // but accepts a file system provider for it
 @get external byteLength: Uint8Array.t => int = "byteLength"
@@ -156,6 +175,34 @@ describe("Live Share", () => {
       Assert.deepStrictEqual(
         result,
         (true, true, goals, [], [Log.CommandDispatched(Refresh)], true),
+      )
+    })
+  })
+
+  describe("Providers on a vsls: document with the same path as a loaded file", () => {
+    // a real load, see Test__Listener__ActiveEditor.res
+    This.timeout(OS.onUnix ? 5000 : 15000)
+
+    Async.it("should return no semantic tokens, definitions or hovers", async () => {
+      let ctx = await AgdaMode.makeAndLoad("GotoDefinition.agda")
+      let fileSystem = registerGuestFileSystem(
+        ctx.state.document->VSCode.TextDocument.getText(None),
+      )
+      let uri = VSCode.Uri.file(ctx.filepath)->VSCode.Uri.with_({scheme: "vsls"})
+
+      // unlike the other two, this command answers only for a document that is already open
+      let _ = await VSCode.Workspace.openTextDocument(uri)
+      let tokens = await provideDocumentSemanticTokens(uri)
+      // the first `ℕ` in `_+_ : ℕ → ℕ → ℕ`
+      let definitions = await executeDefinitionProvider(uri, VSCode.Position.make(5, 6))
+      // `ℕ` in `data ℕ : Set where`
+      let hovers = await executeHoverProvider(uri, VSCode.Position.make(1, 5))
+
+      fileSystem->VSCode.Disposable.dispose->ignore
+      await AgdaMode.quit(ctx)
+      Assert.deepStrictEqual(
+        (tokens->Nullable.toOption->Option.map(_ => ()), definitions->Array.length, hovers->Array.length),
+        (None, 0, 0),
       )
     })
   })
