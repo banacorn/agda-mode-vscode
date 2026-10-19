@@ -53,4 +53,40 @@ describe("Live Share", () => {
       Assert.deepStrictEqual(Main.refuseCommand(document), None)
     })
   })
+
+  describe("Commands on a vsls: document", () => {
+    let fileSystem = ref(None)
+    let document = ref(None)
+
+    Async.before(async () => {
+      fileSystem := Some(registerGuestFileSystem("module A where\n"))
+      document :=
+        Some(await VSCode.Workspace.openTextDocument(VSCode.Uri.parse("vsls:/cohesion/A.agda")))
+    })
+
+    // destroy any State a command created for the vsls: document
+    Async.afterEach(async () => {
+      let _ = await VSCode.Window.showTextDocument(document.contents->Option.getExn, ())
+      let _ = await executeCommand("agda-mode.quit")
+    })
+
+    Async.after(async () => {
+      let _ = await VSCode.Commands.executeCommand0("workbench.action.closeActiveEditor")
+      fileSystem.contents->Option.forEach(VSCode.Disposable.dispose)
+    })
+
+    Command.names->Array.forEach(((_, name)) =>
+      Async.it("should not run agda-mode." ++ name, async () => {
+        let channels = await activateExtension(None)
+        let _ = await VSCode.Window.showTextDocument(document.contents->Option.getExn, ())
+
+        let handled = []
+        let destructor = channels.commandHandled->Chan.on(command => handled->Array.push(command))
+        let result = await executeCommand("agda-mode." ++ name)
+        destructor()
+
+        Assert.deepStrictEqual((result->Option.map(_ => ()), handled), (None, []))
+      })
+    )
+  })
 })
