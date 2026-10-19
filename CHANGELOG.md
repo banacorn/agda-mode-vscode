@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.10.9 - 2026-10-19
+
+### Added
+- #69: Refuse agda-mode commands on a Live Share guest document with "Agda commands are not available to a Live Share guest. Ask the host to run them.", instead of starting the guest's own Agda on a path it cannot read, reported by [@glangmead](https://github.com/glangmead)
+
+### Fixed
+- #69: Keep Live Share guest documents away from the state of a local file with the same path, and let a guest type a backslash in a shared Agda file, reported by [@glangmead](https://github.com/glangmead)
+- #47: Move Switch Version to `ctrl+c ctrl+x ctrl+s` and Lookup Symbol to `ctrl+u ctrl+x ctrl+=`, so no keybinding starts with a bare `ctrl+x` and Cut works again, reported by [@ice1000](https://github.com/ice1000)
+- #34: Make source-location links in the panel work: open the target file, reusing an editor that already shows it, select the range by code points, and show an error when the file can't be opened, reported by [@jonaprieto](https://github.com/jonaprieto)
+- Give `lagda-org` and `lagda-forester` documents semantic tokens, go-to-definition and the language server
+- Fix the Org and Forester grammars so VS Code can load them
+
 ## v0.10.8 - 2026-10-15
 
 ### Fixed
