@@ -35,4 +35,21 @@ describe("Keybindings", () => {
 
     Assert.deepStrictEqual(startingWithCtrlX, [])
   })
+
+  // Issue #69: agda-mode refuses the input method on a Live Share guest's document,
+  // so a backslash bound to it there would be swallowed instead of typed
+  Async.it("should not bind backslash on vsls: documents", async () => {
+    let keybindings = await readKeybindings()
+
+    let backslashOnGuest = keybindings->Array.filterMap(keybinding =>
+      switch (keybinding->getString("key"), keybinding->getString("when")) {
+      | (Some("[Backslash]"), when_) =>
+        let when_ = when_->Option.getOr("")
+        when_->String.includes("resourceScheme != vsls") ? None : Some(when_)
+      | _ => None
+      }
+    )
+
+    Assert.deepStrictEqual(backslashOnGuest, [])
+  })
 })
