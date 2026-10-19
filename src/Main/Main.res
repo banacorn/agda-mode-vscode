@@ -46,13 +46,20 @@ module ExtensionEvents: {
   //  1. the triggered command has prefix "agda-mode."
   //  2. there's an active text edtior
   //  3. the active text editor is an Agda file
+  //  4. the command is not refused on that file (e.g. opened by a Live Share guest)
   let onTriggerCommand = callback => {
     Command.names->Array.map(((command, name)) =>
       VSCode.Commands.registerCommand("agda-mode." ++ name, () => {
         VSCode.Window.activeTextEditor->Option.map(
           editor => {
-            if isAgda(editor->VSCode.TextEditor.document) {
-              callback(command, editor)
+            let document = editor->VSCode.TextEditor.document
+            if isAgda(document) {
+              switch refuseCommand(document) {
+              | Some(message) =>
+                VSCode.Window.showWarningMessage(message, [])->Promise.done
+                Promise.resolve(None)
+              | None => callback(command, editor)
+              }
             } else {
               Promise.resolve(None)
             }
