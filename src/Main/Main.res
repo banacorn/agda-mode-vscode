@@ -8,6 +8,18 @@ external rawTable: Dict.t<array<string>> = "default"
 let isAgda = (document): bool =>
   RegExp.test(%re("/\.agda$|\.lagda/i"), document->VSCode.TextDocument.fileName)
 
+// a document opened by a Live Share guest
+let isLiveShareGuest = document =>
+  document->VSCode.TextDocument.uri->VSCode.Uri.scheme == "vsls"
+
+// the message to show instead of running an Agda command on this document, if it's refused
+let refuseCommand = document =>
+  if isLiveShareGuest(document) {
+    Some("Agda commands are not available to a Live Share guest. Ask the host to run them.")
+  } else {
+    None
+  }
+
 // Every extension-wide VS Code source (editor, document, selection, command) registered exactly once here, routed to the right State via the Registry.
 module ExtensionEvents: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
