@@ -319,8 +319,8 @@ let activateWithoutContext = (
   ExtensionEvents.onOpenEditor(editor => {
     let document = editor->VSCode.TextEditor.document
 
-    // filter out ".agda.git" files
-    if isAgda(document) {
+    // filter out ".agda.git" files, and documents of a Live Share guest
+    if isAgda(document) && !isLiveShareGuest(document) {
       Registry.get(document)
       ->Option.flatMap(entry => entry.state)
       ->Option.forEach(state => {
@@ -357,7 +357,7 @@ let activateWithoutContext = (
 
   // on close editor
   ExtensionEvents.onCloseDocument(document => {
-    if isAgda(document) {
+    if isAgda(document) && !isLiveShareGuest(document) {
       Registry.removeAndDestroy(document)->ignore
       finalize(false)->ignore
     }
@@ -366,7 +366,11 @@ let activateWithoutContext = (
   // on selection change
   ExtensionEvents.onSelectionChange(event => {
     let document = event->VSCode.TextEditorSelectionChangeEvent.textEditor->VSCode.TextEditor.document
-    switch Registry.get(document)->Option.flatMap(entry => entry.state) {
+    // a Live Share guest's document shares its fileName with the host's, and so its Registry key
+    let state = isLiveShareGuest(document)
+      ? None
+      : Registry.get(document)->Option.flatMap(entry => entry.state)
+    switch state {
     | None => ()
     | Some(state) =>
       let intervals =
@@ -383,7 +387,11 @@ let activateWithoutContext = (
   // on document change
   ExtensionEvents.onDocumentChange(event => {
     let eventDocument = VSCode.TextDocumentChangeEvent.document(event)
-    switch Registry.get(eventDocument)->Option.flatMap(entry => entry.state) {
+    // a Live Share guest's document shares its fileName with the host's, and so its Registry key
+    let state = isLiveShareGuest(eventDocument)
+      ? None
+      : Registry.get(eventDocument)->Option.flatMap(entry => entry.state)
+    switch state {
     | None => ()
     | Some(state) =>
       // only act when the current state editor still points at this state's document,

@@ -96,7 +96,7 @@ describe("Live Share", () => {
 
     Async.it("should leave the state of the loaded file untouched", async () => {
       let ctx = await AgdaMode.makeAndLoad("Load.agda")
-      let editor = ctx.state.editor
+      let localDocument = ctx.state.document
       let goals = Goals.serializeGoals(ctx.state.goals)
       let removed = []
       let _ = ctx.state.onRemoveFromRegistry->Chan.on(() => removed->Array.push())
@@ -108,15 +108,15 @@ describe("Live Share", () => {
         VSCode.Uri.file(ctx.filepath)->VSCode.Uri.with_({scheme: "vsls"}),
         None,
       )
-      let document = guestEditor->VSCode.TextEditor.document
-      let _ = await Editor.Text.insert(document, VSCode.Position.make(0, 0), "-- guest\n")
+      let guestDocument = guestEditor->VSCode.TextEditor.document
+      let _ = await Editor.Text.insert(guestDocument, VSCode.Position.make(0, 0), "-- guest\n")
       Editor.Cursor.set(guestEditor, VSCode.Position.make(1, 0))
       let closed = Promise.make((resolve, _) => {
         let listener = ref(None)
         listener :=
           Some(
             VSCode.Workspace.onDidCloseTextDocument(closedDocument =>
-              if closedDocument === document {
+              if closedDocument === guestDocument {
                 listener.contents->Option.forEach(VSCode.Disposable.dispose)
                 resolve()
               }
@@ -133,6 +133,8 @@ describe("Live Share", () => {
       }
       await closed
       fileSystem->VSCode.Disposable.dispose->ignore
+      // closing the guest's editor makes the loaded file's editor active again,
+      // which rebinds the state to a new editor of that file and refreshes it
       let logs = stopCollecting()
 
       // a following Load still works on the same state
@@ -143,14 +145,18 @@ describe("Live Share", () => {
       }
 
       let result = (
-        ctx.state.editor === editor,
+        ctx.state.document === localDocument,
+        ctx.state.editor->VSCode.TextEditor.document === localDocument,
         Goals.serializeGoals(ctx.state.goals),
         removed,
         logs,
         reloaded,
       )
       await AgdaMode.quit(ctx)
-      Assert.deepStrictEqual(result, (true, goals, [], [], true))
+      Assert.deepStrictEqual(
+        result,
+        (true, true, goals, [], [Log.CommandDispatched(Refresh)], true),
+      )
     })
   })
 })
