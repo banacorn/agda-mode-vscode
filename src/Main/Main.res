@@ -71,7 +71,10 @@ module ExtensionEvents: {
 
   let registerDefinitionProvider = () => {
     Editor.Provider.registerDefinitionProvider((document, position) =>
-      switch Registry.get(document)->Option.flatMap(entry => entry.state) {
+      // a Live Share guest's document shares its fileName with the host's, and so its Registry key
+      switch isLiveShareGuest(document)
+        ? None
+        : Registry.get(document)->Option.flatMap(entry => entry.state) {
       | None => None
       | Some(state) =>
         Tokens.goToDefinition(state.tokens, document)(
@@ -87,32 +90,36 @@ module ExtensionEvents: {
     let tokenTypes = Highlighting__SemanticToken.TokenType.enumurate
     let tokenModifiers = Highlighting__SemanticToken.TokenModifier.enumurate
 
-    let provideDocumentSemanticTokens = (document, _cancel) => {
-      Registry.requestSemanticTokens(document)
-      ->Promise.thenResolve(tokens => {
-        open Editor.Provider.Mock
+    let provideDocumentSemanticTokens = (document, _cancel) =>
+      // return before `Registry.requestSemanticTokens`, which would create a Registry entry
+      if isLiveShareGuest(document) {
+        None
+      } else {
+        Registry.requestSemanticTokens(document)
+        ->Promise.thenResolve(tokens => {
+          open Editor.Provider.Mock
 
-        let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
-          tokenTypes,
-          tokenModifiers,
-        )
-        let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
-
-        tokens->Array.forEach(({range, type_, modifiers}) => {
-          SemanticTokensBuilder.pushLegend(
-            builder,
-            Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range),
-            Highlighting__SemanticToken.TokenType.toString(type_),
-            modifiers->Option.map(
-              xs => xs->Array.map(Highlighting__SemanticToken.TokenModifier.toString),
-            ),
+          let semanticTokensLegend = SemanticTokensLegend.makeWithTokenModifiers(
+            tokenTypes,
+            tokenModifiers,
           )
-        })
+          let builder = SemanticTokensBuilder.makeWithLegend(semanticTokensLegend)
 
-        SemanticTokensBuilder.build(builder)
-      })
-      ->(x => Some(x))
-    }
+          tokens->Array.forEach(({range, type_, modifiers}) => {
+            SemanticTokensBuilder.pushLegend(
+              builder,
+              Highlighting__SemanticToken.SingleLineRange.toVsCodeRange(range),
+              Highlighting__SemanticToken.TokenType.toString(type_),
+              modifiers->Option.map(
+                xs => xs->Array.map(Highlighting__SemanticToken.TokenModifier.toString),
+              ),
+            )
+          })
+
+          SemanticTokensBuilder.build(builder)
+        })
+        ->(x => Some(x))
+      }
 
     Editor.Provider.registerDocumentSemanticTokensProvider(
       ~provideDocumentSemanticTokens,
@@ -138,51 +145,59 @@ module ExtensionEvents: {
         VSCode.StringOr.make(String("forester")),
       ],
       {
-        provideHover: (document, position, _token) => {
-          let text =
-            VSCode.TextDocument.lineAt(document, position->VSCode.Position.line)->VSCode.TextLine.text
-          let char = text->String.charAt(position->VSCode.Position.character)
-          // don't answer for these characters
-          let ignoredChars = [" "]
-          let foundInputMethods: option<array<string>> = if Array.includes(ignoredChars, char) {
+        provideHover: (document, position, _token) =>
+          if isLiveShareGuest(document) {
             None
           } else {
-            char
-            ->String.codePointAt(0)
-            ->Option.map(string_of_int)
-            ->Option.flatMap(Dict.get(rawTable, ...))
-          }
-          switch foundInputMethods {
-          // If found some methods, then pretty print these input sequences
-          | Some(methods) =>
-            // Sort methods by length (shortest first) for better UX
-            let sortedMethods =
-              methods->Array.toSorted((a, b) => Float.fromInt(String.length(a) - String.length(b)))
-            // Format with Oxford comma style
-            let methodsText = switch sortedMethods->Array.length {
-            | 1 => "`\\" ++ sortedMethods[0]->Option.getUnsafe ++ "`"
-            | 2 =>
-              "`\\" ++
-              sortedMethods[0]->Option.getUnsafe ++
-              "` or `\\" ++
-              sortedMethods[1]->Option.getUnsafe ++ "`"
-            | _ =>
-              let lastMethod = sortedMethods->Array.at(-1)->Option.getUnsafe
-              let otherMethods = sortedMethods->Array.slice(~start=0, ~end=-1)
-              otherMethods->Array.map(m => "`\\" ++ m ++ "`")->Array.join(", ") ++
-              ", or `\\" ++
-              lastMethod ++ "`"
+            let text =
+              VSCode.TextDocument.lineAt(
+                document,
+                position->VSCode.Position.line,
+              )->VSCode.TextLine.text
+            let char = text->String.charAt(position->VSCode.Position.character)
+            // don't answer for these characters
+            let ignoredChars = [" "]
+            let foundInputMethods: option<array<string>> = if Array.includes(ignoredChars, char) {
+              None
+            } else {
+              char
+              ->String.codePointAt(0)
+              ->Option.map(string_of_int)
+              ->Option.flatMap(Dict.get(rawTable, ...))
             }
-            let hoverText = "Input sequence: " ++ methodsText
-            Some(
-              Promise.make((resolve, _reject) =>
-                resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value=hoverText)]))
-              ),
-            )
-          // no input methods found, do nothing
-          | None => None
-          }
-        },
+            switch foundInputMethods {
+            // If found some methods, then pretty print these input sequences
+            | Some(methods) =>
+              // Sort methods by length (shortest first) for better UX
+              let sortedMethods =
+                methods->Array.toSorted((a, b) =>
+                  Float.fromInt(String.length(a) - String.length(b))
+                )
+              // Format with Oxford comma style
+              let methodsText = switch sortedMethods->Array.length {
+              | 1 => "`\\" ++ sortedMethods[0]->Option.getUnsafe ++ "`"
+              | 2 =>
+                "`\\" ++
+                sortedMethods[0]->Option.getUnsafe ++
+                "` or `\\" ++
+                sortedMethods[1]->Option.getUnsafe ++ "`"
+              | _ =>
+                let lastMethod = sortedMethods->Array.at(-1)->Option.getUnsafe
+                let otherMethods = sortedMethods->Array.slice(~start=0, ~end=-1)
+                otherMethods->Array.map(m => "`\\" ++ m ++ "`")->Array.join(", ") ++
+                ", or `\\" ++
+                lastMethod ++ "`"
+              }
+              let hoverText = "Input sequence: " ++ methodsText
+              Some(
+                Promise.make((resolve, _reject) =>
+                  resolve(VSCode.Hover.make([VSCode.MarkdownString.make(~value=hoverText)]))
+                ),
+              )
+            // no input methods found, do nothing
+            | None => None
+            }
+          },
       },
     )
   }
