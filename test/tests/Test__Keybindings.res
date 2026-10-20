@@ -52,4 +52,34 @@ describe("Keybindings", () => {
 
     Assert.deepStrictEqual(backslashOnGuest, [])
   })
+
+  // Issue #76: a backslash typed while the input method is on must reach it,
+  // to commit the current symbol and start the next one
+  Async.it("should bind backslash while the input method is on, keeping its other guards", async () => {
+    let keybindings = await readKeybindings()
+
+    let backslashGuards = keybindings->Array.filterMap(keybinding =>
+      switch (
+        keybinding->getString("command"),
+        keybinding->getString("key"),
+        keybinding->getString("when"),
+      ) {
+      | (Some("agda-mode.input-symbol[Activate]"), Some("[Backslash]"), when_) =>
+        Some(when_->Option.getOr("")->String.split(" && "))
+      | _ => None
+      }
+    )
+
+    Assert.deepStrictEqual(
+      backslashGuards,
+      [
+        [
+          "config.agdaMode.inputMethod.enabled",
+          "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/",
+          "editorTextFocus",
+          "resourceScheme != vsls",
+        ],
+      ],
+    )
+  })
 })
