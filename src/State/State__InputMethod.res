@@ -204,10 +204,25 @@ module Module: Module = {
   let activateEditorIM = async (state: State.t): unit =>
     switch isActivated(state) {
     | Editor =>
-      // IMTODO
-      // else reactivate it
-      await EditorIM.deactivate(state)
-      await EditorIM.activate(state)
+      if IM.bufferIsEmpty(state.editorIM) {
+        // nothing typed yet, so type the backslash itself, after turning off so the edit does not reach the input method
+        let replacements = Editor.Selection.getMany(state.editor)->Array.map(range => (range, "\\"))
+        await EditorIM.deactivate(state)
+        // edit the same way rewrites do
+        let _ = if Config.InputMethod.getDirectEdit() {
+          try {
+            await Editor.Text.batchReplace'(state.editor, replacements)
+          } catch {
+          | _ => false
+          }
+        } else {
+          await Editor.Text.batchReplace(state.document, replacements)
+        }
+      } else {
+        // commit the current symbol and start a new one
+        await EditorIM.deactivate(state)
+        await EditorIM.activate(state)
+      }
     | Prompt =>
       // deactivate the prompt IM
       await PromptIM.deactivate(state)
