@@ -857,7 +857,7 @@
 			{
 				"command": "agda-mode.input-symbol[Activate]",
 				"key": "[Backslash]",
-				"when": "config.agdaMode.inputMethod.enabled && !agdaModeTyping && editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && editorTextFocus && resourceScheme != vsls"
+				"when": "config.agdaMode.inputMethod.enabled && editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && editorTextFocus && resourceScheme != vsls"
 			},
 			{
 				"command": "agda-mode.quit",
