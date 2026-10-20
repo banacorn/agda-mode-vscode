@@ -278,6 +278,13 @@ module IM = {
     }
     received
   }
+
+  // runs the activation command after something is typed, which commits it and starts again
+  let reactivate = async setup => {
+    let promise = waitMany(setup, 2)
+    let _ = await VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
+    await promise
+  }
 }
 
 describe("Input Method (Editor)", () => {
@@ -1026,6 +1033,93 @@ describe("Input Method (Editor)", () => {
         let log = await IM.activateAgain(setup)
         Assert.deepStrictEqual(log, [[IM.Log.Deactivate]])
         Assert.equal(document->Editor.Text.getAll->replaceCRLF, "\\abc\n\\c\na\\")
+      }),
+    )
+  })
+
+  // Issue #76: activating again after typing a symbol commits it and starts the next one
+  describe("Activating again after typing a symbol", () => {
+    let replaceCRLF = x => x->String.replaceRegExp(%re("/\r\n/g"), "\n") // RegEx updated to v10.1.4
+
+    // types `\==\<\>` at `positions`, and records the log and the text after each key
+    let typeAdjacentSymbols = async (setup, positions) => {
+      let document = setup.editor->VSCode.TextEditor.document
+      let trace = []
+      let record = log => trace->Array.push((log, document->Editor.Text.getAll->replaceCRLF))
+      record(await IM.activate(setup, ~positions, ()))
+      record(await IM.insertChar(setup, "="))
+      record(await IM.insertChar(setup, "="))
+      record(await IM.reactivate(setup))
+      record(await IM.insertChar(setup, "<"))
+      record(await IM.reactivate(setup))
+      let log = await IM.insertChar(setup, ">")
+      record(log)
+      // leave the input method off for the next test even if it stayed on
+      if !Array.includes(log, IM.Log.Deactivate) {
+        let _ = await IM.deactivate(setup)
+      }
+      trace
+    }
+
+    // the trace of `typeAdjacentSymbols` with a cursor at the start of each of `lines`
+    let expectedTrace = lines => {
+      let at = (start, end_, symbol) => lines->Array.map(line => (((line, start), (line, end_)), symbol))
+      let text = symbols => lines->Array.map(_ => symbols)->Array.join("\n")
+      [
+        ([IM.Log.Activate], text("")),
+        ([IM.Log.RewriteIssued(at(0, 1, "＝")), UpdateView, RewriteApplied], text("＝")),
+        ([IM.Log.RewriteIssued(at(0, 2, "≡")), UpdateView, RewriteApplied], text("≡")),
+        ([IM.Log.Deactivate, Activate], text("≡")),
+        ([IM.Log.RewriteIssued(at(1, 2, "⟨")), UpdateView, RewriteApplied], text("≡⟨")),
+        ([IM.Log.Deactivate, Activate], text("≡⟨")),
+        ([IM.Log.RewriteIssued(at(2, 3, "⟩")), UpdateView, RewriteApplied], text("≡⟨⟩")),
+      ]
+    }
+
+    let fourLines = [
+      VSCode.Position.make(0, 0),
+      VSCode.Position.make(1, 0),
+      VSCode.Position.make(2, 0),
+      VSCode.Position.make(3, 0),
+    ]
+
+    Async.it(
+      `Issue #76, should translate "\\==\\<\\>" to "≡⟨⟩"`,
+      async () => {
+        let setup = acquire(setup)
+        let trace = await typeAdjacentSymbols(setup, [VSCode.Position.make(0, 0)])
+        Assert.deepStrictEqual(trace, expectedTrace([0]))
+      },
+    )
+
+    Async.it(
+      `Issue #76, should translate "\\==\\<\\>" to "≡⟨⟩" when directEdit is on`,
+      async () => await withDirectEdit(async () => {
+        let setup = acquire(setup)
+        let trace = await typeAdjacentSymbols(setup, [VSCode.Position.make(0, 0)])
+        Assert.deepStrictEqual(trace, expectedTrace([0]))
+      }),
+    )
+
+    Async.it(
+      `Issue #76, should translate "\\==\\<\\>" to "≡⟨⟩" at four cursors`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), "\n\n\n")
+        let trace = await typeAdjacentSymbols(setup, fourLines)
+        Assert.deepStrictEqual(trace, expectedTrace([0, 1, 2, 3]))
+      },
+    )
+
+    Async.it(
+      `Issue #76, should translate "\\==\\<\\>" to "≡⟨⟩" at four cursors when directEdit is on`,
+      async () => await withDirectEdit(async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), "\n\n\n")
+        let trace = await typeAdjacentSymbols(setup, fourLines)
+        Assert.deepStrictEqual(trace, expectedTrace([0, 1, 2, 3]))
       }),
     )
   })
