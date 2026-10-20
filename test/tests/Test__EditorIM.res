@@ -246,6 +246,38 @@ module IM = {
     Editor.Selection.setMany(setup.editor, ranges)
     await promise
   }
+
+  // activates on `ranges` as they are, unlike `activate`, which collapses them to cursors
+  let activateOnSelections = async (setup, ranges) => {
+    let promise = waitMany(setup, 1)
+    Editor.Selection.setMany(setup.editor, ranges)
+    let _ = await VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
+    await promise
+  }
+
+  // runs the activation command while the input method is on, and collects every log batch it makes
+  let activateAgain = async setup => {
+    let received = []
+    let destructor = setup.channels.inputMethod->Chan.on(batch => received->Array.push(batch))
+    let _ = await VSCode.Commands.executeCommand0("agda-mode.input-symbol[Activate]")
+    await Util.Promise_.setTimeout(0)
+    destructor()
+    // leave the input method off for the next test even if it stayed on
+    let stillOn =
+      received
+      ->Array.flat
+      ->Array.reduce(true, (on, kind) =>
+        switch kind {
+        | IM.Log.Activate => true
+        | Deactivate => false
+        | _ => on
+        }
+      )
+    if stillOn {
+      let _ = await deactivate(setup)
+    }
+    received
+  }
 }
 
 describe("Input Method (Editor)", () => {
@@ -926,6 +958,75 @@ describe("Input Method (Editor)", () => {
         Assert.equal(document->Editor.Text.getAll, "♭")
         Assert.equal(applyEditCount, 1)
       },
+    )
+  })
+
+  // Issue #76: activating again with an empty input buffer types the backslash itself
+  describe("Activating again with an empty input buffer", () => {
+    let replaceCRLF = x => x->String.replaceRegExp(%re("/\r\n/g"), "\n") // RegEx updated to v10.1.4
+
+    Async.it(
+      `Issue #76, should insert one literal backslash and turn off`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let log = await IM.activate(setup, ())
+        Assert.deepStrictEqual(log, [IM.Log.Activate])
+        let log = await IM.activateAgain(setup)
+        Assert.deepStrictEqual(log, [[IM.Log.Deactivate]])
+        Assert.equal(document->Editor.Text.getAll, "\\")
+      },
+    )
+
+    Async.it(
+      `Issue #76, should insert one literal backslash and turn off when directEdit is on`,
+      async () => await withDirectEdit(async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let log = await IM.activate(setup, ())
+        Assert.deepStrictEqual(log, [IM.Log.Activate])
+        let log = await IM.activateAgain(setup)
+        Assert.deepStrictEqual(log, [[IM.Log.Deactivate]])
+        Assert.equal(document->Editor.Text.getAll, "\\")
+      }),
+    )
+
+    Async.it(
+      `Issue #76, should replace every selection with one literal backslash and turn off`,
+      async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), "abc\nabc\nabc")
+        let ranges = [
+          VSCode.Range.make(VSCode.Position.make(0, 0), VSCode.Position.make(0, 0)),
+          VSCode.Range.make(VSCode.Position.make(1, 0), VSCode.Position.make(1, 2)),
+          VSCode.Range.make(VSCode.Position.make(2, 1), VSCode.Position.make(2, 3)),
+        ]
+        let log = await IM.activateOnSelections(setup, ranges)
+        Assert.deepStrictEqual(log, [IM.Log.Activate])
+        let log = await IM.activateAgain(setup)
+        Assert.deepStrictEqual(log, [[IM.Log.Deactivate]])
+        Assert.equal(document->Editor.Text.getAll->replaceCRLF, "\\abc\n\\c\na\\")
+      },
+    )
+
+    Async.it(
+      `Issue #76, should replace every selection with one literal backslash and turn off when directEdit is on`,
+      async () => await withDirectEdit(async () => {
+        let setup = acquire(setup)
+        let document = setup.editor->VSCode.TextEditor.document
+        let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), "abc\nabc\nabc")
+        let ranges = [
+          VSCode.Range.make(VSCode.Position.make(0, 0), VSCode.Position.make(0, 0)),
+          VSCode.Range.make(VSCode.Position.make(1, 0), VSCode.Position.make(1, 2)),
+          VSCode.Range.make(VSCode.Position.make(2, 1), VSCode.Position.make(2, 3)),
+        ]
+        let log = await IM.activateOnSelections(setup, ranges)
+        Assert.deepStrictEqual(log, [IM.Log.Activate])
+        let log = await IM.activateAgain(setup)
+        Assert.deepStrictEqual(log, [[IM.Log.Deactivate]])
+        Assert.equal(document->Editor.Text.getAll->replaceCRLF, "\\abc\n\\c\na\\")
+      }),
     )
   })
 
