@@ -246,8 +246,18 @@ let rec handle = async (
           state.goals->Goals.addGoalPositions(goalPositionsAbsolute)
         }
 
+        // the filled text replaces the whole goal, boundary included, from where the goal starts
+        let filledRange = Goals.getGoalByIndex(state.goals, index)->Option.map(goal => {
+          let content = Goal.getContent(goal, state.document)
+          (index, goal.start, goal.start + String.length(content))
+        })
+
         if await Goals.removeBoundaryAndDestroy(state.goals, state.document, index) {
-          ()
+          // new holes in the filled text are expanded later (from "?" to "{!   !}"), which moves its end,
+          // so keep the length of the document after it instead, which these expansions do not change
+          let documentLength = Editor.Text.getAll(state.document)->String.length
+          state.filledRange =
+            filledRange->Option.map(((index, start, end_)) => (index, start, documentLength - end_))
         } else {
           await State__View.Panel.display(
             state,

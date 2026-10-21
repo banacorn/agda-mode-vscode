@@ -77,6 +77,9 @@ type t = {
   // Skip HighlightingInfo during refine & give operations because Agda sends faulty token positions
   // that conflict with the extension's correctly calculated positions.
   mutable isInRefineOrGiveOperation: bool,
+  // Issue #77: the goal index, the start offset of the text filled into it by Give or Refine,
+  // and the length of the document after that text, for highlighting the text after the operation
+  mutable filledRange: option<(int, int, int)>,
 }
 
 let make = (
@@ -110,6 +113,7 @@ let make = (
   channels,
   middlewares: [],
   isInRefineOrGiveOperation: false,
+  filledRange: None,
 }
 
 // construction/destruction
