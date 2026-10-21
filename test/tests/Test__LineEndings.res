@@ -77,4 +77,132 @@ describe("Line endings of the document", () => {
       )
     })
   })
+
+  // The hole content is typed with "\n", which VS Code stores as "\r\n"
+  let giveLines = [
+    "module ModuleName where",
+    "",
+    "data Bool : Set where",
+    "  true false : Bool",
+    "",
+    "fst : Bool → Bool → Bool",
+    "fst a b = a",
+    "",
+    "data _×_ (A B : Set) : Set where",
+    "  _,_ : A → B → A × B",
+    "",
+    "paren : Bool",
+    "paren = fst {!   !} true",
+    "",
+    "noParen : Bool × Bool",
+    "noParen = {!   !}",
+    "",
+  ]
+
+  let giveCases = [("CRLF", "\r\n", "GiveParenCRLF", "GiveNoParenCRLF")]
+
+  giveCases->Array.forEach(((name, eol, parenModule, noParenModule)) => {
+    describe(name ++ " (Give)", () => {
+      let written = ref([])
+
+      let write = moduleName => {
+        let filename = moduleName ++ ".agda"
+        let content =
+          giveLines
+          ->Array.map(line => line->String.replace("ModuleName", moduleName))
+          ->Array.join(eol)
+        NodeJs.Fs.writeFileSync(Path.asset(filename), NodeJs.Buffer.fromString(content))
+        written := [...written.contents, filename]
+        filename
+      }
+
+      Async.afterEach(async () => {
+        await Registry.removeAndDestroyAll()
+        written.contents->Array.forEach(filename => NodeJs.Fs.unlinkSync(Path.asset(filename)))
+        written := []
+      })
+
+      // Agda wraps the content in parentheses, as the hole is an argument
+      Async.it(
+        "GiveParen: hole content with a `?` on each of two later lines",
+        async () => {
+          let ctx = await AgdaMode.makeAndLoad(write(parenModule))
+          await ctx->AgdaMode.execute(
+            Refine,
+            ~payload="fst\n    ?\n    ?",
+            ~cursor=VSCode.Position.make(12, 14),
+          )
+
+          Assert.deepStrictEqual(
+            Editor.Text.getAll(ctx.state.document),
+            [
+              "module " ++ parenModule ++ " where",
+              "",
+              "data Bool : Set where",
+              "  true false : Bool",
+              "",
+              "fst : Bool → Bool → Bool",
+              "fst a b = a",
+              "",
+              "data _×_ (A B : Set) : Set where",
+              "  _,_ : A → B → A × B",
+              "",
+              "paren : Bool",
+              "paren = fst (fst",
+              "    {!   !}",
+              "    {!   !}) true",
+              "",
+              "noParen : Bool × Bool",
+              "noParen = {!   !}",
+              "",
+            ]->Array.join(eol),
+          )
+          Assert.deepStrictEqual(
+            Goals.serializeGoals(ctx.state.goals),
+            ["#1 [18:11-18)", "#2 [14:5-12)", "#3 [15:5-12)"],
+          )
+        },
+      )
+
+      Async.it(
+        "GiveNoParen: hole content with a `?` on each of two lines",
+        async () => {
+          let ctx = await AgdaMode.makeAndLoad(write(noParenModule))
+          await ctx->AgdaMode.execute(
+            Give,
+            ~payload="?\n  , ?",
+            ~cursor=VSCode.Position.make(15, 12),
+          )
+
+          Assert.deepStrictEqual(
+            Editor.Text.getAll(ctx.state.document),
+            [
+              "module " ++ noParenModule ++ " where",
+              "",
+              "data Bool : Set where",
+              "  true false : Bool",
+              "",
+              "fst : Bool → Bool → Bool",
+              "fst a b = a",
+              "",
+              "data _×_ (A B : Set) : Set where",
+              "  _,_ : A → B → A × B",
+              "",
+              "paren : Bool",
+              "paren = fst {!   !} true",
+              "",
+              "noParen : Bool × Bool",
+              "noParen = {!   !}",
+              "  , {!   !}",
+              "",
+            ]->Array.join(eol),
+          )
+          Assert.deepStrictEqual(
+            Goals.serializeGoals(ctx.state.goals),
+            ["#0 [13:13-20)", "#2 [16:11-18)", "#3 [17:5-12)"],
+          )
+        },
+      )
+    })
+  })
 })
