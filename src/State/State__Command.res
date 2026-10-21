@@ -36,14 +36,56 @@ let toVSCodePosition = (document, position: Common.AgdaPosition.t) => {
 let rec dispatchCommand = async (state: State.t, command): unit => {
   state.channels.log->Chan.emit(CommandDispatched(command))
   let dispatchCommand = dispatchCommand(state, ...)
+  let commandHandled = () => {
+    state.channels.log->Chan.emit(CommandHandled(command))
+    state.channels.commandHandled->Chan.emit(command)
+  }
   let sendAgdaRequest = async request => {
     await State__Connection.sendRequest(
       state,
       State__Response.handle(state, dispatchCommand, ...),
       request
     )
-    state.channels.log->Chan.emit(CommandHandled(command))
-    state.channels.commandHandled->Chan.emit(command)
+    commandHandled()
+  }
+  // Issue #77: highlighting sent during Give and Refine is skipped,
+  // so ask Agda to highlight the filled text afterwards, like the Emacs mode does
+  let sendRefineOrGiveRequest = async request => {
+    state.filledRange = None
+    state.isInRefineOrGiveOperation = true
+    await State__Connection.sendRequest(
+      state,
+      State__Response.handle(state, dispatchCommand, ...),
+      request
+    )
+    state.isInRefineOrGiveOperation = false
+    switch state.filledRange {
+    | None => ()
+    | Some((index, start, lengthAfter)) =>
+      state.filledRange = None
+      let end_ = Editor.Text.getAll(state.document)->String.length - lengthAfter
+      // Cmd_highlight also reports the interaction points, which it does not change;
+      // handling them like after a Load would renumber the goals, so skip them
+      let handle = State__Response.handle(state, dispatchCommand, ...)
+      await State__Connection.sendRequest(
+        state,
+        response =>
+          switch response {
+          | InteractionPoints(_) => Promise.resolve()
+          // workaround for an Agda bug, see Highlighting__AgdaStaleNameWorkaround
+          | HighlightingInfoDirect(keepHighlighting, tokens) =>
+            handle(
+              HighlightingInfoDirect(
+                keepHighlighting,
+                Highlighting__AgdaStaleNameWorkaround.filter(tokens),
+              ),
+            )
+          | _ => handle(response)
+          },
+        Highlight(index, start, end_),
+      )
+    }
+    commandHandled()
   }
   let header = View.Header.Plain(Command.toString(command))
   switch command {
@@ -114,29 +156,21 @@ let rec dispatchCommand = async (state: State.t, command): unit => {
           },
           async expr =>
             if expr == "" {
-              state.isInRefineOrGiveOperation = true
-              await sendAgdaRequest(Give(goal))
-              state.isInRefineOrGiveOperation = false
+              await sendRefineOrGiveRequest(Give(goal))
             } else {
               await state.goals->Goals.modify(state.document, goal.index, _ => expr)
-              state.isInRefineOrGiveOperation = true
-              await sendAgdaRequest(Give(goal))
-              state.isInRefineOrGiveOperation = false
+              await sendRefineOrGiveRequest(Give(goal))
             },
         )
       } else {
-        state.isInRefineOrGiveOperation = true
-        await sendAgdaRequest(Give(goal))
-        state.isInRefineOrGiveOperation = false
+        await sendRefineOrGiveRequest(Give(goal))
       }
     }
   | Refine =>
     switch Goals.getGoalAtCursor(state.goals, state.editor) {
     | None => await State__View.Panel.displayOutOfGoalError(state)
     | Some(goal) =>
-      state.isInRefineOrGiveOperation = true
-      await sendAgdaRequest(Refine(goal))
-      state.isInRefineOrGiveOperation = false
+      await sendRefineOrGiveRequest(Refine(goal))
     }
   | ElaborateAndGive(normalization) => {
       let placeholder = Some("expression to elaborate and give:")
