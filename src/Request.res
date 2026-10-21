@@ -27,6 +27,8 @@ type t =
   | ComputeNormalFormGlobal(Command.ComputeMode.t, string)
   | WhyInScope(string, Goal.t)
   | WhyInScopeGlobal(string)
+  // index of the filled interaction point, and the start and end (UTF-16 offsets) of the text filled into it
+  | Highlight(int, int, int)
 
 let toString = x =>
   switch x {
@@ -58,6 +60,7 @@ let toString = x =>
   | ComputeNormalFormGlobal(_, _) => "ComputeNormalFormGlobal"
   | WhyInScope(_, _) => "WhyInScope"
   | WhyInScopeGlobal(_) => "WhyInScopeGlobal"
+  | Highlight(_, _, _) => "Highlight"
   }
 
 // How much highlighting should be sent to the user interface?
@@ -304,5 +307,22 @@ let encode = (
   | WhyInScopeGlobal(expr) =>
     let content = Parser.escape(expr)
     `${commonPart(None)}( Cmd_why_in_scope_toplevel "${content}" )`
+
+  // Issue #77: like the Emacs mode, ask Agda to highlight the text just filled into an interaction point
+  | Highlight(index, start, end_) =>
+    let range = Goal.makeHaskellRangeOfOffsets(document, version, filepath, start, end_)
+    let content =
+      Editor.Text.get(
+        document,
+        VSCode.Range.make(
+          VSCode.TextDocument.positionAt(document, start),
+          VSCode.TextDocument.positionAt(document, end_),
+        ),
+      )
+      // with LF line breaks, as the range counts CRLF as one character
+      ->String.replaceAll("\r\n", "\n")
+      ->Parser.escape
+    // always Direct, so that the reply arrives as HighlightingInfoDirect instead of through temporary files
+    `IOTCM "${filepath}" Interactive Direct( Cmd_highlight ${string_of_int(index)} ${range} "${content}" )`
   }
 }
