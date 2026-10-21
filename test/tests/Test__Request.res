@@ -22,6 +22,71 @@ describe("Request.encode", () => {
     })
   })
 
+  describe("Highlight", () => {
+    let filepath = "/tmp/Test.agda"
+    let openDocument = content =>
+      VSCode.Workspace.openTextDocumentWithOptions(
+        Some({"content": content, "language": "plaintext"}),
+      )
+    let encode = (document, version, highlightingMethod, request) =>
+      Request.encode(document, version, filepath, GHC, [], highlightingMethod, request)
+
+    Async.it("should send Cmd_highlight with the Agda 2.8+ range and Direct highlighting", async () => {
+      let document = await openDocument("f = suc zero")
+      let actual = encode(document, "2.9.0", true, Request.Highlight(3, 4, 12))
+      let expected =
+        "IOTCM \"/tmp/Test.agda\" Interactive Direct( Cmd_highlight 3 " ++
+        "(intervalsToRange (Just (mkAbsolute \"/tmp/Test.agda\")) [Interval () (Pn () 5 1 5) (Pn () 13 1 13)]) " ++ "\"suc zero\" )"
+      Assert.strictEqual(actual, expected)
+    })
+
+    Async.it("should send Cmd_highlight with the Agda 2.5.1-2.7 range and Direct highlighting, even when Indirect is configured", async () => {
+      let document = await openDocument("f = suc zero")
+      let actual = encode(document, "2.7.0", false, Request.Highlight(3, 4, 12))
+      let expected =
+        "IOTCM \"/tmp/Test.agda\" Interactive Direct( Cmd_highlight 3 " ++
+        "(intervalsToRange (Just (mkAbsolute \"/tmp/Test.agda\")) [Interval (Pn () 5 1 5) (Pn () 13 1 13)]) " ++ "\"suc zero\" )"
+      Assert.strictEqual(actual, expected)
+    })
+
+    Async.it("should send Cmd_highlight with the pre-2.5.1 range", async () => {
+      let document = await openDocument("f = suc zero")
+      let actual = encode(document, "2.5.0", true, Request.Highlight(3, 4, 12))
+      let expected =
+        "IOTCM \"/tmp/Test.agda\" Interactive Direct( Cmd_highlight 3 " ++
+        "(Range [Interval (Pn (Just (mkAbsolute \"/tmp/Test.agda\")) 5 1 5) (Pn (Just (mkAbsolute \"/tmp/Test.agda\")) 13 1 13)]) " ++ "\"suc zero\" )"
+      Assert.strictEqual(actual, expected)
+    })
+
+    Async.it("should count code points and treat CRLF as one character in the range", async () => {
+      // "𝕄" is one code point but two UTF-16 code units
+      let document = await openDocument("-- 𝕄\r\nx = 𝕄 y\r\n")
+      let actual = encode(document, "2.9.0", true, Request.Highlight(0, 11, 15))
+      let expected =
+        "IOTCM \"/tmp/Test.agda\" Interactive Direct( Cmd_highlight 0 " ++
+        "(intervalsToRange (Just (mkAbsolute \"/tmp/Test.agda\")) [Interval () (Pn () 10 2 5) (Pn () 13 2 8)]) " ++ "\"𝕄 y\" )"
+      Assert.strictEqual(actual, expected)
+    })
+
+    Async.it("should escape the highlighted text across lines", async () => {
+      let document = await openDocument("f = g \"a\\b\"\n  h")
+      let actual = encode(document, "2.9.0", true, Request.Highlight(1, 4, 15))
+      let expected =
+        "IOTCM \"/tmp/Test.agda\" Interactive Direct( Cmd_highlight 1 " ++
+        "(intervalsToRange (Just (mkAbsolute \"/tmp/Test.agda\")) [Interval () (Pn () 5 1 5) (Pn () 16 2 4)]) " ++ "\"g \\\"a\\\\b\\\"\\n  h\" )"
+      Assert.strictEqual(actual, expected)
+    })
+
+    Async.it("should send the highlighted text with LF line breaks from a CRLF document", async () => {
+      let document = await openDocument("-- 𝕄\r\nf = g\r\n  h\r\n")
+      let actual = encode(document, "2.9.0", true, Request.Highlight(1, 11, 17))
+      let expected =
+        "IOTCM \"/tmp/Test.agda\" Interactive Direct( Cmd_highlight 1 " ++
+        "(intervalsToRange (Just (mkAbsolute \"/tmp/Test.agda\")) [Interval () (Pn () 10 2 5) (Pn () 15 3 4)]) " ++ "\"g\\n  h\" )"
+      Assert.strictEqual(actual, expected)
+    })
+  })
+
   // Like the Emacs mode (agda2-goal-Range), the range of a goal spans its content between "{!" and "!}",
   // in Agda positions: code points from 1, with CRLF as one character.
   // The content is sent with LF line breaks, so that Agda counts it the same way.
