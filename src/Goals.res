@@ -26,7 +26,7 @@ module type Module = {
   let resetGoalIndicesOnRefineOrGive: (t, VSCode.TextEditor.t, array<index>) => promise<unit>
   let addGoalPositions: (t, array<(int, int)>) => unit
   let getGoalPositionByIndex: (t, index) => option<(int, int)>
-  let parseGoalPositionsFromRefine: string => array<(int, int)>
+  let parseGoalPositionsFromRefine: (string, ~eol: string) => array<(int, int)>
   let removeGoalByIndex: (t, index) => unit
 
   // scan all goals and update their positions after document changes
@@ -1023,11 +1023,11 @@ module Module: Module = {
   // for the result of the refine command.
   // So we need to parse the holes from the refine result and decorate them ourself.
   // This function calculates the offsets of the question marks
-  let parseGoalPositionsFromRefine = raw => {
+  let parseGoalPositionsFromRefine = (raw, ~eol) => {
     // result of refinement from Agda uses LF "\n" as line endings
-    // we need to convert it to the system line endings
+    // we need to convert it to the line endings of the document `eol`
     // so that the positions of the question marks can be calculated correctly
-    let raw = raw->Parser.splitToLines->Array.join(NodeJs.Os.eol)
+    let raw = raw->Parser.splitToLines->Array.join(eol)
 
     // Find all standalone question marks without problematic regex splitting
     // Include all whitespace characters like the original regex [\s\(\{\_\;\.\\\"@]
