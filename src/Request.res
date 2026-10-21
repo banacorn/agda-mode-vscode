@@ -96,6 +96,9 @@ let encode = (
   }
 
   let buildRange = goal => Goal.makeHaskellRange(goal, document, version, filepath)
+  // with LF line breaks, as the range counts CRLF as one character
+  let buildContent = goal =>
+    Goal.getContent(goal, document)->String.replaceAll("\r\n", "\n")->Parser.escape
   let backend = backend->Config__Backend.encode
 
   // assemble them
@@ -154,7 +157,7 @@ let encode = (
   // https://github.com/agda/agda/commit/021e6d24f47bac462d8bc88e2ea685d6156197c4
   | Give(goal) =>
     let range = buildRange(goal)
-    let content = Goal.getContent(goal, document)->Parser.escape
+    let content = buildContent(goal)
     if Util.Version.gte(version, "2.5.3") {
       `${commonPart(
           NonInteractive,
@@ -165,7 +168,7 @@ let encode = (
 
   | Refine(goal) =>
     let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)->Parser.escape
+    let content: string = buildContent(goal)
     let range: string = buildRange(goal)
     `${commonPart(NonInteractive)}( Cmd_refine_or_intro False ${index} ${range} "${content}" )`
 
@@ -181,7 +184,7 @@ let encode = (
   | Auto(normalization, goal) =>
     let normalization = Command.Normalization.encode(normalization)
     let index: string = string_of_int(goal.index)
-    let content: string = Goal.getContent(goal, document)->Parser.escape
+    let content: string = buildContent(goal)
     let range: string = buildRange(goal)
 
     if Util.Version.gte(version, "2.7.0") {
@@ -197,7 +200,7 @@ let encode = (
 
   | Case(goal) =>
     let range = buildRange(goal)
-    let content = Goal.getContent(goal, document)->Parser.escape
+    let content = buildContent(goal)
     `${commonPart(NonInteractive)}( Cmd_make_case ${goal.indexString} ${range} "${content}" )`
 
   | HelperFunctionType(normalization, expr, goal) =>

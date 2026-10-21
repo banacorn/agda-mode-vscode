@@ -11,7 +11,8 @@ module type Module = {
   let getContent: (t, VSCode.TextDocument.t) => string
 
   let indentationWidth: (t, VSCode.TextDocument.t) => (int, string, VSCode.Range.t)
-  // helper function for building Haskell Agda ranges
+  // helper functions for building Haskell Agda ranges
+  let makeHaskellRangeOfOffsets: (VSCode.TextDocument.t, string, string, int, int) => string
   let makeHaskellRange: (t, VSCode.TextDocument.t, string, string) => string
 
   // for case splitting
@@ -64,18 +65,26 @@ module Module: Module = {
         )})`
     }
 
-  let makeHaskellRange = (goalInfo, document, version, filepath) => {
-    let startPoint = VSCode.TextDocument.positionAt(document, goalInfo.start)
-    let endPoint = VSCode.TextDocument.positionAt(document, goalInfo.end)
-
-    let startIndex = string_of_int(goalInfo.start + 3)
-    let startRow = string_of_int(VSCode.Position.line(startPoint) + 1)
-    let startColumn = string_of_int(VSCode.Position.character(startPoint) + 3)
-    let startPart = `${startIndex} ${startRow} ${startColumn}`
-    let endIndex' = string_of_int(goalInfo.end - 3)
-    let endRow = string_of_int(VSCode.Position.line(endPoint) + 1)
-    let endColumn = string_of_int(VSCode.Position.character(endPoint) - 1)
-    let endPart = `${endIndex'} ${endRow} ${endColumn}`
+  // the range between two VS Code offsets, in Agda positions:
+  // Agda counts positions in code points from 1, and treats CRLF as one character
+  let makeHaskellRangeOfOffsets = (document, version, filepath, start, end_) => {
+    let agdaLength = text =>
+      text->String.replaceAll("\r\n", "\n")->Agda.OffsetConverter.characterWidth
+    let agdaPosition = offset => {
+      let position = VSCode.TextDocument.positionAt(document, offset)
+      let line = VSCode.Position.line(position)
+      let textBefore = Editor.Text.get(
+        document,
+        VSCode.Range.make(VSCode.Position.make(0, 0), position),
+      )
+      let lineBefore = Editor.Text.get(document, VSCode.Range.make(VSCode.Position.make(line, 0), position))
+      let offset = string_of_int(agdaLength(textBefore) + 1)
+      let row = string_of_int(line + 1)
+      let column = string_of_int(agdaLength(lineBefore) + 1)
+      `${offset} ${row} ${column}`
+    }
+    let startPart = agdaPosition(start)
+    let endPart = agdaPosition(end_)
 
     if Util.Version.gte(version, "2.8.0") {
       `(intervalsToRange (Just (mkAbsolute "${filepath}")) [Interval () (Pn () ${startPart}) (Pn () ${endPart})])` // after 2.8.0
@@ -85,6 +94,10 @@ module Module: Module = {
       `(Range [Interval (Pn (Just (mkAbsolute "${filepath}")) ${startPart}) (Pn (Just (mkAbsolute "${filepath}")) ${endPart})])` // before (not including) 2.5.1
     }
   }
+
+  // like the Emacs mode (agda2-goal-Range), the range of the content between "{!" and "!}"
+  let makeHaskellRange = (goalInfo, document, version, filepath) =>
+    makeHaskellRangeOfOffsets(document, version, filepath, goalInfo.start + 2, goalInfo.end - 2)
 
   let getContent = (goal, document) => {
     let innerRange = VSCode.Range.make(
