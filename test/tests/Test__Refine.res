@@ -471,4 +471,132 @@ describe("agda-mode.refine", () => {
       },
     )
   })
+
+  // Issue #77: the refined expression should be highlighted right after Refine, without reloading
+  describe("Issue #77: highlighting of the refined expression", () => {
+    let fileContent = ref("")
+
+    let filename = "Refine.agda"
+
+    Async.beforeEach(async () => fileContent := (await File.read(Path.asset(filename))))
+    Async.afterEach(async () => await File.write(Path.asset(filename), fileContent.contents))
+
+    let readTokens = async (ctx: AgdaMode.t) =>
+      (await ctx.state.tokens->Tokens.getVSCodeTokens->Resource.get)->Array.map(
+        Highlighting__SemanticToken.toString,
+      )
+
+    Async.it(
+      "should highlight a multiline GiveString right after Refine and keep the new goal indices",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad(filename)
+        // "foo = {!   !}" becomes a record expression spanning lines 13 to 17
+        await ctx->AgdaMode.execute(Refine, ~cursor=VSCode.Position.make(13, 9))
+
+        Assert.deepStrictEqual(
+          Goals.serializeGoals(ctx.state.goals),
+          ["#1 [26:11-18)", "#2 [26:19-26)", "#3 [15:30-37)", "#4 [16:30-37)", "#5 [17:30-37)"],
+        )
+        Assert.deepStrictEqual(
+          await readTokens(ctx),
+          [
+            "(0:0-58) comment [agda]",
+            "(1:0-6) keyword [agda]",
+            "(1:7-13) namespace [agda]",
+            "(1:14-19) keyword [agda]",
+            "(3:0-9) keyword [agda]",
+            "(4:2-3) function [abstract, agda]",
+            "(4:6-9) type [primitive, agda]",
+            "(6:0-6) keyword [agda]",
+            "(6:7-10) class [agda]",
+            "(6:13-16) type [primitive, agda]",
+            "(6:17-22) keyword [agda]",
+            "(7:2-7) keyword [agda]",
+            "(8:4-26) property [agda]",
+            "(8:29-30) function [abstract, agda]",
+            "(9:4-26) property [agda]",
+            "(9:29-30) function [abstract, agda]",
+            "(10:4-26) property [agda]",
+            "(10:29-30) function [abstract, agda]",
+            "(12:0-3) function [agda]",
+            "(12:6-9) class [agda]",
+            "(13:0-3) function [agda]",
+            "(13:6-12) keyword [agda]",
+            // no property tokens on the filled fields: see Highlighting__AgdaStaleNameWorkaround
+            "(19:0-4) keyword [agda]",
+            "(19:5-11) keyword [agda]",
+            "(19:12-15) namespace [agda]",
+            "(21:0-3) function [agda]",
+            "(21:6-10) type [agda]",
+            "(21:13-17) type [agda]",
+            "(21:20-24) type [agda]",
+            "(22:0-3) function [agda]",
+            "(22:4-5) variable [agda]",
+            "(22:6-7) variable [agda]",
+            "(22:10-11) variable [agda]",
+            "(24:0-3) function [agda]",
+            "(24:6-10) type [agda]",
+            "(25:0-3) function [agda]",
+            "(25:6-9) function [agda]",
+          ],
+        )
+      },
+    )
+
+    Async.it(
+      "should highlight a single-line GiveString right after Refine and keep the new goal indices",
+      async () => {
+        let ctx = await AgdaMode.makeAndLoad(filename)
+        // "bar = fst ? ?" becomes "bar = fst (fst {!   !} {!   !}) {!   !}"
+        await ctx->AgdaMode.execute(Refine, ~payload="fst", ~cursor=VSCode.Position.make(21, 13))
+
+        Assert.deepStrictEqual(
+          Goals.serializeGoals(ctx.state.goals),
+          ["#0 [14:7-14)", "#2 [22:33-40)", "#3 [22:16-23)", "#4 [22:24-31)"],
+        )
+        Assert.deepStrictEqual(
+          await readTokens(ctx),
+          [
+            "(0:0-58) comment [agda]",
+            "(1:0-6) keyword [agda]",
+            "(1:7-13) namespace [agda]",
+            "(1:14-19) keyword [agda]",
+            "(3:0-9) keyword [agda]",
+            "(4:2-3) function [abstract, agda]",
+            "(4:6-9) type [primitive, agda]",
+            "(6:0-6) keyword [agda]",
+            "(6:7-10) class [agda]",
+            "(6:13-16) type [primitive, agda]",
+            "(6:17-22) keyword [agda]",
+            "(7:2-7) keyword [agda]",
+            "(8:4-26) property [agda]",
+            "(8:29-30) function [abstract, agda]",
+            "(9:4-26) property [agda]",
+            "(9:29-30) function [abstract, agda]",
+            "(10:4-26) property [agda]",
+            "(10:29-30) function [abstract, agda]",
+            "(12:0-3) function [agda]",
+            "(12:6-9) class [agda]",
+            "(13:0-3) function [agda]",
+            "(15:0-4) keyword [agda]",
+            "(15:5-11) keyword [agda]",
+            "(15:12-15) namespace [agda]",
+            "(17:0-3) function [agda]",
+            "(17:6-10) type [agda]",
+            "(17:13-17) type [agda]",
+            "(17:20-24) type [agda]",
+            "(18:0-3) function [agda]",
+            "(18:4-5) variable [agda]",
+            "(18:6-7) variable [agda]",
+            "(18:10-11) variable [agda]",
+            "(20:0-3) function [agda]",
+            "(20:6-10) type [agda]",
+            "(21:0-3) function [agda]",
+            "(21:6-9) function [agda]",
+            "(21:11-14) function [agda]",
+          ],
+        )
+      },
+    )
+  })
 })
