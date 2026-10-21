@@ -6,6 +6,13 @@ let indent = (content, indent) => {
   content->String.replaceRegExp(%re("/\n/g"), "\n" ++ indentation) // should also handles CR LF on Windows
 }
 
+// the line break of the document, as VS Code stores it
+let eolOf = document =>
+  switch VSCode.TextDocument.eol(document) {
+  | LF => "\n"
+  | CRLF => "\r\n"
+  }
+
 open Response
 module DisplayInfo = {
   let handle = async (state, x) =>
@@ -188,7 +195,8 @@ let rec handle = async (
         | GiveParen =>
           // add goal positions - get content before modifying
           let goalContent = Goal.getContent(goal, state.document)
-          let goalPositionsRelative = Goals.parseGoalPositionsFromRefine(goalContent)
+          let goalPositionsRelative =
+            Goals.parseGoalPositionsFromRefine(goalContent, ~eol=eolOf(state.document))
           let goalPositionsAbsolute = switch Goals.getGoalPositionByIndex(state.goals, index) {
           | None => [] // should not happen
           | Some((offset, _)) =>
@@ -204,7 +212,8 @@ let rec handle = async (
         | GiveNoParen =>
           // add goal positions
           let goalContent = Goal.getContent(goal, state.document)
-          let goalPositionsRelative = Goals.parseGoalPositionsFromRefine(goalContent)
+          let goalPositionsRelative =
+            Goals.parseGoalPositionsFromRefine(goalContent, ~eol=eolOf(state.document))
           let goalPositionsAbsolute = switch Goals.getGoalPositionByIndex(state.goals, index) {
           | None => [] // should not happen
           | Some((offset, _)) =>
@@ -227,7 +236,8 @@ let rec handle = async (
           await state.goals->Goals.modify(state.document, index, _ => indented)
 
           // add goal positions
-          let goalPositionsRelative = Goals.parseGoalPositionsFromRefine(indented)
+          let goalPositionsRelative =
+            Goals.parseGoalPositionsFromRefine(indented, ~eol=eolOf(state.document))
           let goalPositionsAbsolute = switch Goals.getGoalPositionByIndex(state.goals, index) {
           | None => [] // should not happen
           | Some((offset, _)) =>

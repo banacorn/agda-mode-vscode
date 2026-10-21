@@ -235,7 +235,7 @@ describe("Goals", () => {
       "should find single question mark",
       async () => {
         let input = "?"
-        let actual = Goals.parseGoalPositionsFromRefine(input)
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\n")
         let expected = [(0, 1)]
         Assert.deepStrictEqual(actual, expected)
       },
@@ -245,7 +245,7 @@ describe("Goals", () => {
       "should find question mark surrounded by spaces",
       async () => {
         let input = " ? "
-        let actual = Goals.parseGoalPositionsFromRefine(input)
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\n")
         let expected = [(1, 2)]
         Assert.deepStrictEqual(actual, expected)
       },
@@ -255,7 +255,7 @@ describe("Goals", () => {
       "should find multiple question marks",
       async () => {
         let input = "(fst ? ?)"
-        let actual = Goals.parseGoalPositionsFromRefine(input)
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\n")
         let expected = [(5, 6), (7, 8)]
         Assert.deepStrictEqual(actual, expected)
       },
@@ -265,7 +265,7 @@ describe("Goals", () => {
       "should find question marks with various delimiters",
       async () => {
         let input = "(a ? b) {c ? d} e ? f"
-        let actual = Goals.parseGoalPositionsFromRefine(input)
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\n")
         let expected = [(3, 4), (11, 12), (18, 19)]
         Assert.deepStrictEqual(actual, expected)
       },
@@ -275,7 +275,7 @@ describe("Goals", () => {
       "should find question mark at start of string",
       async () => {
         let input = "? rest"
-        let actual = Goals.parseGoalPositionsFromRefine(input)
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\n")
         let expected = [(0, 1)]
         Assert.deepStrictEqual(actual, expected)
       },
@@ -285,7 +285,7 @@ describe("Goals", () => {
       "should find question mark at end of string",
       async () => {
         let input = "start ?"
-        let actual = Goals.parseGoalPositionsFromRefine(input)
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\n")
         let expected = [(6, 7)]
         Assert.deepStrictEqual(actual, expected)
       },
@@ -295,7 +295,7 @@ describe("Goals", () => {
       "should ignore question marks in identifiers",
       async () => {
         let input = "foo?bar"
-        let actual = Goals.parseGoalPositionsFromRefine(input)
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\n")
         let expected = []
         Assert.deepStrictEqual(actual, expected)
       },
@@ -305,7 +305,7 @@ describe("Goals", () => {
       "should handle mixed standalone and non-standalone question marks",
       async () => {
         let input = "foo?bar ? baz"
-        let actual = Goals.parseGoalPositionsFromRefine(input)
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\n")
         let expected = [(8, 9)]
         Assert.deepStrictEqual(actual, expected)
       },
@@ -315,7 +315,7 @@ describe("Goals", () => {
       "should handle empty string",
       async () => {
         let input = ""
-        let actual = Goals.parseGoalPositionsFromRefine(input)
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\n")
         let expected = []
         Assert.deepStrictEqual(actual, expected)
       },
@@ -325,23 +325,28 @@ describe("Goals", () => {
       "should handle string with no question marks",
       async () => {
         let input = "no question marks here"
-        let actual = Goals.parseGoalPositionsFromRefine(input)
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\n")
         let expected = []
         Assert.deepStrictEqual(actual, expected)
       },
     )
 
     Async.it(
-      "should handle complex expression from real use case",
+      "should handle complex expression from real use case, in an LF document",
       async () => {
         let input = "record\n{ very-long-field-name-1 = ?\n; very-long-field-name-2 = ?\n; very-long-field-name-3 = ?\n}"
-        let actual = Goals.parseGoalPositionsFromRefine(input)
-        // Now that the function works, expect all 3 question marks
-        let expected = if OS.onUnix {
-          [(34, 35), (63, 64), (92, 93)]
-        } else {
-          [(35, 36), (65, 66), (95, 96)]
-        }
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\n")
+        let expected = [(34, 35), (63, 64), (92, 93)]
+        Assert.deepStrictEqual(actual, expected)
+      },
+    )
+
+    Async.it(
+      "should handle complex expression from real use case, in a CRLF document",
+      async () => {
+        let input = "record\n{ very-long-field-name-1 = ?\n; very-long-field-name-2 = ?\n; very-long-field-name-3 = ?\n}"
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\r\n")
+        let expected = [(35, 36), (65, 66), (95, 96)]
         Assert.deepStrictEqual(actual, expected)
       },
     )
@@ -350,7 +355,7 @@ describe("Goals", () => {
       "should handle underscore delimiter",
       async () => {
         let input = "foo_?_bar"
-        let actual = Goals.parseGoalPositionsFromRefine(input)
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\n")
         let expected = [(4, 5)]
         Assert.deepStrictEqual(actual, expected)
       },
@@ -360,7 +365,7 @@ describe("Goals", () => {
       "should handle all supported delimiters",
       async () => {
         let input = " ?(){}_.\\\"@?"
-        let actual = Goals.parseGoalPositionsFromRefine(input)
+        let actual = Goals.parseGoalPositionsFromRefine(input, ~eol="\n")
         // Calculate positions: first ? at position 1, last ? at the end
         let firstPos = String.indexOf(input, "?")
         let lastPos = String.lastIndexOf(input, "?")
