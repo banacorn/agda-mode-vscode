@@ -264,7 +264,7 @@ describe("EventFromView.JumpToTarget", () => {
     // close the editor in column Three, so later tests start without that column
     let _ = await showInColumnThree(~preserveFocus=false)
     let _ = await VSCode.Commands.executeCommand0("workbench.action.closeActiveEditor")
-    provider->VSCode.Disposable.dispose
+    provider->VSCode.Disposable.dispose->ignore
 
     switch result {
     | Error(exn) => raise(exn)
