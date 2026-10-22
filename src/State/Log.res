@@ -292,6 +292,7 @@ type t =
   | Connection(Connection.t) // Connection event
   | Config(Config.t) // Configuration event
   | DownloadTrace(Connection__Download__Trace.t) // low-level download trace event
+  | Context(bool) // agdaModeTyping, after VS Code has applied it
   | Others(string) // generic string
 
 let toString = log =>
@@ -306,6 +307,7 @@ let toString = log =>
   | Connection(event) => "[ Connection       ] " ++ Connection.toString(event)
   | Config(event) => "[ Config           ] " ++ Config.toString(event)
   | DownloadTrace(event) => "[ DownloadTrace    ] " ++ Connection__Download__Trace.toString(event)
+  | Context(value) => "[ Context          ] agdaModeTyping: " ++ (value ? "true" : "false")
   | Others(str) => str
   }
 

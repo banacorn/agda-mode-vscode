@@ -56,10 +56,10 @@ module Module: Module = {
           }
         | Activate =>
           await State__View.Panel.display(state, Plain("Unicode input mode"), [])
-          State.Context.setIM(true)
+          await State.Context.setIM(state.channels.log, true)
           await State__View.Panel.updateIM(state, Activate)
         | Deactivate =>
-          State.Context.setIM(false)
+          await State.Context.setIM(state.channels.log, false)
           await State__View.Panel.updateIM(state, Deactivate)
         }
       let _ = await output->Array.map(x => () => handleKind(x))->Util.Promise_.oneByOne
