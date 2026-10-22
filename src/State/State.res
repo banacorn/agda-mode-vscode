@@ -144,5 +144,8 @@ let destroy = async (state, alsoRemoveFromRegistry) => {
 module Context = {
   // input method related key-bindings
   let setPrompt = value => VSCode.Commands.setContext("agdaModePrompting", value)->ignore
-  let setIM = value => VSCode.Commands.setContext("agdaModeTyping", value)->ignore
+  let setIM = async (log, value) => {
+    await VSCode.Commands.setContext("agdaModeTyping", value)
+    log->Chan.emit(Log.Context(value))
+  }
 }
