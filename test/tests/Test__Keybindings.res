@@ -82,4 +82,24 @@ describe("Keybindings", () => {
       ],
     )
   })
+
+  // Issue #78: `&&` binds tighter than `||` in a `when` clause,
+  // so agdaModeTyping alone must not bind escape outside an Agda editor
+  Async.it("should bind escape only in an Agda editor, while prompting or typing", async () => {
+    let keybindings = await readKeybindings()
+
+    let escapeWhens = keybindings->Array.filterMap(keybinding =>
+      switch keybinding->getString("command") {
+      | Some("agda-mode.escape") => keybinding->getString("when")
+      | _ => None
+      }
+    )
+
+    Assert.deepStrictEqual(
+      escapeWhens,
+      [
+        "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && (agdaModePrompting || agdaModeTyping)",
+      ],
+    )
+  })
 })
