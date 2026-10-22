@@ -153,8 +153,14 @@ describe("Live Share", () => {
       await closed
       fileSystem->VSCode.Disposable.dispose->ignore
       // closing the guest's editor makes the loaded file's editor active again,
-      // which rebinds the state to a new editor of that file and refreshes it
-      let logs = stopCollecting()
+      // which rebinds the state to a new editor of that file and refreshes it;
+      // agdaModeTyping is set again on every switch, as many times as VS Code changes the active editor
+      let logs = stopCollecting(~filter=log =>
+        switch log {
+        | Log.Context(_) => false
+        | _ => true
+        }
+      )
 
       // a following Load still works on the same state
       let _ = await File.open_(ctx.filepath)

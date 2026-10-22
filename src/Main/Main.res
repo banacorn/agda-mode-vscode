@@ -23,6 +23,7 @@ let refuseCommand = document =>
 // Every extension-wide VS Code source (editor, document, selection, command) registered exactly once here, routed to the right State via the Registry.
 module ExtensionEvents: {
   let onOpenEditor: (VSCode.TextEditor.t => unit) => VSCode.Disposable.t
+  let onChangeActiveEditor: (option<VSCode.TextEditor.t> => unit) => VSCode.Disposable.t
   let onCloseDocument: (VSCode.TextDocument.t => unit) => VSCode.Disposable.t
   let onSelectionChange: (VSCode.TextEditorSelectionChangeEvent.t => unit) => VSCode.Disposable.t
   let onDocumentChange: (VSCode.TextDocumentChangeEvent.t => unit) => VSCode.Disposable.t
@@ -39,6 +40,8 @@ module ExtensionEvents: {
     VSCode.Window.activeTextEditor->Option.forEach(callback)
     VSCode.Window.onDidChangeActiveTextEditor(next => next->Option.forEach(callback))
   }
+  // also invoked with None, when no editor is active
+  let onChangeActiveEditor = callback => VSCode.Window.onDidChangeActiveTextEditor(callback)
   let onCloseDocument = callback => VSCode.Workspace.onDidCloseTextDocument(callback)
   let onSelectionChange = callback => VSCode.Window.onDidChangeTextEditorSelection(callback)
   let onDocumentChange = callback => VSCode.Workspace.onDidChangeTextDocument(callback)
@@ -347,6 +350,9 @@ let activateWithoutContext = (
       })
     }
   })->subscribe
+
+  // the input method keys follow the input method of the active editor, see #78
+  ExtensionEvents.onChangeActiveEditor(_ => State__TypingContext.sync(channels.log)->Promise.done)->subscribe
 
   // updates the font size accordingly
   VSCode.Workspace.onDidChangeConfiguration((event: VSCode.ConfigurationChangeEvent.t) => {
