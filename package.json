@@ -1313,7 +1313,7 @@
 				"command": "agda-mode.escape",
 				"key": "escape",
 				"mac": "escape",
-				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && agdaModePrompting || agdaModeTyping"
+				"when": "editorLangId =~ /.*(l?agda(-(markdown|typst|latex|tex|rst|org|forester))?).*/ && (agdaModePrompting || agdaModeTyping)"
 			},
 			{
 				"command": "agda-mode.input-symbol[BrowseUp]",
