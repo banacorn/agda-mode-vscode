@@ -83,4 +83,28 @@ describe("Issue #78: agdaModeTyping follows the active editor", () => {
     )
     Assert.deepStrictEqual(value, Some(false))
   })
+
+  // C keeps a state, so Quit and Restart of A do not destroy and recreate the panel,
+  // whose editor changes would log Context on their own
+
+  Async.it("should be false after Quit", async () => {
+    let _ = await openNoLoad("Issue78C.agda")
+    let channels = await activateInA()
+    let value = await contextAfter(channels, () => executeCommand("agda-mode.quit"))
+    Assert.deepStrictEqual(value, Some(false))
+  })
+
+  describe("Restart", () => {
+    // a real load, and another one by Restart
+    This.timeout(OS.onUnix ? 10000 : 30000)
+
+    Async.it("should be false after Restart", async () => {
+      let ctx = await AgdaMode.makeAndLoad("Issue78A.agda")
+      let _ = await openNoLoad("Issue78C.agda")
+      let channels = await activateInA()
+      let value = await contextAfter(channels, () => executeCommand("agda-mode.restart"))
+      await AgdaMode.quit(ctx)
+      Assert.deepStrictEqual(value, Some(false))
+    })
+  })
 })
