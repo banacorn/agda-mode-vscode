@@ -444,10 +444,14 @@ let activateWithoutContext = (
     switch command {
     | Quit =>
       await Registry.removeAndDestroy(document)
+      // the input method of this document is gone with its state
+      await State__TypingContext.sync(channels.log)
       finalize(false)
     | Restart =>
       await Registry__Connection.shutdown()
       await Registry.removeAndDestroy(document)
+      // the input method of this document is gone with its state
+      await State__TypingContext.sync(channels.log)
       finalize(true)
     | _ => ()
     }
