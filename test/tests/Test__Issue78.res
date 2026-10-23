@@ -13,20 +13,21 @@ describe("Issue #78: agdaModeTyping follows the active editor", () => {
   let fileC = Path.asset("Issue78C.agda")
   let plain = Path.asset("Issue78.txt")
 
-  // runs `action`, waits for the first Context log after it, and returns the last value logged by then
+  // runs `action`, and returns the last Context value logged once VS Code has applied every value set by then
+  //
+  // a switch of editors makes the active editor none and then the new one, and each sets a value,
+  // so the first value logged is not the last one; VS Code applies setContext calls in order,
+  // so one more setContext, awaited, comes back after all the values set before it
   let contextAfter = async (channels: State.channels, action) => {
     let values = []
-    let (logged, resolve, _) = Util.Promise_.pending()
     let destructor = channels.log->Chan.on(log =>
       switch log {
-      | Log.Context(value) =>
-        values->Array.push(value)
-        resolve()
+      | Log.Context(value) => values->Array.push(value)
       | _ => ()
       }
     )
     let _ = await action()
-    await logged
+    await VSCode.Commands.setContext("agdaModeTestBarrier", true)
     await Util.Promise_.setTimeout(0)
     destructor()
     values->Array.at(-1)
