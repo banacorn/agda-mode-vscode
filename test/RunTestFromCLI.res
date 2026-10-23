@@ -4,6 +4,7 @@ type options = {
   extensionTestsPath: string,
   launchArgs?: array<string>,
   version?: string,
+  extensionTestsEnv?: dict<string>,
 }
 
 type commandResult = {stdout: string, stderr: string}
@@ -35,6 +36,25 @@ let withVim = switch NodeJs.Process.process->NodeJs.Process.env->Dict.get("AGDA_
 | Some("on") => true
 | Some(value) =>
   raise(Invalid_argument(`AGDA_TEST_VIM must be "on" or "off", got "${value}"`))
+}
+
+// AGDA_TEST_EXTENSION_HOST_PATH -- when set, replaces PATH for VS Code and
+// the extension host, so the processes the extension spawns cannot find
+// developer runtime directories (e.g. MinGW DLLs on Windows).
+let extensionTestsEnv = switch NodeJs.Process.process
+->NodeJs.Process.env
+->Dict.get("AGDA_TEST_EXTENSION_HOST_PATH") {
+| None => None
+| Some(path) =>
+  // Windows names the variable `Path`; reuse the existing spelling, or the
+  // child would get two PATH entries
+  let key =
+    NodeJs.Process.process
+    ->NodeJs.Process.env
+    ->Dict.keysToArray
+    ->Array.find(key => key->String.toUpperCase == "PATH")
+    ->Option.getOr("PATH")
+  Some(Dict.fromArray([(key, path)]))
 }
 
 // The path to the extension test script
@@ -139,6 +159,7 @@ let main = async () => {
       "--extensions-dir=" ++ testExtensionsDir,
     ],
     version: vscodeVersion,
+    ?extensionTestsEnv,
   })
 }
 
