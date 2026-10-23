@@ -33,6 +33,22 @@ describe("Issue #78: agdaModeTyping follows the active editor", () => {
     values->Array.at(-1)
   }
 
+  // like contextAfter, but first waits for a Context log, for an action that sets the value after it returns
+  let contextLoggedAfter = (channels: State.channels, action) => {
+    let (logged, resolve, _) = Util.Promise_.pending()
+    contextAfter(channels, async () => {
+      let destructor = channels.log->Chan.on(log =>
+        switch log {
+        | Log.Context(_) => resolve()
+        | _ => ()
+        }
+      )
+      let _ = await action()
+      await logged
+      destructor()
+    })
+  }
+
   // opens A and turns its input method on
   let activateInA = async () => {
     let channels = await activateExtension(None)
@@ -82,6 +98,13 @@ describe("Issue #78: agdaModeTyping follows the active editor", () => {
     let value = await contextAfter(channels, () =>
       VSCode.Commands.executeCommand0("workbench.action.closeAllEditors")
     )
+    Assert.deepStrictEqual(value, Some(false))
+  })
+
+  Async.it("should be false after the Agda panel is closed", async () => {
+    let channels = await activateInA()
+    // every state is destroyed after the panel tab is closed
+    let value = await contextLoggedAfter(channels, Test__EditorLayout__Harness.closePanelTabs)
     Assert.deepStrictEqual(value, Some(false))
   })
 
