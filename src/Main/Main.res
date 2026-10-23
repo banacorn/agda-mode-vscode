@@ -219,7 +219,15 @@ let initialize = (
   let panel = Singleton.Panel.make(extensionUri)
   // if the panel is destroyed, destroy all every State in the Registry
   WebviewPanel.onceDestroyed(panel)
-  ->Promise.finally(() => Registry.removeAndDestroyAll()->ignore)
+  ->Promise.finally(() =>
+    (
+      async () => {
+        await Registry.removeAndDestroyAll()
+        // the input methods are gone with the states
+        await State__TypingContext.sync(channels.State.log)
+      }
+    )()->ignore
+  )
   ->Promise.done
 
   // not in the Registry, instantiate a State
