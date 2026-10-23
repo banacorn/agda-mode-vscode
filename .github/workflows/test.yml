@@ -242,6 +242,93 @@ jobs:
           path: .vscode-test
           key: ${{ steps.vscode.outputs.cache-primary-key }}
 
+  # Issue #87: Load through the ALS the extension downloads, as a user without
+  # a local Agda would. No Haskell or Agda here, and the extension host gets a
+  # PATH of system directories only, so the downloaded ALS cannot borrow
+  # runtime libraries from the runner's developer tools. Not in ci-success: it
+  # depends on live ALS releases, and the Windows legs fail until upstream ALS
+  # ships the MinGW runtime DLLs its ICU DLLs import.
+  downloaded-als:
+    name: Downloaded ALS
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        # macos-latest is arm64, macos-15-intel is x64
+        os: [windows-latest, ubuntu-latest, macos-latest, macos-15-intel]
+        channel: [dev, latest]
+      fail-fast: false
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v6
+
+      - name: 💾 Restore VSCode from .vscode-test
+        uses: actions/cache/restore@v5
+        with:
+          path: .vscode-test
+          # Same key as in build-and-test, which saves it
+          key: vscode-${{ runner.os }}-${{ runner.arch }}-1.136.2
+
+      - name: ⏬ Setup Node.js environment
+        id: setup-node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+
+      - name: 💾 Cache node_modules
+        id: node-modules
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}-node${{ steps.setup-node.outputs.node-version }}-${{ hashFiles('package-lock.json', 'package.json') }}
+
+      - name: ⏬ Install NPM Dependencies
+        if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: 🔨 Build stuff
+        run: npm run build
+
+      - name: 🚗 Run the downloaded ALS test
+        env:
+          AGDA_TEST_DOWNLOADED_ALS: ${{ matrix.channel }}
+          AGDA_TEST_GLOB: Test__DownloadedALS.bs.js
+        run: |
+          case "${{ runner.os }}" in
+            Windows) AGDA_TEST_EXTENSION_HOST_PATH='C:\Windows\System32;C:\Windows' ;;
+            Linux) AGDA_TEST_EXTENSION_HOST_PATH=/usr/bin:/bin ;;
+            macOS) AGDA_TEST_EXTENSION_HOST_PATH=/usr/bin:/bin:/usr/sbin:/sbin ;;
+          esac
+          export AGDA_TEST_EXTENSION_HOST_PATH
+          if [[ ${{ runner.os }} == "Linux" ]]; then
+            xvfb-run -a npm test 2>&1 | tee test-output.log
+          else
+            npm test 2>&1 | tee test-output.log
+          fi
+
+      - name: 📋 Collect extension-host logs
+        if: failure()
+        run: |
+          if [ -f test-user-data-dir.txt ]; then
+            USER_DATA_DIR=$(cat test-user-data-dir.txt)
+            mkdir -p extension-host-logs
+            cp -r "$USER_DATA_DIR/logs" extension-host-logs/ || echo "No logs directory at $USER_DATA_DIR/logs"
+          else
+            echo "test-user-data-dir.txt not found; extension host may not have started"
+          fi
+
+      - name: 📤 Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: downloaded-als-${{ matrix.os }}-${{ matrix.channel }}
+          path: |
+            test-output.log
+            extension-host-logs/
+          if-no-files-found: warn
+          retention-days: 7
+
   # Runs packaging as part of the same required gate every PR and push runs,
   # instead of gating it on which files changed.
   packaging:
