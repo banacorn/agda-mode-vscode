@@ -87,7 +87,13 @@ let cacheName = artifact =>
 
 let directoryParts = artifact => ["releases", artifact.releaseTag, cacheName(artifact)]
 
-let executableName = artifact => Platform.isWasm(artifact.platform) ? "als.wasm" : "als"
+// as named in the release archive
+let executableName = artifact =>
+  switch artifact.platform {
+  | Platform.Wasm => "als.wasm"
+  | Platform.Windows => "als.exe"
+  | Platform.Ubuntu | Platform.MacOSArm64 | Platform.MacOSX64 => "als"
+  }
 
 let versionLabel = releaseTag =>
   releaseTag->String.startsWith("v") ? releaseTag : "v" ++ releaseTag
