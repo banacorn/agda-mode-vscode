@@ -272,6 +272,21 @@ module DownloadDescriptor = {
     ->Array.join(", ") ++ "}"
 }
 
+// the token in AGDA_MODE_GITHUB_TOKEN, for jobs whose IP address shares the
+// unauthenticated GitHub API quota with others (CI); None on the web
+let tokenFromEnvironment = (): option<string> =>
+  %raw(`typeof process !== "undefined" && process.env ? process.env.AGDA_MODE_GITHUB_TOKEN : undefined`)
+  ->Nullable.toOption
+  ->Option.flatMap(token => token == "" ? None : Some(token))
+
+// a copy of the headers of a GitHub API request, with the token as a Bearer
+// Authorization header; the same headers when there is no token
+let withToken: ({..} as 'headers, option<string>) => 'headers = (headers, token) =>
+  switch token {
+  | None => headers
+  | Some(token) => %raw(`(headers, token) => Object.assign({}, headers, {"Authorization": "Bearer " + token})`)(headers, token)
+  }
+
 // helper function for chmoding 744 the executable
 let chmodExecutable = async path => {
   Util.log("[ debug ] chmodExecutable: chmod 744 on", path)
@@ -332,9 +347,9 @@ module ReleaseManifest: {
     let httpOptions = {
       "host": "api.github.com",
       "path": "/repos/" ++ repo.username ++ "/" ++ repo.repository ++ "/releases",
-      "headers": {
+      "headers": withToken({
         "User-Agent": repo.userAgent,
-      },
+      }, tokenFromEnvironment()),
     }
     switch await Download.asJson(httpOptions)->Download.timeoutAfter(10000) {
     | Error(e) => Error(Error.CannotGetReleases(e))
@@ -480,10 +495,10 @@ module Module: {
     let httpOptions = {
       "host": url->URL.host,
       "path": url->URL.pathname,
-      "headers": {
+      "headers": withToken({
         "User-Agent": repo.userAgent,
         "Accept": "application/octet-stream",
-      },
+      }, tokenFromEnvironment()),
     }
 
     let inFlightDownloadUri = VSCode.Uri.joinPath(repo.globalStorageUri, [inFlightDownloadFileName])
