@@ -224,6 +224,47 @@ describe("Download", () => {
     })
   })
 
+  describe("GitHub API token", () => {
+    let env = NodeJs.Process.process->NodeJs.Process.env
+    let original = env->Dict.get("AGDA_MODE_GITHUB_TOKEN")
+    let restore = () =>
+      switch original {
+      | Some(value) => env->Dict.set("AGDA_MODE_GITHUB_TOKEN", value)
+      | None => Dict.delete(env, "AGDA_MODE_GITHUB_TOKEN")
+      }
+
+    it("should read the token from AGDA_MODE_GITHUB_TOKEN, and none when it is unset or empty", () => {
+      env->Dict.set("AGDA_MODE_GITHUB_TOKEN", "secret")
+      let set = Connection__Download__GitHub.tokenFromEnvironment()
+      env->Dict.set("AGDA_MODE_GITHUB_TOKEN", "")
+      let empty = Connection__Download__GitHub.tokenFromEnvironment()
+      Dict.delete(env, "AGDA_MODE_GITHUB_TOKEN")
+      let unset = Connection__Download__GitHub.tokenFromEnvironment()
+      restore()
+
+      Assert.deepStrictEqual((set, empty, unset), (Some("secret"), None, None))
+    })
+
+    it("should add the token as a Bearer Authorization header, and keep the headers without one", () => {
+      let headers = {"User-Agent": "agda/agda-mode-vscode", "Accept": "application/octet-stream"}
+      let withToken: {"User-Agent": string, "Accept": string, "Authorization": string} = Obj.magic(
+        Connection__Download__GitHub.withToken(headers, Some("secret")),
+      )
+
+      Assert.deepStrictEqual(
+        (withToken, Connection__Download__GitHub.withToken(headers, None)),
+        (
+          {
+            "User-Agent": "agda/agda-mode-vscode",
+            "Accept": "application/octet-stream",
+            "Authorization": "Bearer secret",
+          },
+          headers,
+        ),
+      )
+    })
+  })
+
   describe("Source.toVersionString with release artifacts", () => {
     it("should use the concrete release tag for LatestALS sources", () => {
       let asset: GitHub.Asset.t = {
