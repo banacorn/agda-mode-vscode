@@ -294,6 +294,10 @@ jobs:
         env:
           AGDA_TEST_DOWNLOADED_ALS: ${{ matrix.channel }}
           AGDA_TEST_GLOB: Test__DownloadedALS.bs.js
+          # Runners share IP addresses, which often use up the 60
+          # unauthenticated GitHub API requests per hour; the extension sends
+          # this token with its requests for the ALS releases instead
+          AGDA_MODE_GITHUB_TOKEN: ${{ github.token }}
         run: |
           case "${{ runner.os }}" in
             Windows) AGDA_TEST_EXTENSION_HOST_PATH='C:\Windows\System32;C:\Windows' ;;
