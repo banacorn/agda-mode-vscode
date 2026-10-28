@@ -71,7 +71,7 @@ describe("Platform dependent utilities", () => {
               "v6",
               "als-v6-Agda-2.8.0-" ++ platformTag,
             ])
-            let alsExecutable = NodeJs.Path.join([artifactDir, "als"])
+            let alsExecutable = NodeJs.Path.join([artifactDir, OS.onUnix ? "als" : "als.exe"])
 
             await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
             NodeJs.Fs.writeFileSync(alsExecutable, NodeJs.Buffer.fromString("mock executable"))
