@@ -429,9 +429,10 @@ module Module: {
 
   let downloadDestination = (downloadDescriptor: DownloadDescriptor.t): downloadDestination => {
     let isWasm = downloadDescriptor.asset.name->String.includes("wasm")
+    let isWindows = downloadDescriptor.asset.name->String.includes("windows")
     {
       directoryParts: legacyDownloadDirectoryParts(downloadDescriptor),
-      executableName: isWasm ? "als.wasm" : "als",
+      executableName: isWasm ? "als.wasm" : isWindows ? "als.exe" : "als",
       isWasm,
     }
   }
