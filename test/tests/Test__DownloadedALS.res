@@ -53,7 +53,9 @@ let downloadedNativePaths = async channel => {
       let names = await directoryNames(VSCode.Uri.joinPath(releasesUri, [tag]))
       names
       ->Array.filter(name => name->String.endsWith("-" ++ platformTag))
-      ->Array.map(name => VSCode.Uri.joinPath(releasesUri, [tag, name, "als"])->VSCode.Uri.fsPath)
+      ->Array.map(name =>
+        VSCode.Uri.joinPath(releasesUri, [tag, name, platformTag == "windows" ? "als.exe" : "als"])->VSCode.Uri.fsPath
+      )
     }),
   )
   paths->Array.flat

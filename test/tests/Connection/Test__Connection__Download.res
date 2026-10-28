@@ -204,6 +204,24 @@ describe("Download", () => {
         ]),
       )
     })
+
+    it("should name the executable as it is in the release archive of each platform", () => {
+      let executableName = name =>
+        Connection__Download__DownloadArtifact.parseName(name)->Option.map(
+          Connection__Download__DownloadArtifact.executableName,
+        )
+
+      Assert.deepStrictEqual(
+        [
+          executableName("als-v9-Agda-2.8.0-windows.zip"),
+          executableName("als-v9-Agda-2.8.0-ubuntu.zip"),
+          executableName("als-v9-Agda-2.8.0-macos-arm64.zip"),
+          executableName("als-v9-Agda-2.8.0-macos-x64.zip"),
+          executableName("als-v9-Agda-2.8.0-wasm.wasm"),
+        ],
+        [Some("als.exe"), Some("als"), Some("als"), Some("als"), Some("als.wasm")],
+      )
+    })
   })
 
   describe("Source.toVersionString with release artifacts", () => {
