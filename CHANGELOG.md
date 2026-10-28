@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.10.10 - 2026-10-28
+
+### Added
+- #87: Send `AGDA_MODE_GITHUB_TOKEN`, when set, as a Bearer token with the GitHub requests for ALS releases
+
+### Fixed
+- #76: Let a backslash typed while the input method is active reach the input method, so `\==\<\>` gives `≡⟨⟩`; activating it again with an empty buffer inserts one literal backslash and turns it off, reported by [@natronium](https://github.com/natronium)
+- #77: Highlight the text filled by Give and Refine right away, without a reload, reported by [@natronium](https://github.com/natronium)
+- #78: Bind the input method keys and Escape only in the Agda editor whose input method is on, and unbind them after Quit, Restart or closing the Agda panel, reported by [@barrettj12](https://github.com/barrettj12)
+- #87: Use the downloaded native ALS on Windows (`als.exe`) instead of falling back to WASM, reported by [@eeoam](https://github.com/eeoam)
+- Place new goals and send goal ranges of Give, Refine, Auto and Case correctly in CRLF documents and after non-BMP characters
+
 ## v0.10.9 - 2026-10-19
 
 ### Added
