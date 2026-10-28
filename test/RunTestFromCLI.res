@@ -154,10 +154,15 @@ let main = async () => {
   await runTests({
     extensionDevelopmentPath,
     extensionTestsPath,
-    launchArgs: [
-      "--user-data-dir=" ++ testUserDataDir,
-      "--extensions-dir=" ++ testExtensionsDir,
-    ],
+    launchArgs: Array.concat(
+      [
+        "--user-data-dir=" ++ testUserDataDir,
+        "--extensions-dir=" ++ testExtensionsDir,
+      ],
+      // on macOS and Linux, VS Code otherwise lays the environment of the
+      // user's login shell over its own, and that PATH replaces this one
+      extensionTestsEnv->Option.isSome ? ["--force-disable-user-env"] : [],
+    ),
     version: vscodeVersion,
     ?extensionTestsEnv,
   })
