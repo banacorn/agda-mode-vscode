@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.10.11 - 2026-11-02
+
+### Fixed
+- #417: Keep the text after a symbol when browsing from one candidate to a longer or shorter one, like `ⓐ` to `🅐`, also with two cursors on one line, reported by [@fredrik-bakke](https://github.com/fredrik-bakke)
+- #418: Keep a symbol whole when it replaces one that shares its high surrogate, like `𝐆A` to `𝚨`, instead of leaving a lone low surrogate, reported by [@fredrik-bakke](https://github.com/fredrik-bakke)
+
+### Removed
+- #418: Remove the `agdaMode.inputMethod.directEdit` setting; input method rewrites now always go through `TextEditor.edit`
+
 ## v0.10.10 - 2026-10-28
 
 ### Added
