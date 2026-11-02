@@ -873,6 +873,73 @@ describe("Input Method (Editor)", () => {
     )
   })
 
+  // Issue #417: browsing to a candidate of another length must replace only the old symbol,
+  // and at two cursors on one line, in the coordinates before the edit
+  describe("Candidates of other lengths", () => {
+    // an earlier test may leave the input method on, and clearing its text then rewrites it,
+    // so turn the input method off and clear the text again
+    Async.beforeEach(async () => {
+      let setup = acquire(setup)
+      let _ = await VSCode.Commands.executeCommand0("agda-mode.escape")
+      await cleanup(setup)
+    })
+
+    // ⒜ → Ⓐ → ⓐ → 🅐 → 🄰 → 🅐 → ⓐ, as (old, new)
+    let transitions = [("⒜", "Ⓐ"), ("Ⓐ", "ⓐ"), ("ⓐ", "🅐"), ("🅐", "🄰"), ("🄰", "🅐"), ("🅐", "ⓐ")]
+
+    // types "(a)" before each of `words` on line 0, then browses right 4 times and left 2 times;
+    // returns the log and the text after each browse
+    let browse = async (setup, words) => {
+      let document = setup.editor->VSCode.TextEditor.document
+      let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), words->Array.join(" "))
+      let positions = words->Array.mapWithIndex((_, i) => VSCode.Position.make(0, 2 * i))
+      let _ = await IM.activate(setup, ~positions, ())
+      let _ = await IM.insertChar(setup, "(")
+      let _ = await IM.insertChar(setup, "a")
+      let _ = await IM.insertChar(setup, ")")
+      let steps = []
+      for i in 0 to Array.length(transitions) - 1 {
+        let log = await (i < 4 ? IM.rightArrow(setup) : IM.leftArrow(setup))
+        steps->Array.push((log, document->Editor.Text.getAll))
+      }
+      let _ = await IM.deactivate(setup)
+      steps
+    }
+
+    // what `browse` returns for `words`, each one character long
+    let expected = words =>
+      transitions->Array.map(((old, next)) => {
+        let width = String.length(old) + 2
+        let ranges =
+          words->Array.mapWithIndex((_, i) => (
+            ((0, i * width), (0, i * width + String.length(old))),
+            next,
+          ))
+        (
+          [IM.Log.RewriteIssued(ranges), UpdateView, RewriteApplied],
+          words->Array.map(word => next ++ word)->Array.join(" "),
+        )
+      })
+
+    Async.it(
+      `Issue #417, should keep the text after the symbol while browsing between symbols of 1 and 2 UTF-16 code units`,
+      async () => {
+        let setup = acquire(setup)
+        let steps = await browse(setup, ["X"])
+        Assert.deepStrictEqual(steps, expected(["X"]))
+      },
+    )
+
+    Async.it(
+      `Issue #417, should keep the text after each symbol while browsing between symbols of 1 and 2 UTF-16 code units, at two cursors on one line`,
+      async () => {
+        let setup = acquire(setup)
+        let steps = await browse(setup, ["X", "Y"])
+        Assert.deepStrictEqual(steps, expected(["X", "Y"]))
+      },
+    )
+  })
+
   describe("Candidates while a rewrite is pending", () => {
     // Browsing while the rewrite of "v" is pending turns the input method off,
     // instead of issuing a second rewrite.
