@@ -28,31 +28,28 @@ module Module: Module = {
         | UpdateView(sequence, translation, index) =>
           await State__View.Panel.updateIM(state, Update(sequence, translation, index))
         | Rewrite(replacements, complete) =>
-          if Config.InputMethod.getDirectEdit() {
-            // VS Code skips an edit whose range and text are both empty, so it would not change the version
-            let replacements =
-              replacements->Array.filter(((range, text)) => !(VSCode.Range.isEmpty(range) && text == ""))
-            if Array.length(replacements) == 0 {
-              complete(true)
-            } else {
-              // read the version right before the edit, in the same handler that computed the ranges
-              let base = state.document->VSCode.TextDocument.version
-              let applied = try {
-                await Editor.Text.batchReplace'(state.editor, replacements)
-              } catch {
-              | _ => false
-              }
-              // a clean edit raises the version by exactly one, see #389
-              let clean = applied && state.document->VSCode.TextDocument.version == base + 1
-              complete(clean)
-              // the document no longer matches the input method, so turn it off and keep the text
-              if !clean {
-                await handle(state, IM.run(state.editorIM, Some(state.editor), Deactivate))
-              }
-            }
-          } else {
-            let _ = await Editor.Text.batchReplace(state.document, replacements)
+          // edit through the editor, not `workspace.applyEdit`, which can leave a lone low surrogate
+          // when the old and new symbol share a high surrogate, see #418
+          // VS Code skips an edit whose range and text are both empty, so it would not change the version
+          let replacements =
+            replacements->Array.filter(((range, text)) => !(VSCode.Range.isEmpty(range) && text == ""))
+          if Array.length(replacements) == 0 {
             complete(true)
+          } else {
+            // read the version right before the edit, in the same handler that computed the ranges
+            let base = state.document->VSCode.TextDocument.version
+            let applied = try {
+              await Editor.Text.batchReplace'(state.editor, replacements)
+            } catch {
+            | _ => false
+            }
+            // a clean edit raises the version by exactly one, see #389
+            let clean = applied && state.document->VSCode.TextDocument.version == base + 1
+            complete(clean)
+            // the document no longer matches the input method, so turn it off and keep the text
+            if !clean {
+              await handle(state, IM.run(state.editorIM, Some(state.editor), Deactivate))
+            }
           }
         | Activate =>
           await State__View.Panel.display(state, Plain("Unicode input mode"), [])
@@ -209,14 +206,10 @@ module Module: Module = {
         let replacements = Editor.Selection.getMany(state.editor)->Array.map(range => (range, "\\"))
         await EditorIM.deactivate(state)
         // edit the same way rewrites do
-        let _ = if Config.InputMethod.getDirectEdit() {
-          try {
-            await Editor.Text.batchReplace'(state.editor, replacements)
-          } catch {
-          | _ => false
-          }
-        } else {
-          await Editor.Text.batchReplace(state.document, replacements)
+        let _ = try {
+          await Editor.Text.batchReplace'(state.editor, replacements)
+        } catch {
+        | _ => false
         }
       } else {
         // commit the current symbol and start a new one

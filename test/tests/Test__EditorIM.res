@@ -943,9 +943,9 @@ describe("Input Method (Editor)", () => {
   })
 
   describe("With directEdit off", () => {
-    // Typing goes through the `type` command, so only the rewrite reaches `workspace.applyEdit`.
+    // Typing goes through the `type` command, so only the rewrite could reach `workspace.applyEdit`.
     Async.it(
-      `Issue #389, should apply rewrites through workspace.applyEdit when directEdit is off`,
+      `Issue #418, should apply rewrites without workspace.applyEdit when directEdit is off`,
       async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
@@ -963,7 +963,7 @@ describe("Input Method (Editor)", () => {
           [[IM.Log.RewriteIssued([(((0, 0), (0, 1)), "♭")]), UpdateView], [RewriteApplied]],
         )
         Assert.equal(document->Editor.Text.getAll, "♭")
-        Assert.equal(applyEditCount, 1)
+        Assert.equal(applyEditCount, 0)
       },
     )
   })
