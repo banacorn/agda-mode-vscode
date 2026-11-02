@@ -210,9 +210,10 @@ module Module: Module = {
         // update the interval with the change `delta`
         instance.interval = (fst(instance.interval), snd(instance.interval) + delta)
 
-        // returns a `rewrite`
+        // returns a `rewrite`, whose interval is in the document before the edits,
+        // as all rewrites are applied together
         {
-          interval: instance.interval,
+          interval: (start, end_),
           text: replacement,
           instance: Some(instance),
         }
