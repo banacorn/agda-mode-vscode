@@ -1225,6 +1225,123 @@ describe("Input Method (Editor)", () => {
       },
     )
   })
+
+  // Issue #418: a rewrite whose old and new symbol share a high surrogate, like 𝐆A → 𝚨,
+  // must leave the whole new symbol, not a lone low surrogate.
+  describe("Symbols outside the BMP", () => {
+    let replaceCRLF = x => x->String.replaceRegExp(%re("/\r\n/g"), "\n") // RegEx updated to v10.1.4
+
+    // an earlier test may leave the input method on, and clearing its text then rewrites it,
+    // so turn the input method off and clear the text again
+    Async.beforeEach(async () => {
+      let setup = acquire(setup)
+      let _ = await VSCode.Commands.executeCommand0("agda-mode.escape")
+      await cleanup(setup)
+    })
+
+    // types `sequence` after `prefix` at the start of each of `lines`, turns the input method off,
+    // then types "x"; returns the text and cursors after the sequence, and the text after the "x"
+    let typeSequence = async (setup, lines, prefix, sequence) => {
+      let document = setup.editor->VSCode.TextEditor.document
+      let initial = lines->Array.map(_ => prefix)->Array.join("\n")
+      let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), initial)
+      let positions =
+        lines->Array.map(line => VSCode.Position.make(line, String.length(prefix)))
+      let _ = await IM.activate(setup, ~positions, ())
+      let logs = []
+      for i in 0 to String.length(sequence) - 1 {
+        logs->Array.push(await IM.insertChar(setup, String.charAt(sequence, i)))
+      }
+      let text = document->Editor.Text.getAll->replaceCRLF
+      let cursors =
+        Editor.Cursor.getMany(setup.editor)->Array.map(position => (
+          VSCode.Position.line(position),
+          VSCode.Position.character(position),
+        ))
+      // turn the input method off, unless the last key already did
+      let stillOn = switch logs->Array.at(-1) {
+      | Some(log) => !Array.includes(log, IM.Log.Deactivate)
+      | None => true
+      }
+      if stillOn {
+        let _ = await IM.deactivate(setup)
+      }
+      let _ = await VSCode.Window.showTextDocument(document, ())
+      let _ = await VSCode.Commands.executeCommand1("type", {"text": "x"})
+      let after = document->Editor.Text.getAll->replaceCRLF
+      (text, cursors, after)
+    }
+
+    // what `typeSequence` returns when `symbol` replaces the sequence on each of `lines`
+    let expected = (lines, prefix, symbol) => {
+      let text = suffix => lines->Array.map(_ => prefix ++ symbol ++ suffix)->Array.join("\n")
+      let column = String.length(prefix) + String.length(symbol)
+      (text(""), lines->Array.map(line => (line, column)), text("x"))
+    }
+
+    Async.it(
+      `Issue #418, should translate "BGA" to "𝚨"`,
+      async () => {
+        let setup = acquire(setup)
+        let result = await typeSequence(setup, [0], "", "BGA")
+        Assert.deepStrictEqual(result, expected([0], "", "𝚨"))
+      },
+    )
+
+    Async.it(
+      `Issue #418, should translate "BGa" to "𝛂"`,
+      async () => {
+        let setup = acquire(setup)
+        let result = await typeSequence(setup, [0], "", "BGa")
+        Assert.deepStrictEqual(result, expected([0], "", "𝛂"))
+      },
+    )
+
+    Async.it(
+      `Issue #418, should translate "BGB" to "𝚩"`,
+      async () => {
+        let setup = acquire(setup)
+        let result = await typeSequence(setup, [0], "", "BGB")
+        Assert.deepStrictEqual(result, expected([0], "", "𝚩"))
+      },
+    )
+
+    Async.it(
+      `Issue #418, should translate "BA" to "𝐀"`,
+      async () => {
+        let setup = acquire(setup)
+        let result = await typeSequence(setup, [0], "", "BA")
+        Assert.deepStrictEqual(result, expected([0], "", "𝐀"))
+      },
+    )
+
+    Async.it(
+      `Issue #418, should translate "Ga" to "α"`,
+      async () => {
+        let setup = acquire(setup)
+        let result = await typeSequence(setup, [0], "", "Ga")
+        Assert.deepStrictEqual(result, expected([0], "", "α"))
+      },
+    )
+
+    Async.it(
+      `Issue #418, should translate "BGA" to "𝚨" after "😀 "`,
+      async () => {
+        let setup = acquire(setup)
+        let result = await typeSequence(setup, [0], "😀 ", "BGA")
+        Assert.deepStrictEqual(result, expected([0], "😀 ", "𝚨"))
+      },
+    )
+
+    Async.it(
+      `Issue #418, should translate "BGA" to "𝚨" at two cursors`,
+      async () => {
+        let setup = acquire(setup)
+        let result = await typeSequence(setup, [0, 1], "", "BGA")
+        Assert.deepStrictEqual(result, expected([0, 1], "", "𝚨"))
+      },
+    )
+  })
 })
 
 // Has its own document, because the test closes the editor.
