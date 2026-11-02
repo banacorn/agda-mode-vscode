@@ -69,23 +69,6 @@ module DecorationCounter = {
   @send external restore: t => unit = "restore"
 }
 
-// runs `f` with `agdaMode.inputMethod.directEdit` on, then turns it back off
-let withDirectEdit = async f => {
-  let set = value =>
-    VSCode.Workspace.getConfiguration(Some("agdaMode"), None)->VSCode.WorkspaceConfiguration.updateGlobalSettings(
-      "inputMethod.directEdit",
-      value,
-      None,
-    )
-  await set(true)
-  switch await f() {
-  | () => await set(false)
-  | exception exn =>
-    await set(false)
-    raise(exn)
-  }
-}
-
 module IM = {
   include IM
 
@@ -488,7 +471,7 @@ describe("Input Method (Editor)", () => {
     // Typing "v" and "d" back to back lets "d" land before the rewrite of "v" arrives.
     Async.it(
       `Issue #389, should turn off and keep the text when a key is typed while a rewrite is pending`,
-      async () => await withDirectEdit(async () => {
+      async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let decorations = DecorationCounter.install()
@@ -520,7 +503,7 @@ describe("Input Method (Editor)", () => {
         Assert.equal(document->Editor.Text.getAll, "vd")
         Assert.equal(applyEditCount, 0)
         Assert.equal(liveDecorations, 0)
-      }),
+      },
     )
   })
 
@@ -528,7 +511,7 @@ describe("Input Method (Editor)", () => {
     // A key with no rewrite still completes, without turning the input method off.
     Async.it(
       `Issue #389, should stay on after a key that produces no rewrite`,
-      async () => await withDirectEdit(async () => {
+      async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let _ = await IM.activate(setup, ())
@@ -541,13 +524,13 @@ describe("Input Method (Editor)", () => {
         Assert.deepStrictEqual(log, [IM.Log.RewriteIssued([]), UpdateView, RewriteApplied])
         Assert.equal(document->Editor.Text.getAll, "←am")
         let _ = await IM.deactivate(setup)
-      }),
+      },
     )
 
     // Backspacing a composition to nothing issues an empty rewrite over an empty range.
     Async.it(
       `Issue #389, should turn off once after backspacing a composition to nothing`,
-      async () => await withDirectEdit(async () => {
+      async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let decorations = DecorationCounter.install()
@@ -564,13 +547,13 @@ describe("Input Method (Editor)", () => {
         )
         Assert.equal(document->Editor.Text.getAll, "")
         Assert.equal(liveDecorations, 0)
-      }),
+      },
     )
 
     // Browsing left at the first candidate rewrites the same symbol over itself, which is still an edit.
     Async.it(
       `Issue #389, should commit a rewrite of a symbol over itself and stay on`,
-      async () => await withDirectEdit(async () => {
+      async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let _ = await IM.activate(setup, ())
@@ -591,7 +574,7 @@ describe("Input Method (Editor)", () => {
           [IM.Log.RewriteIssued([(((0, 0), (0, 2)), "𝕟")]), Deactivate, RewriteApplied],
         )
         Assert.equal(document->Editor.Text.getAll, "𝕟")
-      }),
+      },
     )
   })
 
@@ -673,7 +656,7 @@ describe("Input Method (Editor)", () => {
     // so the rewrite's completion must not draw it again.
     Async.it(
       `Issue #389, should leave no underline after hitting escape while a rewrite is pending`,
-      async () => await withDirectEdit(async () => {
+      async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let decorations = DecorationCounter.install()
@@ -698,7 +681,7 @@ describe("Input Method (Editor)", () => {
         )
         Assert.equal(document->Editor.Text.getAll, "̌")
         Assert.equal(liveDecorations, 0)
-      }),
+      },
     )
 
     Async.it(
@@ -895,7 +878,7 @@ describe("Input Method (Editor)", () => {
     // instead of issuing a second rewrite.
     Async.it(
       `Issue #389, should turn off instead of rewriting again when browsing while a rewrite is pending`,
-      async () => await withDirectEdit(async () => {
+      async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
         let decorations = DecorationCounter.install()
@@ -938,14 +921,14 @@ describe("Input Method (Editor)", () => {
         )
         Assert.equal(document->Editor.Text.getAll, "̌")
         Assert.equal(liveDecorations, 0)
-      }),
+      },
     )
   })
 
-  describe("With directEdit off", () => {
+  describe("Rewrites through the editor", () => {
     // Typing goes through the `type` command, so only the rewrite could reach `workspace.applyEdit`.
     Async.it(
-      `Issue #418, should apply rewrites without workspace.applyEdit when directEdit is off`,
+      `Issue #418, should apply rewrites without workspace.applyEdit`,
       async () => {
         let setup = acquire(setup)
         let document = setup.editor->VSCode.TextEditor.document
@@ -986,19 +969,6 @@ describe("Input Method (Editor)", () => {
     )
 
     Async.it(
-      `Issue #76, should insert one literal backslash and turn off when directEdit is on`,
-      async () => await withDirectEdit(async () => {
-        let setup = acquire(setup)
-        let document = setup.editor->VSCode.TextEditor.document
-        let log = await IM.activate(setup, ())
-        Assert.deepStrictEqual(log, [IM.Log.Activate])
-        let log = await IM.activateAgain(setup)
-        Assert.deepStrictEqual(log, [[IM.Log.Deactivate]])
-        Assert.equal(document->Editor.Text.getAll, "\\")
-      }),
-    )
-
-    Async.it(
       `Issue #76, should replace every selection with one literal backslash and turn off`,
       async () => {
         let setup = acquire(setup)
@@ -1015,25 +985,6 @@ describe("Input Method (Editor)", () => {
         Assert.deepStrictEqual(log, [[IM.Log.Deactivate]])
         Assert.equal(document->Editor.Text.getAll->replaceCRLF, "\\abc\n\\c\na\\")
       },
-    )
-
-    Async.it(
-      `Issue #76, should replace every selection with one literal backslash and turn off when directEdit is on`,
-      async () => await withDirectEdit(async () => {
-        let setup = acquire(setup)
-        let document = setup.editor->VSCode.TextEditor.document
-        let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), "abc\nabc\nabc")
-        let ranges = [
-          VSCode.Range.make(VSCode.Position.make(0, 0), VSCode.Position.make(0, 0)),
-          VSCode.Range.make(VSCode.Position.make(1, 0), VSCode.Position.make(1, 2)),
-          VSCode.Range.make(VSCode.Position.make(2, 1), VSCode.Position.make(2, 3)),
-        ]
-        let log = await IM.activateOnSelections(setup, ranges)
-        Assert.deepStrictEqual(log, [IM.Log.Activate])
-        let log = await IM.activateAgain(setup)
-        Assert.deepStrictEqual(log, [[IM.Log.Deactivate]])
-        Assert.equal(document->Editor.Text.getAll->replaceCRLF, "\\abc\n\\c\na\\")
-      }),
     )
   })
 
@@ -1093,15 +1044,6 @@ describe("Input Method (Editor)", () => {
     )
 
     Async.it(
-      `Issue #76, should translate "\\==\\<\\>" to "≡⟨⟩" when directEdit is on`,
-      async () => await withDirectEdit(async () => {
-        let setup = acquire(setup)
-        let trace = await typeAdjacentSymbols(setup, [VSCode.Position.make(0, 0)])
-        Assert.deepStrictEqual(trace, expectedTrace([0]))
-      }),
-    )
-
-    Async.it(
       `Issue #76, should translate "\\==\\<\\>" to "≡⟨⟩" at four cursors`,
       async () => {
         let setup = acquire(setup)
@@ -1110,17 +1052,6 @@ describe("Input Method (Editor)", () => {
         let trace = await typeAdjacentSymbols(setup, fourLines)
         Assert.deepStrictEqual(trace, expectedTrace([0, 1, 2, 3]))
       },
-    )
-
-    Async.it(
-      `Issue #76, should translate "\\==\\<\\>" to "≡⟨⟩" at four cursors when directEdit is on`,
-      async () => await withDirectEdit(async () => {
-        let setup = acquire(setup)
-        let document = setup.editor->VSCode.TextEditor.document
-        let _ = await document->Editor.Text.insert(VSCode.Position.make(0, 0), "\n\n\n")
-        let trace = await typeAdjacentSymbols(setup, fourLines)
-        Assert.deepStrictEqual(trace, expectedTrace([0, 1, 2, 3]))
-      }),
     )
   })
 
@@ -1357,7 +1288,7 @@ describe("Input Method (Editor) — closing the editor", () => {
   // The document stays open in a second editor, so closing the first one is immediate, with no save prompt.
   Async.it(
     `Issue #389, should turn off when the editor is closed while a rewrite is pending`,
-    async () => await withDirectEdit(async () => {
+    async () => {
       let setup = acquire(setup)
       let document = setup.editor->VSCode.TextEditor.document
       let _ = await VSCode.Window.showTextDocument(
@@ -1394,7 +1325,7 @@ describe("Input Method (Editor) — closing the editor", () => {
       )
       Assert.equal(applyEditCount, 0)
       Assert.equal(liveDecorations, 0)
-    }),
+    },
   )
 })
 
