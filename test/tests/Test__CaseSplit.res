@@ -306,15 +306,15 @@ describe("agda-mode.case with text after the hole", () => {
   Async.it("should keep text typed after the load", async () => {
     await File.write(
       Path.asset(filename),
-      fixture.contents->String.replace(placeholder, "split b = S ({! !})"),
+      fixture.contents->String.replace(placeholder, "split b = S ({! !}) "),
     )
     let ctx = await AgdaMode.makeAndLoad(filename)
     let document = ctx.state.document
-    let offset = Editor.Text.getAll(document)->String.indexOf("!})") + 3
+    let offset = Editor.Text.getAll(document)->String.indexOf("!}) ") + 4
     let _ = await Editor.Text.insert(
       document,
       VSCode.TextDocument.positionAt(document, offset),
-      " + Z",
+      "+ Z",
     )
     await splitFirstHole(ctx, ~payload="b")
     Assert.deepStrictEqual(
