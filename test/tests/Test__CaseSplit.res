@@ -250,6 +250,30 @@ describe("agda-mode.case with text after the hole", () => {
       "k : ℕ\nsplit (box x) = h {n = {!   !}}\nsplit nox = h {n = {!   !}} ; k = Z",
     ),
     (
+      "should not read a `;` in a character literal as a separator",
+      "split b = S ({! !} + ch ';')",
+      "b",
+      "split (box x) = S ({!   !} + ch ';')\nsplit nox = S ({!   !} + ch ';')",
+    ),
+    (
+      "should not read a `{` in a character literal as a brace",
+      "k : ℕ\nsplit b = ch '{' + {! !} ; k = Z",
+      "b",
+      "k : ℕ\nsplit (box x) = ch '{' + {!   !}\nsplit nox = ch '{' + {!   !} ; k = Z",
+    ),
+    (
+      "should replace a qualified name after the hole",
+      "split b = S ({! !} + R.a r0)",
+      "b",
+      "split (box x) = S ({!   !} + R.a r0)\nsplit nox = S ({!   !} + R.a r0)",
+    ),
+    (
+      "should count `{{` as two braces",
+      "k : ℕ\nsplit b = inst {{n = {! !}}} ; k = Z",
+      "b",
+      "k : ℕ\nsplit (box x) = inst ⦃ n = {!   !} ⦄\nsplit nox = inst ⦃ n = {!   !} ⦄ ; k = Z",
+    ),
+    (
       "should keep the `module` of a named `where` block",
       "split b = S {! !} module M where\n  y = Z",
       "b",
@@ -276,6 +300,30 @@ describe("agda-mode.case with text after the hole", () => {
         fixture.contents->String.replace(placeholder, expected),
       )
     })
+  })
+
+  // Agda does not know text typed after the load, so it does not reprint that text
+  Async.it("should keep text typed after the load", async () => {
+    await File.write(
+      Path.asset(filename),
+      fixture.contents->String.replace(placeholder, "split b = S ({! !})"),
+    )
+    let ctx = await AgdaMode.makeAndLoad(filename)
+    let document = ctx.state.document
+    let offset = Editor.Text.getAll(document)->String.indexOf("!})") + 3
+    let _ = await Editor.Text.insert(
+      document,
+      VSCode.TextDocument.positionAt(document, offset),
+      " + Z",
+    )
+    await splitFirstHole(ctx, ~payload="b")
+    Assert.deepStrictEqual(
+      Editor.Text.getAll(ctx.state.document)->withLF,
+      fixture.contents->String.replace(
+        placeholder,
+        "split (box x) = S ({!   !})\nsplit nox = S ({!   !}) + Z",
+      ),
+    )
   })
 
   // VS Code keeps the line endings of an open document, so a CRLF document needs
