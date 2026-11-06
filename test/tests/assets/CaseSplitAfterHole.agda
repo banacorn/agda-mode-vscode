@@ -1,5 +1,6 @@
 module CaseSplitAfterHole where
 
+open import Agda.Builtin.Char
 open import Agda.Builtin.String
 
 data ℕ : Set where
@@ -31,6 +32,15 @@ record R : Set where
   field
     a : ℕ
     c : ℕ
+
+r0 : R
+r0 = record { a = Z ; c = Z }
+
+ch : Char → ℕ
+ch x = Z
+
+inst : {{n : ℕ}} → ℕ
+inst {{n}} = n
 
 data Box : Set where
   box : ℕ → Box
