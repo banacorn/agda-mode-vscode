@@ -211,6 +211,21 @@ describe("agda-mode.case with text after the hole", () => {
       "b",
       "split (box x) = S ({!   !} + app (λ { x → x ; y → y }))\nsplit nox = S ({!   !} + app (λ { x → x ; y → y }))",
     ),
+    // Known limits: the scan stops early here and duplicates code. These cases need a
+    // grammar or a range from Agda, so they record today's output, not the wanted output.
+    // The holes stay `?` because the result does not parse when Agda reloads it.
+    (
+      "known limit: duplicates the code after a `;` in a `let`",
+      "split b = let k = S {! !} ; m = Z in k",
+      "b",
+      "split (box x) = let k = S ? m = Z in k\nsplit nox = let k = S ? m = Z in k ; m = Z in k",
+    ),
+    (
+      "known limit: duplicates the code after the `where` of a `λ where`",
+      "split b = S ({! !} + app λ where z → z)",
+      "b",
+      "split (box x) = S (? + app λ { z → z })\nsplit nox = S (? + app λ { z → z }) where z → z)",
+    ),
   ]
 
   cases->Array.forEach(((name, clause, payload, expected)) => {
@@ -248,6 +263,31 @@ describe("agda-mode.case with text after the hole", () => {
       fixture.contents->String.replace(
         placeholder,
         "split (box x) = S ({!   !})\nsplit nox = S ({!   !}) + Z",
+      ),
+    )
+  })
+
+  // Text inserted exactly at the end of a token removes that token, and the scan stops
+  // before it, so the token is duplicated. The typed text is still kept.
+  Async.it("known limit: duplicates the token that text is typed directly after", async () => {
+    await File.write(
+      Path.asset(filename),
+      fixture.contents->String.replace(placeholder, "split b = S ({! !})"),
+    )
+    let ctx = await AgdaMode.makeAndLoad(filename)
+    let document = ctx.state.document
+    let offset = Editor.Text.getAll(document)->String.indexOf("!})") + 3
+    let _ = await Editor.Text.insert(
+      document,
+      VSCode.TextDocument.positionAt(document, offset),
+      " + Z",
+    )
+    await splitFirstHole(ctx, ~payload="b")
+    Assert.deepStrictEqual(
+      Editor.Text.getAll(ctx.state.document)->withLF,
+      fixture.contents->String.replace(
+        placeholder,
+        "split (box x) = S (?)\nsplit nox = S (?)) + Z",
       ),
     )
   })
