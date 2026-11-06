@@ -277,7 +277,13 @@ let rec handle = async (
         )
       | Some(goal) =>
         let result = switch makeCaseType {
-        | Function => await Goal.replaceWithLines(goal, state.document, lines)
+        | Function =>
+          await Goal.replaceWithLines(
+            goal,
+            state.document,
+            lines,
+            ~tokens=state.tokens->Tokens.toTokenArray,
+          )
         | ExtendedLambda => await Goal.replaceWithLambda(goal, state.document, lines)
         }
 

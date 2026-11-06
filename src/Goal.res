@@ -20,6 +20,7 @@ module type Module = {
     t,
     VSCode.TextDocument.t,
     array<string>,
+    ~tokens: array<Token.t<Token.vscodeOffset>>,
   ) => promise<option<(VSCode.Range.t, string)>>
   let replaceWithLambda: (
     t,
@@ -246,7 +247,57 @@ module Module: Module = {
 
   // replace and insert one or more lines of content at the goal
   // usage: case split
-  let replaceWithLines = async (goal, document, lines) => {
+  // Where the part of the clause that Agda reprints ends, after the goal on its line.
+  //
+  // Agda does not send the range of a clause, so this does not parse the clause. It walks
+  // Agda's own tokens after the goal, and stops before the first comment, `where`, `module`,
+  // `;` outside braces, or text with no token, which is text typed after the last load.
+  // Later holes have no tokens and are walked over. When unsure, it stops early, because
+  // stopping early duplicates code visibly, and running too far deletes code silently.
+  let endOfReprintedCode = (text, tokens: array<Token.t<Token.vscodeOffset>>, ~lineStart, ~goal, ~lineEnd) => {
+    let textOf = (token: Token.t<Token.vscodeOffset>) =>
+      text->String.slice(~start=token.start, ~end=token.end)
+    let braceDepthAfter = (braceDepth, tokenText) =>
+      switch tokenText {
+      | "{" | "{{" | "⦃" => braceDepth + 1
+      | "}" | "}}" | "⦄" => braceDepth > 0 ? braceDepth - 1 : 0
+      | _ => braceDepth
+      }
+    let openBraces =
+      tokens
+      ->Array.filter(token => token.start >= lineStart && token.end <= goal.start)
+      ->Array.reduce(0, (braceDepth, token) => braceDepthAfter(braceDepth, textOf(token)))
+    let tokensAfterGoal = tokens->Array.filter(token => token.start >= goal.end && token.start < lineEnd)
+    let lengthOfLeadingHoles = text =>
+      switch %re("/^(?:\s*\{!.*?!\})+/")->RegExp.exec(text) {
+      | None => 0
+      | Some(result) => result->RegExp.Result.fullMatch->String.length
+      }
+    let rec scan = (codeEnd, index, braceDepth) => {
+      let codeEnd =
+        codeEnd + lengthOfLeadingHoles(text->String.slice(~start=codeEnd, ~end=lineEnd))
+      switch tokensAfterGoal[index] {
+      | None => codeEnd
+      | Some(token) if token.start < codeEnd => scan(codeEnd, index + 1, braceDepth)
+      | Some(token) =>
+        let tokenText = textOf(token)
+        if (
+          text->String.slice(~start=codeEnd, ~end=token.start)->String.trim != "" ||
+          token.aspects->Array.includes(Token.Aspect.Comment) ||
+          tokenText == "where" ||
+          tokenText == "module" ||
+          (tokenText == ";" && braceDepth == 0)
+        ) {
+          codeEnd
+        } else {
+          scan(token.end, index + 1, braceDepthAfter(braceDepth, tokenText))
+        }
+      }
+    }
+    scan(goal.end, 0, openBraces)
+  }
+
+  let replaceWithLines = async (goal, document, lines, ~tokens) => {
     // get the width of indentation from the first line of the goal
     let (indentWidth, _, _) = indentationWidth(goal, document)
     let indentation = String.repeat(" ", indentWidth)
@@ -258,7 +309,19 @@ module Module: Module = {
     let startLineRange = document->VSCode.TextDocument.lineAt(startLineNo)->VSCode.TextLine.range
     let start = VSCode.Range.start(startLineRange)
 
-    let end_ = VSCode.TextDocument.positionAt(document, goal.end)
+    let goalEnd = VSCode.TextDocument.positionAt(document, goal.end)
+    let endLineRange =
+      document->VSCode.TextDocument.lineAt(VSCode.Position.line(goalEnd))->VSCode.TextLine.range
+    let end_ = VSCode.TextDocument.positionAt(
+      document,
+      endOfReprintedCode(
+        Editor.Text.getAll(document),
+        tokens,
+        ~lineStart=VSCode.TextDocument.offsetAt(document, start),
+        ~goal,
+        ~lineEnd=VSCode.TextDocument.offsetAt(document, VSCode.Range.end_(endLineRange)),
+      ),
+    )
     let rangeToBeReplaced = VSCode.Range.make(start, end_)
     if await Editor.Text.replace(document, rangeToBeReplaced, indentedLines) {
       Some(rangeToBeReplaced, indentedLines)
