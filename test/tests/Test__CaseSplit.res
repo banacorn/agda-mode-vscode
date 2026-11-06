@@ -312,26 +312,23 @@ describe("issue #335: missing goal decoration after a case split", () => {
   let undecoratedGoals = (goals, document) =>
     goals
     ->Goals.serializeGoals
-    ->Array.filterWithIndex((_, i) =>
+    ->Array.mapWithIndex((serialized, i) =>
       switch Goals.getGoalPositionByIndex(goals, i) {
-      | Some(start, end) => end - start == 1
-      | None => false
-      }
-    )
-    ->Array.map(serialized => (
-      serialized,
-      switch Goals.getGoalPositionByIndex(goals, 0) {
-      | Some(start, end) =>
-        Editor.Text.get(
-          document,
-          VSCode.Range.make(
-            VSCode.TextDocument.positionAt(document, start),
-            VSCode.TextDocument.positionAt(document, end),
+      | Some(start, end) if end - start == 1 =>
+        Some(
+          serialized,
+          Editor.Text.get(
+            document,
+            VSCode.Range.make(
+              VSCode.TextDocument.positionAt(document, start),
+              VSCode.TextDocument.positionAt(document, end),
+            ),
           ),
         )
-      | None => ""
+      | _ => None
       }
-    ))
+    )
+    ->Array.filterMap(undecorated => undecorated)
 
   Async.it("undisturbed: both new goals are widened and decorated", async () => {
     let ctx = await AgdaMode.makeAndLoad(filename)
@@ -382,14 +379,6 @@ describe("issue #335: missing goal decoration after a case split", () => {
     if !raced.contents {
       Assert.fail("the reload's InteractionPoints was never seen, so nothing raced the widening")
     }
-
-    Js.log("goals after case split: " ++ Goals.serializeGoals(ctx.state.goals)->Array.join(", "))
-    Js.log(
-      "undecorated: " ++
-      undecoratedGoals(ctx.state.goals, ctx.state.document)
-      ->Array.map(((serialized, text)) => serialized ++ " over " ++ text)
-      ->Array.join(", "),
-    )
 
     // A goal one character wide is a goal `InternalGoal.make` gave no
     // decoration to.
