@@ -558,11 +558,11 @@ describe("issue #264 minimal reproducer", () => {
         // Wait for goals to settle (should timeout or complete without proliferation)
         await ctx.state.goals->Goals.waitUntilNotBusy
 
-        let _ = disposeLog
+        disposeLog()
       } catch {
       | exn =>
         releaseOnce()
-        let _ = disposeLog
+        disposeLog()
         raise(exn)
       }
 
