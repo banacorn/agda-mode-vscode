@@ -648,6 +648,18 @@ describe("issue #264: overlapping loads", () => {
     }
   })
 
+  // Both tests that split Issue264Overlap.agda twice end with the same clause and goal.
+  let assertSplitTwice = (ctx: AgdaMode.t) => {
+    Assert.deepStrictEqual(
+      Editor.Text.getAll(ctx.state.document)->withLF,
+      original
+      ->Array.getUnsafe(0)
+      ->withLF
+      ->String.replace("test = ?", "test (fst₁ , fst₂ , snd₁) = {!   !}"),
+    )
+    Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [6:29-36)"])
+  }
+
   Async.it(
     "keeps the hole intact when reloading during the second dependent-record split",
     async () => {
@@ -655,14 +667,7 @@ describe("issue #264: overlapping loads", () => {
       await introduceArgument(ctx)
       await split(ctx, "x")
       await withOverlappingReload(ctx, ~afterMakeCase=true, () => split(ctx, "x"))
-      Assert.deepStrictEqual(
-        Editor.Text.getAll(ctx.state.document)->withLF,
-        original
-        ->Array.getUnsafe(0)
-        ->withLF
-        ->String.replace("test = ?", "test (fst₁ , fst₂ , snd₁) = {!   !}"),
-      )
-      Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [6:29-36)"])
+      assertSplitTwice(ctx)
     },
   )
 
@@ -698,14 +703,7 @@ describe("issue #264: overlapping loads", () => {
       // for its own reentrant load. Taking the load lock before the connection
       // lock would deadlock: user load waits for Case, Case waits for user load.
       await withOverlappingReload(ctx, ~outsideResponse=true, () => split(ctx, "x"))
-      Assert.deepStrictEqual(
-        Editor.Text.getAll(ctx.state.document)->withLF,
-        original
-        ->Array.getUnsafe(0)
-        ->withLF
-        ->String.replace("test = ?", "test (fst₁ , fst₂ , snd₁) = {!   !}"),
-      )
-      Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [6:29-36)"])
+      assertSplitTwice(ctx)
     },
   )
 })
