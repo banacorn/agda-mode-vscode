@@ -635,25 +635,27 @@ let introduceArgument = async (ctx: AgdaMode.t) => {
 
 describe("issue #264: overlapping loads", () => {
   This.timeout(20000)
-  let fixtures = ["Issue264Overlap.agda", "Issue264PlainReloads.agda"]
-  let original =
-    fixtures->Array.map(filename =>
-      NodeJs.Fs.readFileSync(Path.asset(filename))->NodeJs.Buffer.toString
-    )
+  // Each fixture with its content before the tests edit it.
+  let fixtures =
+    ["Issue264Overlap.agda", "Issue264PlainReloads.agda"]->Array.map(filename => (
+      filename,
+      NodeJs.Fs.readFileSync(Path.asset(filename))->NodeJs.Buffer.toString,
+    ))
+  let original = filename =>
+    fixtures->Array.find(((name, _)) => name == filename)->Option.getExn->snd
   let withLF = text => text->String.replaceAll("\r\n", "\n")
   Async.afterEach(async () => {
     await Registry.removeAndDestroyAll()
-    for i in 0 to Array.length(fixtures) - 1 {
-      await File.write(Path.asset(fixtures->Array.getUnsafe(i)), original->Array.getUnsafe(i))
-    }
+    let _ = await fixtures
+    ->Array.map(((filename, content)) => File.write(Path.asset(filename), content))
+    ->Promise.all
   })
 
   // Both tests that split Issue264Overlap.agda twice end with the same clause and goal.
   let assertSplitTwice = (ctx: AgdaMode.t) => {
     Assert.deepStrictEqual(
       Editor.Text.getAll(ctx.state.document)->withLF,
-      original
-      ->Array.getUnsafe(0)
+      original("Issue264Overlap.agda")
       ->withLF
       ->String.replace("test = ?", "test (fst₁ , fst₂ , snd₁) = {!   !}"),
     )
@@ -688,7 +690,7 @@ describe("issue #264: overlapping loads", () => {
       await withOverlappingReload(ctx, ~outsideResponse=true, () => AgdaMode.execute(ctx, Load))
       Assert.deepStrictEqual(
         Editor.Text.getAll(document)->withLF,
-        (original->Array.getUnsafe(1)->withLF ++ appended)->String.replaceAll("?", "{!   !}"),
+        (original("Issue264PlainReloads.agda")->withLF ++ appended)->String.replaceAll("?", "{!   !}"),
       )
       Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [4:5-12)", "#1 [7:5-12)"])
     },
