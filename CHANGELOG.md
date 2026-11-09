@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## v0.10.12 - 2026-11-09
+
+### Fixed
+- #422: Scan Agda's tokens when case splitting a function clause, so the code after the hole on its line, like the `)` in `S ({! !})`, is replaced instead of duplicated, and char literals, a trailing comment or `where` are kept, reported by [@fredrik-bakke](https://github.com/fredrik-bakke)
+- #264: Keep every hole as `{!   !}` when loads overlap, by snapshotting each load only after it owns the connection, reported by [@kontheocharis](https://github.com/kontheocharis)
+
 ## v0.10.11 - 2026-11-02
 
 ### Fixed
