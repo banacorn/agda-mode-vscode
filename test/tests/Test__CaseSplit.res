@@ -436,7 +436,7 @@ describe("issue #335: missing goal decoration after a case split", () => {
   })
 })
 
-describe("issue #264 minimal reproducer", () => {
+describe("issue #264: an edit during a case split", () => {
   This.timeout(10000)
   let caseSplitFileContent = ref("")
   Async.beforeEach(async () => {
@@ -448,7 +448,7 @@ describe("issue #264 minimal reproducer", () => {
   })
 
   Async.it(
-    "issue #264: concurrent edit during case-split should not cause infinite goal multiplication",
+    "concurrent edit during case-split should not cause infinite goal multiplication",
     async () => {
       let ctx = await AgdaMode.makeAndLoad("CaseSplit.agda")
 
