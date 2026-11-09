@@ -62,6 +62,9 @@ type t = {
   // mutable goals: array<Goal.t>,
   tokens: Tokens.t,
   goals: Goals.t,
+  // A load owns the save, offset snapshot and all of its responses. Queue
+  // another load of this document until that whole operation has finished.
+  mutable loadQueue: promise<unit>,
   mutable cursor: option<VSCode.Position.t>,
   editorIM: IM.t,
   promptIM: IM.t,
@@ -101,6 +104,7 @@ let make = (
   runningInfoLog: [],
   // goals: [],
   goals: Goals.make(),
+  loadQueue: Promise.resolve(),
   tokens: Tokens.make(semanticTokens),
   cursor: None,
   editorIM: IM.make(channels.inputMethod),

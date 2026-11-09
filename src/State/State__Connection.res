@@ -1,3 +1,22 @@
+// The connection queue is reentrant: MakeCase must be able to load its result
+// while the Case request is still being handled. Loads of the same document,
+// however, must not overlap each other's offset snapshots, even in that context.
+let withQueuedLoad = async (state: State.t, task) => {
+  let previous = state.loadQueue
+  let (finished, resolve, _) = Util.Promise_.pending()
+  state.loadQueue = finished
+  await previous
+  try {
+    let result = await task()
+    resolve()
+    result
+  } catch {
+  | exn =>
+    resolve()
+    raise(exn)
+  }
+}
+
 let sendRequest = async (
   state: State.t,
   handleResponse: Response.t => promise<unit>,
@@ -19,9 +38,35 @@ let sendRequest = async (
     // only resolve the promise after:
     //  1. the result of connection has been displayed
     //  2. all responses have been handled
-    let result = await Registry__Connection.execute(state.id, connection =>
-      Connection.sendRequest(connection, state.document, request, onResponse)
-    )
+    let result = await Registry__Connection.execute(state.id, async connection => {
+      switch request {
+      | Load =>
+        // Take connection ownership first: a queued user load must not block
+        // the automatic load dispatched by the Case request ahead of it.
+        await withQueuedLoad(state, async () => {
+          // Save and snapshot only once this request owns the connection. A
+          // queued load must not overwrite the snapshot of the active load, or
+          // have that load's cleanup erase its edit history before its answer.
+          let _ = await VSCode.TextDocument.save(state.document)
+          Tokens.beginLoad(state.tokens, state.document)
+          try {
+            let result = await Connection.sendRequest(
+              connection,
+              state.document,
+              request,
+              onResponse,
+            )
+            Tokens.endLoad(state.tokens)
+            result
+          } catch {
+          | exn =>
+            Tokens.endLoad(state.tokens)
+            raise(exn)
+          }
+        })
+      | _ => await Connection.sendRequest(connection, state.document, request, onResponse)
+      }
+    })
 
     switch result {
     | Error(error) => await State__View.Panel.displayConnectionError(state, error)
