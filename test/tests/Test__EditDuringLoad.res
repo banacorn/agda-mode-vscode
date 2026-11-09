@@ -708,4 +708,34 @@ describe("issue #264: overlapping loads", () => {
       assertSplitTwice(ctx)
     },
   )
+
+  Async.it("lets a Load finish after the previous Load throws", async () => {
+    let ctx = await AgdaMode.makeAndLoad("Issue264PlainReloads.agda")
+    // Throw once from a Last response, which makes the request itself reject.
+    // The load must still release its place in the load queue.
+    let thrown = ref(false)
+    ctx.state.middlewares
+    ->Array.push(handler => async response => {
+      switch response {
+      | Response.CompleteHighlightingAndMakePromptReappear if !thrown.contents =>
+        thrown := true
+        raise(Failure("#264: a response handler throws during Load"))
+      | _ => await handler(response)
+      }
+    })
+    ->ignore
+    let rejected = switch await executeCommand("agda-mode.load") {
+    | _ => false
+    | exception _ => true
+    }
+    ctx.state.middlewares->Array.pop->ignore
+    Assert.deepStrictEqual((thrown.contents, rejected), (true, true))
+
+    await AgdaMode.execute(ctx, Load)
+    Assert.deepStrictEqual(
+      Editor.Text.getAll(ctx.state.document)->withLF,
+      original("Issue264PlainReloads.agda")->withLF->String.replaceAll("?", "{!   !}"),
+    )
+    Assert.deepStrictEqual(Goals.serializeGoals(ctx.state.goals), ["#0 [4:5-12)"])
+  })
 })
