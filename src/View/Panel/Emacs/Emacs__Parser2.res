@@ -50,6 +50,7 @@ let parseError: string => Dict.t<array<string>> = raw => {
   //    ...
   //    ———— Warning(s) —————————————————————————————————————————————————————————————
   //    ...
+  // (since Agda 2.7, the warnings divider is "———— Warnings ————…")
   // else, the message has only an error
   //    ...
   let lines = Parser.splitToLines(raw)
@@ -61,7 +62,9 @@ let parseError: string => Dict.t<array<string>> = raw => {
     xs[Array.length(xs) - 1]->Option.flatMap(String.match(_, %re("/at$/")))->Option.isSome
 
   if hasBothErrorsAndWarnings {
-    let isWarning = line => line->String.match(%re("/^\u2014{4} Warning\(s\)/"))->Option.isSome
+    // Agda 2.7 renamed the divider "Warning(s)" to "Warnings"
+    let isWarning = line =>
+      line->String.match(%re("/^\u2014{4} Warning(?:\(s\)|s) /"))->Option.isSome
     let predicate = ((line, i)) => {
       if i === 0 {
         Some("errors")
