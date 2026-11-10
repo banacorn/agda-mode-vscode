@@ -178,6 +178,23 @@ Have: Nat →
     ]
     Assert.deepStrictEqual(actual, expected)
   })
+
+  // #371: Agda labels the wanted boundary of a cubical goal with
+  // `———— Boundary (wanted) ————…`, followed by one equation per line.
+  it("should render a labeled divider as a header followed by one row per entry", () => {
+    let raw = `Goal: Type₁
+———— Boundary (wanted) —————————————————————————————————————
+i = i0 ⊢ Type
+i = i1 ⊢ Type`
+    let actual = raw->Emacs__Parser2.parseGoalType->Emacs__Parser2.render
+    let expected = [
+      Item.Labeled("Goal", "special", RichText.string("Type₁"), None, None),
+      Item.Header("Boundary (wanted)"),
+      Item.Unlabeled(RichText.string("i = i0 ⊢ Type"), None, None),
+      Item.Unlabeled(RichText.string("i = i1 ⊢ Type"), None, None),
+    ]
+    Assert.deepStrictEqual(actual, expected)
+  })
 })
 
 describe("when running Emacs__Parser2.parseAllGoalsWarnings", () => {
