@@ -262,6 +262,29 @@ Unsolved constraints`
     Assert.deepStrictEqual(actual, expected)
   })
 
+  // #371: since Agda 2.7, the divider before the errors is
+  // `———— Error ————…` instead of `———— Errors ————…`.
+  it("should parse goals + errors with the Error divider", () => {
+    let raw = `?0 : Nat
+———— Error —————————————————————————————————————————————————
+/path/to/agda/examples/A.agda:8.1-9.16: error: [TerminationIssue]
+Termination checking failed for the following function:
+  loop`
+    let actual = Emacs__Parser2.parseAllGoalsWarnings("*All Goals, Errors*", raw)
+    let expected = Dict.fromArray([
+      ("interactionMetas", ["?0 : Nat"]),
+      (
+        "errors",
+        [
+          `/path/to/agda/examples/A.agda:8.1-9.16: error: [TerminationIssue]
+Termination checking failed for the following function:
+  loop`,
+        ],
+      ),
+    ])->tempNormalize
+    Assert.deepStrictEqual(actual, expected)
+  })
+
   it("should parse goals that span multiple lines", () => {
     let raw = `?0
   : BoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBool`
