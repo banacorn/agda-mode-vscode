@@ -60,11 +60,12 @@ module Array_ = {
       switch last {
       | None => [x]
       | Some(l) =>
+        // keep the groups, and the lines within a glued group, in order
         if p(l) {
-          let _ = acc[Array.length(acc) - 1] = Array.concat(x, l)
+          let _ = acc[Array.length(acc) - 1] = Array.concat(l, x)
           acc
         } else {
-          Array.concat([x], acc)
+          Array.concat(acc, [x])
         }
       }
     })
