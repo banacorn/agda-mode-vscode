@@ -431,14 +431,15 @@ when checking that the clause a has type _8`,
         ],
       ),
       (
+        // #371: in the order Agda emits them
         "warnings",
         [
-          `/path/to/agda/examples/A.agda:9,1-10
-Unreachable clause
-when checking the definition of _+_`,
           `/path/to/agda/examples/A.agda:17,1-8
 The following names are declared but not accompanied by a
 definition: boo`,
+          `/path/to/agda/examples/A.agda:9,1-10
+Unreachable clause
+when checking the definition of _+_`,
         ],
       ),
     ])->tempNormalize
