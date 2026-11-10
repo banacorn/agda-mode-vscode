@@ -207,6 +207,31 @@ Elaborates to: zero`
     ]
     Assert.deepStrictEqual(actual, expected)
   })
+
+  // #371: Agda emits the context before the constraints.
+  it("should render the context before Constraints", () => {
+    let context = `Goal: Nat
+———— Context ———————————————————————————————————————————————
+n : Nat`
+    let constraints = `Goal: Nat
+———— Constraints ———————————————————————————————————————————
+_5 := refl (blocked on problem 5)`
+    let raw = `Goal: Nat
+———— Context ———————————————————————————————————————————————
+n : Nat
+———— Constraints ———————————————————————————————————————————
+_5 := refl (blocked on problem 5)`
+    let actual = raw->Emacs__Parser2.parseGoalType->Emacs__Parser2.render
+    // the goal, the context, then the Constraints header and its rows
+    let expected = Array.concat(
+      context->Emacs__Parser2.parseGoalType->Emacs__Parser2.render,
+      constraints
+      ->Emacs__Parser2.parseGoalType
+      ->Emacs__Parser2.render
+      ->Array.sliceToEnd(~start=1),
+    )
+    Assert.deepStrictEqual(actual, expected)
+  })
 })
 
 describe("when running Emacs__Parser2.parseAllGoalsWarnings", () => {
@@ -250,6 +275,25 @@ Unsolved constraints`
         ],
       ),
     ])->tempNormalize
+    Assert.deepStrictEqual(actual, expected)
+  })
+})
+
+describe("when running Emacs__Parser2.parseAllGoalsWarnings and Emacs__Parser2.render together", () => {
+  // #371: Agda emits the goals before the warnings.
+  it("should render goals before warnings", () => {
+    let warning = `/path/to/agda/examples/A.agda:7.10-11: warning: -W[no]UserWarning
+MATRIX_WARNING
+when scope checking A`
+    let raw = `?0 : Nat
+———— Warnings ——————————————————————————————————————————————
+${warning}`
+    let actual =
+      Emacs__Parser2.parseAllGoalsWarnings("*All Goals, Warnings*", raw)->Emacs__Parser2.render
+    let expected = Array.concat(
+      Emacs__Parser2.parseAllGoalsWarnings("*All Goals*", "?0 : Nat")->Emacs__Parser2.render,
+      Emacs__Parser2.parseAllGoalsWarnings("*All Warnings*", warning)->Emacs__Parser2.render,
+    )
     Assert.deepStrictEqual(actual, expected)
   })
 })
