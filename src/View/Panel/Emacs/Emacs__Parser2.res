@@ -27,12 +27,19 @@ let partiteMetas = xs =>
     )
   })
 
+// every warning or error starts with its range, which since Agda 2.7 is
+// followed by its severity and name, like "A.agda:7.10-11: warning: -W[no]UserWarning"
+let markWarningStart = line =>
+  line
+  ->String.replaceRegExp(%re("/: (?:warning|error): .*$/"), "")
+  ->Common.AgdaRange.parse
+  ->Option.isSome
+
 let partiteWarningsOrErrors = (xs, key) =>
   xs->Dictionary.update(key, (raw: array<string>) => {
     // RegEx updated to v10.1.4
     let hasDelimeter = raw[0]->Option.flatMap(String.match(_, %re("/^\u2014{4}/")))->Option.isSome
     let lines = hasDelimeter ? Array.sliceToEnd(~start=1, raw) : raw
-    let markWarningStart = line => line->Common.AgdaRange.parse->Option.isSome
     /* If the previous warning of error ends with "at", then we have to glue it back */
     let glueBack = xs =>
       xs[Array.length(xs) - 1]->Option.flatMap(String.match(_, %re("/at$/")))->Option.isSome
@@ -56,7 +63,6 @@ let parseError: string => Dict.t<array<string>> = raw => {
   let lines = Parser.splitToLines(raw)
   let hasBothErrorsAndWarnings =
     lines[0]->Option.flatMap(String.match(_, %re("/^\u2014{4} Error/")))->Option.isSome
-  let markWarningStart = line => line->Common.AgdaRange.parse->Option.isSome
   // If the previous warning of error ends with "at", then we have to glue it back
   let glueBack = xs =>
     xs[Array.length(xs) - 1]->Option.flatMap(String.match(_, %re("/at$/")))->Option.isSome
