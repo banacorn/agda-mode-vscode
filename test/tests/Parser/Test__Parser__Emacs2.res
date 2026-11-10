@@ -285,6 +285,38 @@ Termination checking failed for the following function:
     Assert.deepStrictEqual(actual, expected)
   })
 
+  // #371: with no goals, Agda emits the errors first, each after its divider.
+  it("should parse errors + warnings", () => {
+    let raw = `———— Error —————————————————————————————————————————————————
+/path/to/agda/examples/A.agda:10.1-11.16: error: [TerminationIssue]
+Termination checking failed for the following function:
+  loop
+———— Warnings ——————————————————————————————————————————————
+/path/to/agda/examples/A.agda:7.10-11: warning: -W[no]UserWarning
+MATRIX_WARNING
+when scope checking A`
+    let actual = Emacs__Parser2.parseAllGoalsWarnings("*All Errors, Warnings*", raw)
+    let expected = Dict.fromArray([
+      (
+        "errors",
+        [
+          `/path/to/agda/examples/A.agda:10.1-11.16: error: [TerminationIssue]
+Termination checking failed for the following function:
+  loop`,
+        ],
+      ),
+      (
+        "warnings",
+        [
+          `/path/to/agda/examples/A.agda:7.10-11: warning: -W[no]UserWarning
+MATRIX_WARNING
+when scope checking A`,
+        ],
+      ),
+    ])->tempNormalize
+    Assert.deepStrictEqual(actual, expected)
+  })
+
   it("should parse goals that span multiple lines", () => {
     let raw = `?0
   : BoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBool`
