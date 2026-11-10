@@ -99,6 +99,8 @@ let sectionPrefix = "section:"
 let parseGoalType: string => Dict.t<array<string>> = raw => {
   let markGoal = ((line, _)) => line->String.match(%re("/^Goal:/"))->Option.map(_ => "goal")
   let markHave = ((line, _)) => line->String.match(%re("/^Have:/"))->Option.map(_ => "have")
+  let markElaboration = ((line, _)) =>
+    line->String.match(%re("/^Elaborates to:/"))->Option.map(_ => "elaboration")
   // Agda.Utils.String.delimiter labels a divider as "\u2014\u2014\u2014\u2014 Title \u2014\u2014\u2014\u2014\u2026".
   // Agda 2.9 labels the divider before a non-empty context "Context";
   // older versions use a plain line of 60 em dashes.
@@ -120,7 +122,11 @@ let parseGoalType: string => Dict.t<array<string>> = raw => {
       | None =>
         switch markHave(line) {
         | Some(v) => Some(v)
-        | None => markDivider(line)
+        | None =>
+          switch markElaboration(line) {
+          | Some(v) => Some(v)
+          | None => markDivider(line)
+          }
         }
       }
     )
@@ -160,6 +166,14 @@ let render: Dict.t<array<string>> => array<Item.t> = dictionary => {
       ->Agda.Expr.parse
       ->Option.mapOr([], expr => [
         Item.Labeled("Have", "special", Agda.Expr.render(expr), None, None),
+      ])
+    | "elaboration" =>
+      lines
+      ->Util.String.unlines
+      ->String.sliceToEnd(~start=String.length("Elaborates to:"))
+      ->Agda.Expr.parse
+      ->Option.mapOr([], expr => [
+        Item.Labeled("Elaborates to", "special", Agda.Expr.render(expr), None, None),
       ])
     | "metas" =>
       lines
