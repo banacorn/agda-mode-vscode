@@ -18,17 +18,12 @@ module Dictionary = {
     ->Dict.fromArray
   }
   // given a key and a splitter function, split the value of the key into multiple entries
-  // and replace the old entry with the new ones
-  let split = (dict: Dict.t<'a>, key: string, splitter: 'a => Dict.t<'a>): Dict.t<array<string>> =>
-    switch Dict.get(dict, key) {
-    | Some(value) =>
-      // insert new entries
-      Dict.toArray(splitter(value))->Array.forEach(((k, v)) => Dict.set(dict, k, v))
-      // remove old entry
-      Dict.delete(dict, key)
-      dict
-    | None => dict
-    }
+  // and replace the old entry with the new ones, at the position of the old entry
+  let split = (dict: Dict.t<'a>, key: string, splitter: 'a => Dict.t<'a>): Dict.t<'a> =>
+    dict
+    ->Dict.toArray
+    ->Array.flatMap(((k, v)) => k == key ? Dict.toArray(splitter(v)) : [(k, v)])
+    ->Dict.fromArray
   let update = (dict: Dict.t<'a>, key: string, f: 'a => 'a): Dict.t<'a> =>
     switch Dict.get(dict, key) {
     | Some(value) =>
