@@ -195,6 +195,18 @@ i = i1 ⊢ Type`
     ]
     Assert.deepStrictEqual(actual, expected)
   })
+
+  // #371: `Cmd_goal_type_context_check` puts `Elaborates to:` after the goal type.
+  it("should render Elaborates to as its own labeled item", () => {
+    let raw = `Goal: ℕ
+Elaborates to: zero`
+    let actual = raw->Emacs__Parser2.parseGoalType->Emacs__Parser2.render
+    let expected = [
+      Item.Labeled("Goal", "special", RichText.string("ℕ"), None, None),
+      Item.Labeled("Elaborates to", "special", RichText.string("zero"), None, None),
+    ]
+    Assert.deepStrictEqual(actual, expected)
+  })
 })
 
 describe("when running Emacs__Parser2.parseAllGoalsWarnings", () => {
