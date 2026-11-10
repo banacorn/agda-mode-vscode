@@ -93,12 +93,26 @@ let parseError: string => Dict.t<array<string>> = raw => {
   }
 }
 
+// key prefix of a section that starts at a labeled divider, followed by its title
+let sectionPrefix = "section:"
+
 let parseGoalType: string => Dict.t<array<string>> = raw => {
   let markGoal = ((line, _)) => line->String.match(%re("/^Goal:/"))->Option.map(_ => "goal")
   let markHave = ((line, _)) => line->String.match(%re("/^Have:/"))->Option.map(_ => "have")
-  // Agda 2.9 labels the delimiter before a non-empty context: "\u2014\u2014\u2014\u2014 Context \u2014\u2014\u2014\u2014\u2026"
-  let markMetas = ((line, _)) =>
-    line->String.match(%re("/\u2014{60}|^\u2014{4} Context \u2014+$/"))->Option.map(_ => "metas")
+  // Agda.Utils.String.delimiter labels a divider as "\u2014\u2014\u2014\u2014 Title \u2014\u2014\u2014\u2014\u2026".
+  // Agda 2.9 labels the divider before a non-empty context "Context";
+  // older versions use a plain line of 60 em dashes.
+  // Every other title, like "Boundary (wanted)" or "Constraints", starts its own section (#371).
+  let markDivider = ((line, _)) =>
+    if line->String.match(%re("/^\u2014{60}$/"))->Option.isSome {
+      Some("metas")
+    } else {
+      line
+      ->String.match(%re("/^\u2014{4} (.+) \u2014+$/"))
+      ->Option.flatMap(matches => matches[1])
+      ->Option.flatMap(title => title)
+      ->Option.map(title => title == "Context" ? "metas" : sectionPrefix ++ title)
+    }
   let partiteGoalTypeContext = xs =>
     xs->Emacs__Parser.Dictionary.partite(line =>
       switch markGoal(line) {
@@ -106,18 +120,22 @@ let parseGoalType: string => Dict.t<array<string>> = raw => {
       | None =>
         switch markHave(line) {
         | Some(v) => Some(v)
-        | None =>
-          switch markMetas(line) {
-          | Some(v) => Some(v)
-          | None => None
-          }
+        | None => markDivider(line)
         }
       }
     )
-  let removeDelimeter = xs =>
-    xs->Emacs__Parser.Dictionary.update("metas", Array.sliceToEnd(_, ~start=1))
+  // remove the divider in the first line of the context and of every section
+  let removeDelimeters = dict => {
+    dict
+    ->Dict.keysToArray
+    ->Array.filter(key => key == "metas" || key->String.startsWith(sectionPrefix))
+    ->Array.forEach(key =>
+      dict->Emacs__Parser.Dictionary.update(key, Array.sliceToEnd(_, ~start=1))->ignore
+    )
+    dict
+  }
   let lines = Parser.splitToLines(raw)
-  lines->partiteGoalTypeContext->removeDelimeter->partiteMetas
+  lines->partiteGoalTypeContext->removeDelimeters->partiteMetas
 }
 
 // convert entries in the dictionary to Items for rendering
@@ -160,6 +178,14 @@ let render: Dict.t<array<string>> => array<Item.t> = dictionary => {
       ->Array.map(output => Agda.Output.renderItem(output))
     | "warnings" => lines->Array.map(line => Item.warning(RichText.parse(line), None))
     | "errors" => lines->Array.map(line => Item.error(RichText.parse(line), None))
+    | key if key->String.startsWith(sectionPrefix) =>
+      let header = Item.Header(key->String.sliceToEnd(~start=String.length(sectionPrefix)))
+      let rows =
+        lines
+        ->aggregateLines
+        ->Array.filterMap(Agda.Expr.parse)
+        ->Array.map(expr => Item.Unlabeled(Agda.Expr.render(expr), None, None))
+      Array.concat([header], rows)
     | _ => []
     }
   )
