@@ -236,10 +236,10 @@ let parseAllGoalsWarnings = (title, body): Dict.t<array<string>> => {
       hasErrors
       /* Has both warnings or metas and errors */
         ? switch hasMetas || hasWarnings {
+          // Agda 2.7 renamed the divider "Errors" to "Error"
           | true =>
             line
-            ->String.slice(~start=5, ~end=11)
-            ->String.match(%re("/Errors/"))
+            ->String.match(%re("/^—{4} Errors? /"))
             ->Option.map(_ => "errors")
           /* Has only errors */
           | false => i === 0 ? Some("errors") : None
