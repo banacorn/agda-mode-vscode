@@ -317,6 +317,32 @@ when scope checking A`,
     Assert.deepStrictEqual(actual, expected)
   })
 
+  // #371: since Agda 2.7, each warning starts with its range followed by
+  // its severity and name, like `A.agda:7.10-11: warning: -W[no]UserWarning`.
+  it("should parse each warning with its severity after the range", () => {
+    let raw = `/path/to/agda/examples/A.agda:7.10-11: warning: -W[no]UserWarning
+FIRST_WARNING
+when scope checking A
+/path/to/agda/examples/A.agda:9.10-11: warning: -W[no]UserWarning
+SECOND_WARNING
+when scope checking B`
+    let actual = Emacs__Parser2.parseAllGoalsWarnings("*All Warnings*", raw)
+    let expected = Dict.fromArray([
+      (
+        "warnings",
+        [
+          `/path/to/agda/examples/A.agda:7.10-11: warning: -W[no]UserWarning
+FIRST_WARNING
+when scope checking A`,
+          `/path/to/agda/examples/A.agda:9.10-11: warning: -W[no]UserWarning
+SECOND_WARNING
+when scope checking B`,
+        ],
+      ),
+    ])->tempNormalize
+    Assert.deepStrictEqual(actual, expected)
+  })
+
   it("should parse goals that span multiple lines", () => {
     let raw = `?0
   : BoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBoolBool`
