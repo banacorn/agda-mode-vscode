@@ -318,6 +318,38 @@ when checking that the clause a has type _8`,
     ])->tempNormalize
     Assert.deepStrictEqual(actual, expected)
   })
+  // #371: since Agda 2.7, the divider before the warnings of an error is
+  // `———— Warnings ————…` instead of `———— Warning(s) ————…`.
+  it("should parse an error + warnings with the Warnings divider", () => {
+    let raw = `———— Error —————————————————————————————————————————————————
+/path/to/agda/examples/A.agda:10.1-11.16: error: [TerminationIssue]
+Termination checking failed for the following function:
+  loop
+———— Warnings ——————————————————————————————————————————————
+/path/to/agda/examples/A.agda:7.10-11: warning: -W[no]UserWarning
+MATRIX_WARNING
+when scope checking A`
+    let actual = Emacs__Parser2.parseError(raw)
+    let expected = Dict.fromArray([
+      (
+        "errors",
+        [
+          `/path/to/agda/examples/A.agda:10.1-11.16: error: [TerminationIssue]
+Termination checking failed for the following function:
+  loop`,
+        ],
+      ),
+      (
+        "warnings",
+        [
+          `/path/to/agda/examples/A.agda:7.10-11: warning: -W[no]UserWarning
+MATRIX_WARNING
+when scope checking A`,
+        ],
+      ),
+    ])->tempNormalize
+    Assert.deepStrictEqual(actual, expected)
+  })
   it("should parse an error + warnings", () => {
     let raw = `———— Error —————————————————————————————————————————————————
 /path/to/agda/examples/A.agda:15,1-2
