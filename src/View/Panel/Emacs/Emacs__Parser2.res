@@ -220,8 +220,8 @@ let parseAllGoalsWarnings = (title, body): Dict.t<array<string>> => {
     let markMetas = ((_, i)) => hasMetas && i === 0 ? Some("metas") : None
     let markWarnings = ((line, i)) =>
       hasWarnings
-        ? switch hasMetas {
-          /* Has both warnings and metas */
+        ? switch hasMetas || hasErrors {
+          /* Has both warnings and metas or errors */
           | true =>
             line
             ->String.slice(~start=5, ~end=13)
