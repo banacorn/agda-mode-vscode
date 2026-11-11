@@ -232,6 +232,29 @@
 				"description": "To distinguish between inductive and coinductive constructors"
 			}
 		],
+		"configurationDefaults": {
+			"[agda]": {
+				"editor.semanticHighlighting.enabled": true
+			},
+			"[lagda-markdown]": {
+				"editor.semanticHighlighting.enabled": true
+			},
+			"[lagda-typst]": {
+				"editor.semanticHighlighting.enabled": true
+			},
+			"[lagda-tex]": {
+				"editor.semanticHighlighting.enabled": true
+			},
+			"[lagda-rst]": {
+				"editor.semanticHighlighting.enabled": true
+			},
+			"[lagda-org]": {
+				"editor.semanticHighlighting.enabled": true
+			},
+			"[lagda-forester]": {
+				"editor.semanticHighlighting.enabled": true
+			}
+		},
 		"languages": [
 			{
 				"id": "agda",
