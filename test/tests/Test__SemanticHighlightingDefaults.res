@@ -34,4 +34,45 @@ describe("semantic highlighting defaults (#139)", () => {
       },
     )
   })
+
+  Async.it(
+    "honors an explicit Agda language override and restores the default when removed",
+    async () => {
+      let config = configurationForLanguage("editor", {languageId: "agda"})
+      // The runner uses a fresh temporary profile; always remove this override,
+      // including when the assertion fails, so it cannot affect other tests.
+      let failure = try {
+        await config->VSCode.WorkspaceConfiguration.updateGlobalSettings(
+          "semanticHighlighting.enabled",
+          false,
+          Some(true),
+        )
+        Assert.deepStrictEqual(
+          configurationForLanguage(
+            "editor",
+            {languageId: "agda"},
+          )->VSCode.WorkspaceConfiguration.get("semanticHighlighting.enabled"),
+          Some(false),
+        )
+        None
+      } catch {
+      | exn => Some(exn)
+      }
+      await config->VSCode.WorkspaceConfiguration.updateGlobalSettings(
+        "semanticHighlighting.enabled",
+        None,
+        Some(true),
+      )
+      switch failure {
+      | Some(exn) => raise(exn)
+      | None => ()
+      }
+      Assert.deepStrictEqual(
+        configurationForLanguage("editor", {languageId: "agda"})->VSCode.WorkspaceConfiguration.get(
+          "semanticHighlighting.enabled",
+        ),
+        Some(true),
+      )
+    },
+  )
 })
