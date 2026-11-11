@@ -21,4 +21,17 @@ describe("semantic highlighting defaults (#139)", () => {
       },
     )
   })
+
+  it("leaves other languages' semantic highlighting defaults alone", () => {
+    ["javascript", "markdown", "typst", "org", "forester"]->Array.forEach(
+      languageId => {
+        let actual =
+          configurationForLanguage(
+            "editor",
+            {languageId: languageId},
+          )->VSCode.WorkspaceConfiguration.get("semanticHighlighting.enabled")
+        Assert.deepStrictEqual(actual, Some("configuredByTheme"), ~message=languageId)
+      },
+    )
+  })
 })
