@@ -94,6 +94,16 @@ Cancel `agdaMode.inputMethod.enable` in the settings to disable the input method
 
 ## Highlighting
 
+Agda and literate Agda enable semantic highlighting by default, including with
+themes that do not enable it themselves. To turn it off, use a language-specific
+setting (replace `agda` with the relevant literate language ID when needed):
+
+```json
+"[agda]": {
+    "editor.semanticHighlighting.enabled": false
+}
+```
+
 ### Names
 
 Names are colored with VS Code's semantic tokens, so your color theme decides how they look.
