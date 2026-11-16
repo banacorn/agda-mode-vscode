@@ -1377,9 +1377,11 @@ describe("Connection UI", () => {
         module MockErrorPlatform = {
           let determinePlatform = () =>
             Promise.resolve(
-              Error(
-                %raw(`{ os: "unknown", dist: "unknown", codename: "unknown", release: "unknown" }`),
-              ),
+              Error({
+                Connection__Download__Platform.os: "unknown",
+                arch: "unknown",
+                osRelease: None,
+              }),
             )
           let findCommand = (_, ~timeout as _=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))

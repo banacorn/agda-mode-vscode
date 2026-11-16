@@ -1,8 +1,6 @@
 // module for determining the which OS the user is using
-// see https://github.com/retrohacker/getos for more
 
 // Platforms with prebuilt executables for download
-type raw = {"os": string, "dist": string, "codename": string, "release": string}
 type t = Windows | Ubuntu | MacOS_Arm | MacOS_Intel | Web
 
 // the fields of /etc/os-release we use, see https://www.freedesktop.org/software/systemd/man/latest/os-release.html
@@ -44,35 +42,49 @@ let parseOsRelease = (text: string): osRelease => {
   {id: fields->Dict.get("ID"), versionId: fields->Dict.get("VERSION_ID")}
 }
 
-// binding to the getos module
-@module
-external getos: (('e, raw) => unit) => unit = "getos"
+// facts about the host that decide which prebuilt executable it can run
+type host = {
+  os: string, // as in `NodeJs.Os.platform()`
+  arch: string, // as in `NodeJs.Os.arch()`
+  osRelease: option<osRelease>, // from /etc/os-release, None outside Linux or when it cannot be read
+}
 
-// determine the OS the user is using, returns None if the OS is not supported for downloading prebuilt executables
-let determine = (): promise<result<t, raw>> =>
-  Promise.make((resolve, _) => {
-    getos((error, raw) => {
-      switch Js.Nullable.toOption(error) {
-      | Some(_) => resolve(Error(raw))
-      | None =>
-        switch NodeJs.Os.platform() {
-        | "darwin" =>
-          switch NodeJs.Os.arch() {
-          | "x64" => resolve(Ok(MacOS_Intel))
-          | "arm64" => resolve(Ok(MacOS_Arm))
-          | _ => resolve(Error(raw))
-          }
-        | "linux" =>
-          switch raw["dist"] {
-          | "Ubuntu" => resolve(Ok(Ubuntu))
-          | _ => resolve(Error(raw))
-          }
-        | "win32" => resolve(Ok(Windows))
-        | _ => resolve(Error(raw))
-        }
-      }
-    })
-  })
+// gather the host facts, reading /etc/os-release with `readFile` only on Linux
+let readHost = (~os: string, ~arch: string, ~readFile: string => option<string>): host => {
+  os,
+  arch,
+  osRelease: os == "linux" ? readFile("/etc/os-release")->Option.map(parseOsRelease) : None,
+}
+
+// decide the platform from the host facts, Error if no prebuilt executable is available for it
+let fromHost = (host: host): result<t, host> =>
+  switch host.os {
+  | "darwin" =>
+    switch host.arch {
+    | "x64" => Ok(MacOS_Intel)
+    | "arm64" => Ok(MacOS_Arm)
+    | _ => Error(host)
+    }
+  | "linux" =>
+    switch host.osRelease {
+    | Some({id: Some("ubuntu")}) => Ok(Ubuntu)
+    | _ => Error(host)
+    }
+  | "win32" => Ok(Windows)
+  | _ => Error(host)
+  }
+
+// read a text file, None when it cannot be read
+let readTextFile = (path: string): option<string> =>
+  try {
+    Some(NodeJs.Fs.readFileSync(path)->NodeJs.Buffer.toString)
+  } catch {
+  | _ => None
+  }
+
+// determine the OS the user is using, returns Error if the OS is not supported for downloading prebuilt executables
+let determine = async (): result<t, host> =>
+  fromHost(readHost(~os=NodeJs.Os.platform(), ~arch=NodeJs.Os.arch(), ~readFile=readTextFile))
 
 let toAssetName = platform =>
   switch platform {
