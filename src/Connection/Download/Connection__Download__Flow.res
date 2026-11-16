@@ -9,9 +9,18 @@ let sourceForSelection = async (
 ): result<Connection__Download__Source.t, Connection__Download__Error.t> => {
   module PlatformOps = unpack(platformDeps)
 
-  switch await PlatformOps.determinePlatform() {
-  | Error(_) => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
-  | Ok(downloadPlatform) =>
+  // a host without a native ALS can still select the WASM ALS, whose assets `Web` resolves
+  let downloadPlatform = switch await PlatformOps.determinePlatform() {
+  | Ok(downloadPlatform) => Some(downloadPlatform)
+  | Error(_) =>
+    platform == Connection__Download__DownloadArtifact.Platform.Wasm
+      ? Some(Connection__Download__Platform.Web)
+      : None
+  }
+
+  switch downloadPlatform {
+  | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+  | Some(downloadPlatform) =>
     let platformOk = switch platform {
     | Connection__Download__DownloadArtifact.Platform.Wasm => true
     | nativePlatform =>

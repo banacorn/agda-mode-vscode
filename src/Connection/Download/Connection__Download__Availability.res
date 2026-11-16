@@ -87,8 +87,8 @@ let getAll = async (
   let unavailable = (~platform) => unavailableSourceItem(~downloadUnavailable, ~platform)
 
   let allItems = switch await PlatformOps.determinePlatform() {
-  | Error(_) => [unavailable(~platform=Connection__Download__DownloadArtifact.Platform.Wasm)]
-  | Ok(Connection__Download__Platform.Web) =>
+  // a host without a native ALS lists the WASM ALS, like the web
+  | Error(_) | Ok(Connection__Download__Platform.Web) =>
     let resolver = PlatformOps.resolveDownloadChannel(channel, true)
     switch await resolver(memento, globalStorageUri, Connection__Download__Platform.Web) {
     | Error(_) => [unavailable(~platform=Connection__Download__DownloadArtifact.Platform.Wasm)]
