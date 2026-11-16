@@ -517,19 +517,23 @@ module Module: Module = {
       Error(error)
     }
 
-    switch await PlatformOps.determinePlatform() {
-    | Error(platform) => failDownloadFallback(Error.Establish.fromDownloadError(PlatformNotSupported(platform)))
-    | Ok(platform) =>
+    // A desktop host without a native ALS still gets the WASM ALS:
+    // `Web` selects the WASM assets, `noNativeHost` keeps the rest desktop-like
+    let (platform, noNativeHost) = switch await PlatformOps.determinePlatform() {
+    | Ok(platform) => (platform, None)
+    | Error(host) => (Connection__Download__Platform.Web, Some(host))
+    }
+    let isWeb = Option.isNone(noNativeHost) && platform == Connection__Download__Platform.Web
+    {
       // On web, always download (no alternatives exist)
       // On desktop, respect user's config
-      let policy = switch platform {
-      | Connection__Download__Platform.Web =>
-          Config.Connection.DownloadPolicy.Yes
-      | _ =>
-          switch Config.Connection.DownloadPolicy.get() {
-          | Undecided => await PlatformOps.askUserAboutDownloadPolicy()
-          | policy => policy
-          }
+      let policy = if isWeb {
+        Config.Connection.DownloadPolicy.Yes
+      } else {
+        switch Config.Connection.DownloadPolicy.get() {
+        | Undecided => await PlatformOps.askUserAboutDownloadPolicy()
+        | policy => policy
+        }
       }
 
       Util.log("[ debug ] fromDownloads: policy = " ++ Config.Connection.DownloadPolicy.toString(policy), "")
@@ -551,9 +555,9 @@ module Module: Module = {
         await Config.Connection.DownloadPolicy.set(Yes)
         // Use the selected channel from memento, defaulting to DevALS.
         // Stale memento values are clamped to DevALS.
-        let channel = switch platform {
-        | Connection__Download__Platform.Web => Connection__Download__Channel.DevALS
-        | _ =>
+        let channel = if isWeb {
+          Connection__Download__Channel.DevALS
+        } else {
           switch Memento.SelectedChannel.get(memento) {
           | Some(s) =>
             Connection__Download__Channel.fromString(s)->Option.getOr(
@@ -648,7 +652,16 @@ module Module: Module = {
             platform,
           ) {
           | Error(resolveError) =>
-            Error(Error.Establish.fromDownloadError(resolveError))
+            // for now, a host without a native ALS reports why it has no native ALS
+            // whatever kept the WASM ALS from resolving
+            Error(
+              Error.Establish.fromDownloadError(
+                switch noNativeHost {
+                | Some(host) => Connection__Download__Error.PlatformNotSupported(host)
+                | None => resolveError
+                },
+              ),
+            )
           | Ok(Connection__Download__Source.FromGitHub(_, _) as source) =>
             rememberWasmFallbackFromSource(source)
             switch await tryDownloadSource(source) {
