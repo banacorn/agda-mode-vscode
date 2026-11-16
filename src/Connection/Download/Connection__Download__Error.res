@@ -1,6 +1,6 @@
 type t =
   | OptedNotToDownload
-  | PlatformNotSupported(Connection__Download__Platform.raw)
+  | PlatformNotSupported(Connection__Download__Platform.host)
   | CannotFetchALSReleases(Connection__Download__GitHub.Error.t)
   | CannotDownloadALS(Connection__Download__GitHub.Error.t)
   | CannotFindCompatibleALSRelease
@@ -9,11 +9,13 @@ type t =
 let toString = x =>
   switch x {
   | OptedNotToDownload => "Opted not to download the Agda Language Server"
-  | PlatformNotSupported(platform) =>
+  | PlatformNotSupported(host) =>
     "The platform `" ++
-    platform["os"] ++
+    host.os ++
     "/" ++
-    platform["dist"] ++ "` is not supported for downloading the Agda Language Server.\n"
+    host.osRelease
+    ->Option.flatMap(osRelease => osRelease.id)
+    ->Option.getOr("unknown") ++ "` is not supported for downloading the Agda Language Server.\n"
   | CannotFetchALSReleases(e) =>
     "Cannot fetch releases of Agda Language Server: " ++
     Connection__Download__GitHub.Error.toString(e)

@@ -5,7 +5,7 @@
 module type PlatformOps = {
   // Platform detection
   let determinePlatform: unit => promise<
-    result<Connection__Download__Platform.t, Connection__Download__Platform.raw>,
+    result<Connection__Download__Platform.t, Connection__Download__Platform.host>,
   >
 
   // Command/executable searching

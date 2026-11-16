@@ -71,7 +71,6 @@ module.exports = (env, argv) => {
                     'node:crypto': false,
                     // Desktop-only packages
                     'unzipper': false,
-                    'getos': false,
                     'untildify': path.resolve(__dirname, 'untildify-shim.js'),
                 },
                 fallback: {

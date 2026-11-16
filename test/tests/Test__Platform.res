@@ -155,6 +155,97 @@ VERSION_ID="1.0 \\"beta\\""
     )
   })
 
+  describe("readHost", () => {
+    open Connection__Download__Platform
+
+    it("reads /etc/os-release on Linux", () => {
+      let readPaths = []
+      let readFile = path => {
+        readPaths->Array.push(path)
+        Some("ID=ubuntu\nVERSION_ID=\"24.04\"\n")
+      }
+      Assert.deepStrictEqual(
+        (readHost(~os="linux", ~arch="x64", ~readFile), readPaths),
+        (
+          {
+            os: "linux",
+            arch: "x64",
+            osRelease: Some({id: Some("ubuntu"), versionId: Some("24.04")}),
+          },
+          ["/etc/os-release"],
+        ),
+      )
+    })
+
+    it("has no os-release on Linux when the file cannot be read", () =>
+      Assert.deepStrictEqual(
+        readHost(~os="linux", ~arch="x64", ~readFile=_ => None),
+        {os: "linux", arch: "x64", osRelease: None},
+      )
+    )
+
+    it("reads no file outside Linux", () => {
+      let readPaths = []
+      let readFile = path => {
+        readPaths->Array.push(path)
+        None
+      }
+      Assert.deepStrictEqual(
+        (
+          readHost(~os="darwin", ~arch="arm64", ~readFile),
+          readHost(~os="win32", ~arch="x64", ~readFile),
+          readPaths,
+        ),
+        (
+          {os: "darwin", arch: "arm64", osRelease: None},
+          {os: "win32", arch: "x64", osRelease: None},
+          [],
+        ),
+      )
+    })
+  })
+
+  describe("fromHost", () => {
+    open Connection__Download__Platform
+
+    let linux = (~arch="x64", osRelease) => {os: "linux", arch, osRelease}
+    let ubuntu2404 = Some({id: Some("ubuntu"), versionId: Some("24.04")})
+    let nixOS2411 = Some({id: Some("nixos"), versionId: Some("24.11")})
+
+    it("darwin on x64 is MacOS_Intel", () =>
+      Assert.deepStrictEqual(
+        fromHost({os: "darwin", arch: "x64", osRelease: None}),
+        Ok(MacOS_Intel),
+      )
+    )
+    it("darwin on arm64 is MacOS_Arm", () =>
+      Assert.deepStrictEqual(
+        fromHost({os: "darwin", arch: "arm64", osRelease: None}),
+        Ok(MacOS_Arm),
+      )
+    )
+    it("darwin on another arch is an error", () => {
+      let host = {os: "darwin", arch: "ppc64", osRelease: None}
+      Assert.deepStrictEqual(fromHost(host), Error(host))
+    })
+    it("win32 is Windows", () =>
+      Assert.deepStrictEqual(fromHost({os: "win32", arch: "x64", osRelease: None}), Ok(Windows))
+    )
+    it("Ubuntu 24.04 on x64 is Ubuntu", () =>
+      Assert.deepStrictEqual(fromHost(linux(ubuntu2404)), Ok(Ubuntu))
+    )
+    it("NixOS is an error", () =>
+      Assert.deepStrictEqual(fromHost(linux(nixOS2411)), Error(linux(nixOS2411)))
+    )
+    it("Linux without os-release is an error", () =>
+      Assert.deepStrictEqual(fromHost(linux(None)), Error(linux(None)))
+    )
+    it("another OS is an error", () => {
+      let host = {os: "freebsd", arch: "x64", osRelease: None}
+      Assert.deepStrictEqual(fromHost(host), Error(host))
+    })
+  })
+
   describe("Mock Platform for Testing", () => {
     Async.it(
       "should allow custom mock platforms to be created for testing",

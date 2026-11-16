@@ -97,11 +97,10 @@ describe("Connection Downloads", () => {
     Async.it(
       "should throw the `PlatformNotSupported` error when the platform is not supported",
       async () => {
-        let platform = {
-          "os": "non-existent-os",
-          "dist": "non-existent-dist",
-          "codename": "non-existent-codename",
-          "release": "non-existent-release",
+        let platform: Connection__Download__Platform.host = {
+          os: "non-existent-os",
+          arch: "non-existent-arch",
+          osRelease: None,
         }
 
         let mockPlatformDeps = Mock.Platform.makeWithPlatformError(platform)
@@ -697,11 +696,10 @@ describe("Connection Downloads", () => {
         let logChannel = Chan.make()
         let listener = Log.collect(logChannel)
 
-        let platform = {
-          "os": "unsupported-os",
-          "dist": "unsupported-dist",
-          "codename": "unsupported-codename",
-          "release": "unsupported-release",
+        let platform: Connection__Download__Platform.host = {
+          os: "unsupported-os",
+          arch: "unsupported-arch",
+          osRelease: None,
         }
 
         let mockPlatformDeps = Mock.Platform.makeWithPlatformError(platform)
