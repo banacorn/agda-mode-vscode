@@ -1164,6 +1164,73 @@ describe("Download", () => {
         Assert.fail("expected Ok source, got " ++ Connection__Download__Error.toString(error))
       }
 
+    describe("on a host without a native ALS", () => {
+      let wasmAsset = makeAsset("als-dev-Agda-2.8.0-wasm.wasm")
+      let release = makeRelease("dev", [makeAsset("als-dev-Agda-2.8.0-ubuntu.zip"), wasmAsset])
+      let wasmSource = makeGitHubSource(
+        Connection__Download__Channel.DevALS,
+        release,
+        wasmAsset,
+        "dev-als",
+      )
+
+      // a desktop host rejected for the native ALS, whose resolver gives the WASM asset for `Web`
+      let platform: Platform.t = {
+        module MockNoNativePlatform = {
+          let determinePlatform = async () => Error({
+            Connection__Download__Platform.os: "linux",
+            arch: "x64",
+            osRelease: Some({id: Some("ubuntu"), versionId: Some("22.04")}),
+          })
+          let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
+          let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
+          let resolveDownloadChannel = (_channel, _useCache) =>
+            async (_memento, _globalStorageUri, downloadPlatform) =>
+              downloadPlatform == Connection__Download__Platform.Web
+                ? Ok(wasmSource)
+                : Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+          let download = (_globalStorageUri, _, ~trace as _trace=Connection__Download__Trace.noop) =>
+            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+        }
+        module(MockNoNativePlatform)
+      }
+
+      Async.it("Availability.getAll should list the release's WASM ALS", async () => {
+        let downloads = await Connection__Download__Availability.getAll(
+          Memento.make(None),
+          VSCode.Uri.file("/tmp/agda-availability-no-native"),
+          platform,
+          [],
+          ~channel=Connection__Download__Channel.DevALS,
+          ~downloadUnavailable="Not available for this platform",
+        )
+        Assert.deepStrictEqual(
+          downloads,
+          [
+            {
+              Connection__Download__Availability.downloaded: false,
+              versionString: "Agda v2.8.0 Language Server (dev build)",
+              platform: Connection__Download__DownloadArtifact.Platform.Wasm,
+            },
+          ],
+        )
+      })
+
+      Async.it("sourceForSelection should return the selected WASM ALS", async () => {
+        let result = await Connection__Download__Flow.sourceForSelection(
+          Memento.make(None),
+          VSCode.Uri.file("/tmp/agda-flow-no-native"),
+          platform,
+          ~channel=Connection__Download__Channel.DevALS,
+          ~platform=Connection__Download__DownloadArtifact.Platform.Wasm,
+          ~versionString="Agda v2.8.0 Language Server (dev build)",
+        )
+        Assert.deepStrictEqual(result, Ok(wasmSource))
+      })
+    })
+
     Async.it(
       "should return the matching DevALS native source for the selected version string",
       async () => {
