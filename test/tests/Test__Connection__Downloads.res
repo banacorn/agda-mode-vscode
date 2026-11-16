@@ -95,8 +95,9 @@ describe("Connection Downloads", () => {
     )
 
     Async.it(
-      "should throw the `PlatformNotSupported` error when the platform is not supported",
+      "should throw the `PlatformNotSupported` error when the platform is not supported and has no WASM ALS",
       async () => {
+        await Config.Connection.DownloadPolicy.set(Yes)
         let platform: Connection__Download__Platform.host = {
           os: "non-existent-os",
           arch: "non-existent-arch",
@@ -840,6 +841,7 @@ describe("Connection Downloads", () => {
     Async.it(
       "should handle platform not supported error with logging",
       async () => {
+        await Config.Connection.DownloadPolicy.set(Yes)
         let logChannel = Chan.make()
         let listener = Log.collect(logChannel)
 
