@@ -234,6 +234,20 @@ VERSION_ID="1.0 \\"beta\\""
     it("Ubuntu 24.04 on x64 is Ubuntu", () =>
       Assert.deepStrictEqual(fromHost(linux(ubuntu2404)), Ok(Ubuntu))
     )
+    it("Ubuntu 24.04 on arm64 is an error", () =>
+      Assert.deepStrictEqual(
+        fromHost(linux(~arch="arm64", ubuntu2404)),
+        Error(linux(~arch="arm64", ubuntu2404)),
+      )
+    )
+    it("Ubuntu 22.04 on x64 is an error", () => {
+      let ubuntu2204 = Some({id: Some("ubuntu"), versionId: Some("22.04")})
+      Assert.deepStrictEqual(fromHost(linux(ubuntu2204)), Error(linux(ubuntu2204)))
+    })
+    it("Ubuntu without VERSION_ID is an error", () => {
+      let ubuntuNoVersion = Some({id: Some("ubuntu"), versionId: None})
+      Assert.deepStrictEqual(fromHost(linux(ubuntuNoVersion)), Error(linux(ubuntuNoVersion)))
+    })
     it("NixOS is an error", () =>
       Assert.deepStrictEqual(fromHost(linux(nixOS2411)), Error(linux(nixOS2411)))
     )
