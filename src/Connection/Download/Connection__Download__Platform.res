@@ -56,6 +56,17 @@ let readHost = (~os: string, ~arch: string, ~readFile: string => option<string>)
   osRelease: os == "linux" ? readFile("/etc/os-release")->Option.map(parseOsRelease) : None,
 }
 
+// whether a VERSION_ID like "24.04" is 24.04 or later, false when it is not a version
+let isUbuntu2404OrLater = (versionId: string) =>
+  switch String.match(versionId, %re("/^(\d+)\.(\d+)$/")) {
+  | Some([_, Some(major), Some(minor)]) =>
+    switch (Int.fromString(major), Int.fromString(minor)) {
+    | (Some(major), Some(minor)) => major > 24 || (major == 24 && minor >= 4)
+    | _ => false
+    }
+  | _ => false
+  }
+
 // decide the platform from the host facts, Error if no prebuilt executable is available for it
 let fromHost = (host: host): result<t, host> =>
   switch host.os {
@@ -66,8 +77,11 @@ let fromHost = (host: host): result<t, host> =>
     | _ => Error(host)
     }
   | "linux" =>
-    switch host.osRelease {
-    | Some({id: Some("ubuntu")}) => Ok(Ubuntu)
+    // the ALS Ubuntu binary is built for x86_64 on Ubuntu 24.04
+    switch (host.osRelease, host.arch) {
+    | (Some({id: Some("ubuntu"), versionId: Some(versionId)}), "x64")
+      if isUbuntu2404OrLater(versionId) =>
+      Ok(Ubuntu)
     | _ => Error(host)
     }
   | "win32" => Ok(Windows)

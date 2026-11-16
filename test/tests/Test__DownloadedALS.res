@@ -5,7 +5,7 @@ open Test__Util
 // With no local Agda, Load downloads ALS from the channel in
 // AGDA_TEST_DOWNLOADED_ALS ("dev" or "latest"), and must connect to the
 // native ALS, not fall back to WASM. Skipped when the variable is unset, since
-// it downloads from GitHub. Run it with AGDA_TEST_EXTENSION_HOST_PATH, so the
+// it downloads from GitHub, and on hosts with no native ALS. Run it with AGDA_TEST_EXTENSION_HOST_PATH, so the
 // downloaded ALS cannot borrow runtime libraries from developer tools.
 let channel = switch NodeJs.Process.process
 ->NodeJs.Process.env
@@ -15,15 +15,6 @@ let channel = switch NodeJs.Process.process
 | Some("latest") => Some("latest")
 | Some(value) =>
   raise(Invalid_argument(`AGDA_TEST_DOWNLOADED_ALS must be "dev" or "latest", got "${value}"`))
-}
-
-// the asset tag of the native ALS for this host, as in its release asset names
-let platformTag = switch (NodeJs.Os.platform(), NodeJs.Os.arch()) {
-| ("win32", _) => "windows"
-| ("linux", _) => "ubuntu"
-| ("darwin", "arm64") => "macos-arm64"
-| ("darwin", _) => "macos-x64"
-| (platform, arch) => raise(Failure(`no native ALS for ${platform} ${arch}`))
 }
 
 // the extension's global storage, under the --user-data-dir that
@@ -42,8 +33,8 @@ let directoryNames = async uri =>
   | Error(_) => []
   }
 
-// the path of every native ALS downloaded from the release of `channel`
-let downloadedNativePaths = async channel => {
+// the path of every native ALS with asset tag `platformTag` downloaded from the release of `channel`
+let downloadedNativePaths = async (channel, platformTag) => {
   let releasesUri = VSCode.Uri.joinPath(globalStorageUri(), ["releases"])
   let tags = (await directoryNames(releasesUri))->Array.filter(tag =>
     channel == "dev" ? tag == "dev" : tag != "dev"
@@ -90,9 +81,14 @@ describe("issue #87: Load through the downloaded ALS", () => {
   })
 
   Async.it("connects to the native ALS and finishes Load with no errors", async () => {
-    switch channel {
-    | None => This.skip()
-    | Some(channel) =>
+    // the asset tag of the native ALS for this host, None when it has none
+    let platformTag = switch await Connection__Download__Platform.determine() {
+    | Ok(platform) => Some(Connection__Download__Platform.toAssetName(platform))
+    | Error(_) => None
+    }
+    switch (channel, platformTag) {
+    | (None, _) | (_, None) => This.skip()
+    | (Some(channel), Some(platformTag)) =>
       // activated directly, not through `activateExtension`, which would fix
       // the preferred candidate of every test file that follows to None
       let exports: Main.activationExports = switch VSCode.Extensions.getExtension(
@@ -156,7 +152,7 @@ describe("issue #87: Load through the downloaded ALS", () => {
       stopListening()
 
       let header = state.panelCache.display->Option.map(((header, _body)) => header)
-      let expected = (await downloadedNativePaths(channel))->Array.map(path => (
+      let expected = (await downloadedNativePaths(channel, platformTag))->Array.map(path => (
         path,
         Log.Connection.EstablishFlow.ALS,
       ))
