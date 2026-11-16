@@ -119,6 +119,153 @@ describe("Connection Downloads", () => {
       },
     )
 
+    describe("on a host without a native ALS", () => {
+      let ubuntu2204: Connection__Download__Platform.host = {
+        os: "linux",
+        arch: "x64",
+        osRelease: Some({id: Some("ubuntu"), versionId: Some("22.04")}),
+      }
+      let wasmSource = Connection__Download__Source.FromURL(
+        Connection__Download__Channel.LatestALS,
+        "https://example.invalid/als.wasm",
+        "latest-als",
+      )
+
+      Async.it(
+        "should download the selected channel's WASM ALS when the policy is `Yes`",
+        async () => {
+          await Config.Connection.DownloadPolicy.set(Yes)
+          let resolved = []
+          let downloaded = []
+
+          module MockPlatform = {
+            let determinePlatform = async () => Error(ubuntu2204)
+            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+            let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
+            let resolveDownloadChannel = (channel, _useCache) =>
+              async (_memento, _globalStorageUri, platform) => {
+                resolved->Array.push((channel, platform))
+                Ok(wasmSource)
+              }
+            let download = (
+              _globalStorageUri,
+              source,
+              ~trace as _=Connection__Download__Trace.noop,
+            ) => {
+              downloaded->Array.push(source)
+              Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+            }
+            let findCommand = (_command, ~timeout as _timeout=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+
+          let memento = Memento.make(None)
+          await Memento.SelectedChannel.set(
+            memento,
+            Connection__Download__Channel.toString(LatestALS),
+          )
+          await withStorage(
+            async globalStorageUri => {
+              let _ = await Connection.fromDownloads(module(MockPlatform), memento, globalStorageUri)
+              Assert.deepStrictEqual(
+                (resolved, downloaded),
+                (
+                  [(Connection__Download__Channel.LatestALS, Connection__Download__Platform.Web)],
+                  [wasmSource],
+                ),
+              )
+            },
+          )
+        },
+      )
+
+      Async.it(
+        "should ask about the download policy and respect a decline",
+        async () => {
+          await Config.Connection.DownloadPolicy.set(Undecided)
+          let asked = ref(0)
+
+          module MockPlatform = {
+            let determinePlatform = async () => Error(ubuntu2204)
+            let askUserAboutDownloadPolicy = async () => {
+              asked := asked.contents + 1
+              Config.Connection.DownloadPolicy.No
+            }
+            let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
+            let resolveDownloadChannel = (_channel, _useCache) =>
+              async (_memento, _globalStorageUri, _platform) => Ok(wasmSource)
+            let download = (
+              _globalStorageUri,
+              _source,
+              ~trace as _=Connection__Download__Trace.noop,
+            ) => Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+            let findCommand = (_command, ~timeout as _timeout=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+
+          await withStorage(
+            async globalStorageUri => {
+              let result = await Connection.fromDownloads(
+                module(MockPlatform),
+                Memento.make(None),
+                globalStorageUri,
+              )
+              Assert.deepStrictEqual(
+                (result, asked.contents),
+                (Error(Connection.Error.Establish.fromDownloadError(OptedNotToDownload)), 1),
+              )
+            },
+          )
+        },
+      )
+
+      Async.it(
+        "should use an already downloaded WASM ALS without downloading",
+        async () => {
+          await Config.Connection.DownloadPolicy.set(Yes)
+          let downloads = ref(0)
+
+          module MockPlatform = {
+            let determinePlatform = async () => Error(ubuntu2204)
+            let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+            let alreadyDownloaded = _globalStorageUri =>
+              Promise.resolve(Some("/non-existent/als.wasm"))
+            let resolveDownloadChannel = (_channel, _useCache) =>
+              async (_memento, _globalStorageUri, _platform) => Ok(wasmSource)
+            let download = (
+              _globalStorageUri,
+              _source,
+              ~trace as _=Connection__Download__Trace.noop,
+            ) => {
+              downloads := downloads.contents + 1
+              Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+            }
+            let findCommand = (_command, ~timeout as _timeout=1000) =>
+              Promise.resolve(Error(Connection__Command.Error.NotFound))
+          }
+
+          await withStorage(
+            async globalStorageUri => {
+              let result = await Connection.fromDownloads(
+                module(MockPlatform),
+                Memento.make(None),
+                globalStorageUri,
+              )
+              // the cached WASM ALS was tried: the download step succeeded and nothing was downloaded
+              let downloadStatus = switch result {
+              | Ok(_) => None
+              | Error(error) => Some(error.download)
+              }
+              Assert.deepStrictEqual(
+                (downloadStatus, downloads.contents),
+                (Some(Connection.Error.Establish.Succeeded), 0),
+              )
+            },
+          )
+        },
+      )
+    })
+
     Async.it(
       "should throw the `NoDownloadALS` error when the initial download policy is `No`",
       async () => {
