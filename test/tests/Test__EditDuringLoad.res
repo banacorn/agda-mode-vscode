@@ -646,9 +646,12 @@ describe("issue #264: overlapping loads", () => {
   let withLF = text => text->String.replaceAll("\r\n", "\n")
   Async.afterEach(async () => {
     await Registry.removeAndDestroyAll()
-    let _ = await fixtures
-    ->Array.map(((filename, content)) => File.write(Path.asset(filename), content))
-    ->Promise.all
+    // One at a time: a second editor opened in the same group cancels the
+    // first, and `showTextDocument` then throws "Could NOT open editor".
+    for i in 0 to Array.length(fixtures) - 1 {
+      let (filename, content) = fixtures->Array.getUnsafe(i)
+      await File.write(Path.asset(filename), content)
+    }
   })
 
   // Both tests that split Issue264Overlap.agda twice end with the same clause and goal.
