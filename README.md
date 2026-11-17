@@ -6,6 +6,8 @@ If you have [Agda](https://agda.readthedocs.io/en/latest/getting-started/install
 
 It's okay if you don't have Agda installed, we can also download and install [Agda Language Server](https://github.com/agda/agda-language-server) for you on Windows, macOS, or Ubuntu.
 
+On Linux, the native Agda Language Server is only offered on Ubuntu 24.04 or later on x86_64. Other Linux systems get the WASM build instead, or you can add a local Agda or ALS to `agdaMode.connection.paths`.
+
 You can install multiple versions of Agda or ALS by adding more paths to `agdaMode.connection.paths` in the settings, and switch between them with <kbd>C-c</kbd> <kbd>C-r</kbd>.
 
 ### Extension Activation
