@@ -20,7 +20,12 @@ module Web: Platform.PlatformOps = {
     switch channel {
     | LatestALS => {
         // Web doesn't support LatestALS (native binaries)
-        Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+        Error(
+          Connection__Download__Error.NoMatchingAsset(
+            Connection__Download__Channel.toString(LatestALS),
+            Connection__Download__Platform.Web,
+          ),
+        )
       }
     | DevALS => {
         Ok(Connection__Download__Source.hardcodedALSWasmFromNPM)

@@ -501,11 +501,11 @@ describe("Download", () => {
                   devDescriptor,
                 ),
               )
-            | _ => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+            | _ => Error(Connection__Download__Error.NoMatchingAsset("latest", Connection__Download__Platform.MacOS_Arm))
             }
           )
           let download = (_globalStorageUri, _, ~trace as _trace=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Mock.Platform.downloadFailure))
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
         }
@@ -702,14 +702,14 @@ describe("Download", () => {
                         descriptor,
                       )
                     )
-                  | _ => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+                  | _ => Error(Connection__Download__Error.NoMatchingAsset("latest", Connection__Download__Platform.MacOS_Arm))
                   }
               let download = (
                 _globalStorageUri,
                 _,
                 ~trace as _trace=Connection__Download__Trace.noop,
               ) =>
-                Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+                Promise.resolve(Error(Mock.Platform.downloadFailure))
               let findCommand = (_command, ~timeout as _timeout=1000) =>
                 Promise.resolve(Error(Connection__Command.Error.NotFound))
             }
@@ -756,7 +756,7 @@ describe("Download", () => {
                 _,
                 ~trace as _trace=Connection__Download__Trace.noop,
               ) =>
-                Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+                Promise.resolve(Error(Mock.Platform.downloadFailure))
               let findCommand = (_command, ~timeout as _timeout=1000) =>
                 Promise.resolve(Error(Connection__Command.Error.NotFound))
             }
@@ -1052,14 +1052,14 @@ describe("Download", () => {
                         descriptor,
                       )
                     )
-                  | _ => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+                  | _ => Error(Connection__Download__Error.NoDevRelease)
                   }
               let download = (
                 _globalStorageUri,
                 _,
                 ~trace as _trace=Connection__Download__Trace.noop,
               ) =>
-                Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+                Promise.resolve(Error(Mock.Platform.downloadFailure))
               let findCommand = (_command, ~timeout as _timeout=1000) =>
                 Promise.resolve(Error(Connection__Command.Error.NotFound))
             }
@@ -1146,7 +1146,7 @@ describe("Download", () => {
         let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
         let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_channel => Ok(resolvedSource))
         let download = (_globalStorageUri, _, ~trace as _trace=Connection__Download__Trace.noop) =>
-          Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+          Promise.resolve(Error(Mock.Platform.downloadFailure))
         let findCommand = (_command, ~timeout as _timeout=1000) =>
           Promise.resolve(Error(Connection__Command.Error.NotFound))
       }
@@ -1188,9 +1188,9 @@ describe("Download", () => {
             async (_memento, _globalStorageUri, downloadPlatform) =>
               downloadPlatform == Connection__Download__Platform.Web
                 ? Ok(wasmSource)
-                : Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+                : Error(Connection__Download__Error.NoMatchingAsset("dev", downloadPlatform))
           let download = (_globalStorageUri, _, ~trace as _trace=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Mock.Platform.downloadFailure))
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
         }
@@ -1368,7 +1368,7 @@ describe("Download", () => {
       },
     )
 
-    Async.it("should return CannotFindCompatibleALSRelease when no source matches", async () => {
+    Async.it("should return NoMatchingSelection when no source matches", async () => {
       let nativeAsset = makeAsset("als-dev-Agda-2.8.0-macos-arm64.zip")
       let release = makeRelease("dev", [nativeAsset])
       let platform = makePlatform(
@@ -1385,7 +1385,15 @@ describe("Download", () => {
         ~versionString="Agda v9.9.9 Language Server (dev build)",
       )
 
-      Assert.deepStrictEqual(result, Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+      Assert.deepStrictEqual(
+        result,
+        Error(
+          Connection__Download__Error.NoMatchingSelection(
+            "Agda v9.9.9 Language Server (dev build)",
+            "dev",
+          ),
+        ),
+      )
     })
 
     Async.it("should return FromURL sources directly", async () => {
@@ -1461,7 +1469,12 @@ describe("Download", () => {
 
         Assert.deepStrictEqual(
           result,
-          Error(Connection__Download__Error.CannotFindCompatibleALSRelease),
+          Error(
+            Connection__Download__Error.NoMatchingSelection(
+              "Agda v9.9.9 Language Server (dev build)",
+              "dev",
+            ),
+          ),
         )
         Assert.deepStrictEqual(events, [])
       },

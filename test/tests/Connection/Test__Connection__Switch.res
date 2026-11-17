@@ -444,11 +444,11 @@ describe("Connection__Switch", () => {
             switch channel {
             | Connection__Download__Channel.DevALS =>
               Ok(Connection__Download__Source.FromGitHub(Connection__Download__Channel.DevALS, devDescriptor))
-            | _ => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+            | _ => Error(Connection__Download__Error.NoMatchingAsset("latest", Connection__Download__Platform.MacOS_Arm))
             }
           )
           let download = (_globalStorageUri, _, ~trace as _=Connection__Download__Trace.noop) =>
-            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Mock.Platform.downloadFailure))
           let findCommand = (_command, ~timeout as _=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
         }
@@ -703,11 +703,11 @@ describe("Connection__Switch", () => {
                     latestDescriptor,
                   ),
                 )
-              | _ => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+              | _ => Error(Connection__Download__Error.NoDevRelease)
               }
             )
             let download = (_globalStorageUri, _, ~trace as _=Connection__Download__Trace.noop) =>
-              Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+              Promise.resolve(Error(Mock.Platform.downloadFailure))
             let findCommand = (_command, ~timeout as _=1000) =>
               Promise.resolve(Error(Connection__Command.Error.NotFound))
           }
@@ -1774,9 +1774,9 @@ describe("Connection__Switch", () => {
               Promise.resolve(Error(Connection__Command.Error.NotFound))
             let alreadyDownloaded = _ => Promise.resolve(None)
             let resolveDownloadChannel = (_, _) =>
-              async (_, _, _) => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+              async (_, _, _) => Error(Connection__Download__Error.NoDevRelease)
             let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
-              Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+              Promise.resolve(Error(Mock.Platform.downloadFailure))
             let askUserAboutDownloadPolicy = () =>
               Promise.resolve(Config.Connection.DownloadPolicy.Yes)
           }

@@ -598,25 +598,32 @@ module Module: Module = {
               )
           | Connection__Download__Source.FromURL(_, _, _) => ()
           }
+        // Ok(None) when there is no WASM to fall back to, Error when its download fails
         let tryWasmFallback = async (~path, ~source) =>
           switch source {
           | Error.Establish.FromManagedDownload =>
-            switch await Connection__Download__ManagedStorage.findWasmForManagedPath(
-              globalStorageUri,
-              path,
-            ) {
-            | Some(wasmPath) => Ok(wasmPath)
-            | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
-            }
+            Ok(
+              await Connection__Download__ManagedStorage.findWasmForManagedPath(
+                globalStorageUri,
+                path,
+              ),
+            )
           | _ =>
             switch wasmFallbackSource.contents {
-            | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+            | None => Ok(None)
             | Some(wasmSource) =>
               switch await PlatformOps.download(globalStorageUri, wasmSource) {
-              | Ok(path) => Ok(path)
+              | Ok(path) => Ok(Some(path))
               | Error(error) => Error(error)
               }
             }
+          }
+        // after a failed native download, the WASM download, or why there is none
+        let fallBackToWasm = async downloadError =>
+          switch await tryWasmFallback(~path="", ~source=Error.Establish.FromDownload(channel)) {
+          | Ok(Some(path)) => Ok(path)
+          | Ok(None) => Error(Connection__Download__Error.NoWasmFallback(downloadError))
+          | Error(wasmError) => Error(wasmError)
           }
         let tryDownloadSource = async downloadSource =>
           switch await PlatformOps.download(globalStorageUri, downloadSource) {
@@ -629,13 +636,13 @@ module Module: Module = {
               if url->String.endsWith(".wasm") {
                 Error(error)
               } else {
-                await tryWasmFallback(~path="", ~source=Error.Establish.FromDownload(channel))
+                await fallBackToWasm(error)
               }
             | Connection__Download__Source.FromGitHub(_, descriptor) =>
               if descriptor.asset.name->String.includes("wasm") {
                 Error(error)
               } else {
-                await tryWasmFallback(~path="", ~source=Error.Establish.FromDownload(channel))
+                await fallBackToWasm(error)
               }
             }
           }
@@ -652,13 +659,13 @@ module Module: Module = {
             platform,
           ) {
           | Error(resolveError) =>
-            // for now, a host without a native ALS reports why it has no native ALS
-            // whatever kept the WASM ALS from resolving
+            // a host without a native ALS and no WASM build reports why it has no native ALS
             Error(
               Error.Establish.fromDownloadError(
-                switch noNativeHost {
-                | Some(host) => Connection__Download__Error.PlatformNotSupported(host)
-                | None => resolveError
+                switch (noNativeHost, resolveError) {
+                | (Some(host), Connection__Download__Error.NoMatchingAsset(_, Web)) =>
+                  Connection__Download__Error.PlatformNotSupported(host)
+                | _ => resolveError
                 },
               ),
             )
@@ -684,7 +691,7 @@ module Module: Module = {
             // Native path failed to connect — try WASM fallback on desktop
             if !(path->String.endsWith(".wasm")) {
               switch await tryWasmFallback(~path, ~source) {
-              | Ok(wasmPath) =>
+              | Ok(Some(wasmPath)) =>
                 switch await make(wasmPath, source, ~cwd) {
                 | Ok(connection) => Ok(connection)
                 | Error(wasmError) =>
@@ -695,7 +702,7 @@ module Module: Module = {
                     ),
                   )
                 }
-              | Error(_) =>
+              | Ok(None) | Error(_) =>
                 failDownloadFallback({...nativeError, download: Succeeded})
               }
             } else {

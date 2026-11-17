@@ -154,7 +154,7 @@ describe("Connection Downloads", () => {
               ~trace as _=Connection__Download__Trace.noop,
             ) => {
               downloaded->Array.push(source)
-              Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+              Promise.resolve(Error(Mock.Platform.downloadFailure))
             }
             let findCommand = (_command, ~timeout as _timeout=1000) =>
               Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -199,7 +199,7 @@ describe("Connection Downloads", () => {
               _globalStorageUri,
               _source,
               ~trace as _=Connection__Download__Trace.noop,
-            ) => Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+            ) => Promise.resolve(Error(Mock.Platform.downloadFailure))
             let findCommand = (_command, ~timeout as _timeout=1000) =>
               Promise.resolve(Error(Connection__Command.Error.NotFound))
           }
@@ -239,7 +239,7 @@ describe("Connection Downloads", () => {
               ~trace as _=Connection__Download__Trace.noop,
             ) => {
               downloads := downloads.contents + 1
-              Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+              Promise.resolve(Error(Mock.Platform.downloadFailure))
             }
             let findCommand = (_command, ~timeout as _timeout=1000) =>
               Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -523,7 +523,7 @@ describe("Connection Downloads", () => {
             Assert.deepStrictEqual(checkedCache.contents, true)
 
             let expected = Connection.Error.Establish.fromDownloadError(
-              CannotFindCompatibleALSRelease,
+              NoDevRelease,
             )
 
             Assert.deepStrictEqual(result, Error(expected))
@@ -563,7 +563,7 @@ describe("Connection Downloads", () => {
             ~trace as _=Connection__Download__Trace.noop,
           ) => {
             checkedDownload := true
-            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Mock.Platform.downloadFailure))
           }
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -576,7 +576,7 @@ describe("Connection Downloads", () => {
             let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
 
             let expected = Connection.Error.Establish.fromDownloadError(
-              CannotFindCompatibleALSRelease,
+              Mock.Platform.downloadFailure,
             )
             Assert.deepStrictEqual(result, Error(expected))
             Assert.deepStrictEqual(
@@ -614,7 +614,7 @@ describe("Connection Downloads", () => {
             _globalStorageUri,
             _downloadDescriptor,
             ~trace as _=Connection__Download__Trace.noop,
-          ) => Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+          ) => Promise.resolve(Error(Mock.Platform.downloadFailure))
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
         }
@@ -667,7 +667,7 @@ describe("Connection Downloads", () => {
             ~trace as _=Connection__Download__Trace.noop,
           ) => {
             checkedDownload := true
-            Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+            Promise.resolve(Error(Mock.Platform.downloadFailure))
           }
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -680,7 +680,7 @@ describe("Connection Downloads", () => {
             let result = await Connection.fromDownloads(mockPlatformDeps, memento, globalStorageUri)
 
             let expected = Connection.Error.Establish.fromDownloadError(
-              CannotFindCompatibleALSRelease,
+              NoWasmFallback(Mock.Platform.downloadFailure),
             )
             Assert.deepStrictEqual(result, Error(expected))
             Assert.deepStrictEqual(
@@ -752,13 +752,13 @@ describe("Connection Downloads", () => {
             _platform,
           ) => {
             checkedResolve := true
-            Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+            Error(Connection__Download__Error.NoDevRelease)
           }
           let download = (
             _globalStorageUri,
             _source,
             ~trace as _=Connection__Download__Trace.noop,
-          ) => Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+          ) => Promise.resolve(Error(Mock.Platform.downloadFailure))
           let findCommand = (_command, ~timeout as _timeout=1000) =>
             Promise.resolve(Error(Connection__Command.Error.NotFound))
         }
@@ -776,7 +776,7 @@ describe("Connection Downloads", () => {
               Assert.deepStrictEqual(
                 errors.download,
                 Connection.Error.Establish.Failed(
-                  Connection__Download__Error.CannotFindCompatibleALSRelease,
+                  Connection__Download__Error.NoDevRelease,
                 ),
               )
             }
@@ -869,11 +869,11 @@ describe("Connection Downloads", () => {
                   } else {
                     downloadAttempts := Array.concat(downloadAttempts.contents, ["native"])
                     Promise.resolve(
-                      Error(Connection__Download__Error.CannotFindCompatibleALSRelease),
+                      Error(Mock.Platform.downloadFailure),
                     )
                   }
                 | _ =>
-                  Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+                  Promise.resolve(Error(Mock.Platform.downloadFailure))
                 }
               let findCommand = (_command, ~timeout as _timeout=1000) =>
                 Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -945,12 +945,12 @@ describe("Connection Downloads", () => {
                 | Connection__Download__Source.FromURL(_, url, _)
                   if url == "https://example.invalid/als.wasm" =>
                   downloadAttempts := Array.concat(downloadAttempts.contents, ["wasm"])
-                  Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+                  Promise.resolve(Error(Mock.Platform.downloadFailure))
                 | Connection__Download__Source.FromURL(_, _, _) =>
                   downloadAttempts := Array.concat(downloadAttempts.contents, ["native"])
-                  Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+                  Promise.resolve(Error(Mock.Platform.downloadFailure))
                 | _ =>
-                  Promise.resolve(Error(Connection__Download__Error.CannotFindCompatibleALSRelease))
+                  Promise.resolve(Error(Mock.Platform.downloadFailure))
                 }
               let findCommand = (_command, ~timeout as _timeout=1000) =>
                 Promise.resolve(Error(Connection__Command.Error.NotFound))
@@ -1281,8 +1281,8 @@ describe("Connection Downloads", () => {
               switch error {
               | Connection.Error.Establish(errors) =>
                 switch errors.download {
-                | Failed(Connection__Download__Error.CannotFindCompatibleALSRelease) => ()
-                | _ => Assert.fail("Expected CannotFindCompatibleALSRelease download error")
+                | Failed(Connection__Download__Error.NoDevRelease) => ()
+                | _ => Assert.fail("Expected NoDevRelease download error")
                 }
               | _ => Assert.fail("Expected Establish error")
               }
