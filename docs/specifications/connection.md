@@ -95,6 +95,13 @@ als-<releaseTag>-Agda-<agdaVersion>-<platform>
 
 For channel resolution, a compatible artifact is a canonical artifact that matches the current runtime platform.
 
+A desktop host is native-eligible when it is:
+- Windows
+- macOS on arm64 or x64
+- Linux whose `/etc/os-release` has `ID=ubuntu` and `VERSION_ID` 24.04 or later, on x86_64
+
+Any other desktop host is WASM-only: it **MUST NOT** be offered native artifacts, and it **MUST** be offered WASM artifacts in both automatic and manual downloads.
+
 ### Channel
 
 A channel is a named selector whose target release may change over time.
@@ -138,7 +145,8 @@ Channel -> Release -> DownloadArtifact -> Candidate
 ### Fallback
 
 Downloaded binaries **MUST** be tried in order:
-- Desktop: [native, WASM]
+- Desktop, native-eligible: [native, WASM]
+- Desktop, WASM-only: [WASM]
 - Web: [WASM]
 
 On download success, the downloaded Candidate **MUST** be added to `connection.paths`.
