@@ -49,7 +49,7 @@ module Dev = {
   let toDownloadOrder = (releases: array<Connection__Download__GitHub.Release.t>, platform) => {
     let devRelease = releases->Array.find(release => release.tag_name == "dev")
     switch devRelease {
-    | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+    | None => Error(Connection__Download__Error.NoDevRelease)
     | Some(devRelease) =>
       let assets = Connection__Download__Assets.forPlatform(devRelease, platform)
       let result =
@@ -67,7 +67,7 @@ module Dev = {
         })
         ->Array.get(0)
       switch result {
-      | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+      | None => Error(Connection__Download__Error.NoMatchingAsset(toString(DevALS), platform))
       | Some(downloadDescriptor) => Ok(downloadDescriptor)
       }
     }
@@ -153,7 +153,7 @@ module Latest = {
     )
 
     switch found {
-    | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+    | None => Error(Connection__Download__Error.NoMatchingAsset(toString(LatestALS), platform))
     | Some(downloadDescriptor) => Ok(downloadDescriptor)
     }
   }

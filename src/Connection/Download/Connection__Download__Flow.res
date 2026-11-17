@@ -10,17 +10,18 @@ let sourceForSelection = async (
   module PlatformOps = unpack(platformDeps)
 
   // a host without a native ALS can still select the WASM ALS, whose assets `Web` resolves
+  let channelName = Connection__Download__Channel.toString(channel)
   let downloadPlatform = switch await PlatformOps.determinePlatform() {
-  | Ok(downloadPlatform) => Some(downloadPlatform)
-  | Error(_) =>
+  | Ok(downloadPlatform) => Ok(downloadPlatform)
+  | Error(host) =>
     platform == Connection__Download__DownloadArtifact.Platform.Wasm
-      ? Some(Connection__Download__Platform.Web)
-      : None
+      ? Ok(Connection__Download__Platform.Web)
+      : Error(host)
   }
 
   switch downloadPlatform {
-  | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
-  | Some(downloadPlatform) =>
+  | Error(host) => Error(Connection__Download__Error.PlatformNotSupported(host))
+  | Ok(downloadPlatform) =>
     let platformOk = switch platform {
     | Connection__Download__DownloadArtifact.Platform.Wasm => true
     | nativePlatform =>
@@ -30,7 +31,7 @@ let sourceForSelection = async (
       )
     }
     if !platformOk {
-      Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+      Error(Connection__Download__Error.NoMatchingAsset(channelName, downloadPlatform))
     } else {
     let resolver = PlatformOps.resolveDownloadChannel(channel, true)
     switch await resolver(memento, globalStorageUri, downloadPlatform) {
@@ -71,7 +72,7 @@ let sourceForSelection = async (
       | None =>
         if platform != Connection__Download__DownloadArtifact.Platform.Wasm {
           switch Connection__Download__Assets.wasm(release)->Array.get(0) {
-          | None => Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+          | None => Error(Connection__Download__Error.NoMatchingSelection(versionString, channelName))
           | Some(wasmAsset) =>
             let wasmSource = Connection__Download__Source.FromGitHub(channel, {
               Connection__Download__GitHub.DownloadDescriptor.asset: wasmAsset,
@@ -89,7 +90,7 @@ let sourceForSelection = async (
             Ok(wasmSource)
           }
         } else {
-          Error(Connection__Download__Error.CannotFindCompatibleALSRelease)
+          Error(Connection__Download__Error.NoMatchingSelection(versionString, channelName))
         }
       | Some(source) =>
         onEvent(

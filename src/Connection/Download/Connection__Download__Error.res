@@ -1,9 +1,12 @@
-type t =
+type rec t =
   | OptedNotToDownload
   | PlatformNotSupported(Connection__Download__Platform.host)
   | CannotFetchALSReleases(Connection__Download__GitHub.Error.t)
   | CannotDownloadALS(Connection__Download__GitHub.Error.t)
-  | CannotFindCompatibleALSRelease
+  | NoDevRelease
+  | NoMatchingAsset(string, Connection__Download__Platform.t) // channel name, platform
+  | NoMatchingSelection(string, string) // version string, channel name
+  | NoWasmFallback(t) // the native download's error
   | CannotDownloadFromURL(Connection__Download__GitHub.Error.t)
 
 // the host, like "ubuntu 22.04 on x64"
@@ -32,7 +35,7 @@ let whyNoNativeALS = (host: Connection__Download__Platform.host) =>
   | _ => "there is no native build for it"
   }
 
-let toString = x =>
+let rec toString = x =>
   switch x {
   | OptedNotToDownload => "Opted not to download the Agda Language Server"
   | PlatformNotSupported(host) =>
@@ -43,7 +46,17 @@ let toString = x =>
   | CannotFetchALSReleases(e) =>
     "Cannot fetch releases of Agda Language Server: " ++
     Connection__Download__GitHub.Error.toString(e)
-  | CannotFindCompatibleALSRelease => "Cannot find compatible Agda Language Server release for download. Prebuilts are only available for download on Ubuntu, Windows, and macOS (arm64, x64).\nPlease build from source if you are on a different platform. \nSee https://github.com/agda/agda-language-server for more information."
+  | NoDevRelease => "The dev release of the Agda Language Server was not found on GitHub."
+  | NoMatchingAsset(channelName, platform) =>
+    "The " ++
+    channelName ++
+    " release of the Agda Language Server has no build for " ++
+    Connection__Download__Platform.toAssetName(platform) ++ "."
+  | NoMatchingSelection(versionString, channelName) =>
+    versionString ++ " is not in the " ++ channelName ++ " release of the Agda Language Server."
+  | NoWasmFallback(error) =>
+    "Failed to download the native Agda Language Server, and there is no WASM build to fall back to: " ++
+    toString(error)
   | CannotDownloadALS(e) =>
     "Failed to download the Agda Language Server: " ++
     Connection__Download__GitHub.Error.toString(e)
