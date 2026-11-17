@@ -260,6 +260,42 @@ VERSION_ID="1.0 \\"beta\\""
     })
   })
 
+  describe("PlatformNotSupported's message", () => {
+    let message = (~arch="x64", osRelease) =>
+      Connection__Download__Error.toString(
+        PlatformNotSupported({os: "linux", arch, osRelease}),
+      )
+    let release = (id, versionId) => Some({
+      Connection__Download__Platform.id: Some(id),
+      versionId: Some(versionId),
+    })
+
+    it("names a distribution other than Ubuntu", () =>
+      Assert.deepStrictEqual(
+        message(release("nixos", "24.11")),
+        "No native Agda Language Server for nixos 24.11 on x64: only Ubuntu is supported. Add a local Agda or ALS to `agdaMode.connection.paths` instead.\n",
+      )
+    )
+    it("names an Ubuntu release before 24.04", () =>
+      Assert.deepStrictEqual(
+        message(release("ubuntu", "22.04")),
+        "No native Agda Language Server for ubuntu 22.04 on x64: it needs Ubuntu 24.04 or later. Add a local Agda or ALS to `agdaMode.connection.paths` instead.\n",
+      )
+    )
+    it("names an architecture other than x86_64", () =>
+      Assert.deepStrictEqual(
+        message(~arch="arm64", release("ubuntu", "24.04")),
+        "No native Agda Language Server for ubuntu 24.04 on arm64: it needs x86_64. Add a local Agda or ALS to `agdaMode.connection.paths` instead.\n",
+      )
+    )
+    it("names a missing /etc/os-release", () =>
+      Assert.deepStrictEqual(
+        message(None),
+        "No native Agda Language Server for an unknown Linux distribution on x64: the distribution could not be read from /etc/os-release. Add a local Agda or ALS to `agdaMode.connection.paths` instead.\n",
+      )
+    )
+  })
+
   describe("Mock Platform for Testing", () => {
     Async.it(
       "should allow custom mock platforms to be created for testing",
