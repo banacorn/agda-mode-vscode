@@ -1231,6 +1231,80 @@ describe("Download", () => {
       })
     })
 
+    describe("errors that name their cause", () => {
+      let messageOf = result => result->Result.mapError(Connection__Download__Error.toString)
+
+      it("Dev.toDownloadOrder without a dev release", () =>
+        Assert.deepStrictEqual(
+          Connection__Download__Channel.Dev.toDownloadOrder([], Connection__Download__Platform.Ubuntu)
+          ->messageOf,
+          Error("The dev release of the Agda Language Server was not found on GitHub."),
+        )
+      )
+
+      it("Dev.toDownloadOrder without a build for the platform", () =>
+        Assert.deepStrictEqual(
+          Connection__Download__Channel.Dev.toDownloadOrder(
+            [makeRelease("dev", [makeAsset("als-dev-Agda-2.8.0-macos-arm64.zip")])],
+            Connection__Download__Platform.Ubuntu,
+          )->messageOf,
+          Error("The dev release of the Agda Language Server has no build for ubuntu."),
+        )
+      )
+
+      it("Latest.toDownloadOrder without a build for the platform", () =>
+        Assert.deepStrictEqual(
+          Connection__Download__Channel.Latest.toDownloadOrder([], Connection__Download__Platform.Ubuntu)
+          ->messageOf,
+          Error("The latest release of the Agda Language Server has no build for ubuntu."),
+        )
+      )
+
+      Async.it("sourceForSelection for a native version not in the release", async () => {
+        let nativeAsset = makeAsset("als-dev-Agda-2.8.0-macos-arm64.zip")
+        let release = makeRelease("dev", [nativeAsset])
+        let result = await Connection__Download__Flow.sourceForSelection(
+          Memento.make(None),
+          VSCode.Uri.file("/tmp/agda-flow-missing-native"),
+          makePlatform(
+            Connection__Download__Platform.MacOS_Arm,
+            makeGitHubSource(Connection__Download__Channel.DevALS, release, nativeAsset, "dev-als"),
+          ),
+          ~channel=Connection__Download__Channel.DevALS,
+          ~platform=Connection__Download__DownloadArtifact.Platform.MacOSArm64,
+          ~versionString="Agda v9.9.9 Language Server (dev build)",
+        )
+        Assert.deepStrictEqual(
+          result->messageOf,
+          Error(
+            "Agda v9.9.9 Language Server (dev build) is not in the dev release of the Agda Language Server.",
+          ),
+        )
+      })
+
+      Async.it("sourceForSelection for a WASM version not in the release", async () => {
+        let wasmAsset = makeAsset("als-dev-Agda-2.8.0-wasm.wasm")
+        let release = makeRelease("dev", [wasmAsset])
+        let result = await Connection__Download__Flow.sourceForSelection(
+          Memento.make(None),
+          VSCode.Uri.file("/tmp/agda-flow-missing-wasm"),
+          makePlatform(
+            Connection__Download__Platform.MacOS_Arm,
+            makeGitHubSource(Connection__Download__Channel.DevALS, release, wasmAsset, "dev-als"),
+          ),
+          ~channel=Connection__Download__Channel.DevALS,
+          ~platform=Connection__Download__DownloadArtifact.Platform.Wasm,
+          ~versionString="Agda v9.9.9 Language Server (dev build)",
+        )
+        Assert.deepStrictEqual(
+          result->messageOf,
+          Error(
+            "Agda v9.9.9 Language Server (dev build) is not in the dev release of the Agda Language Server.",
+          ),
+        )
+      })
+    })
+
     Async.it(
       "should return the matching DevALS native source for the selected version string",
       async () => {

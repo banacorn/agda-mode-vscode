@@ -267,6 +267,152 @@ describe("Connection Downloads", () => {
       )
     })
 
+    describe("download errors that name their cause", () => {
+      let makeAsset = (name): Connection__Download__GitHub.Asset.t => {
+        url: "https://example.invalid/" ++ name,
+        id: 0,
+        node_id: "",
+        name,
+        label: Some(""),
+        content_type: name->String.endsWith(".wasm") ? "application/wasm" : "application/zip",
+        state: "uploaded",
+        size: 1000000,
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+        browser_download_url: "https://example.invalid/" ++ name,
+      }
+      let makeDevRelease = (assets): Connection__Download__GitHub.Release.t => {
+        url: "https://example.invalid/releases/dev",
+        assets_url: "https://example.invalid/releases/dev/assets",
+        upload_url: "https://example.invalid/releases/dev/assets",
+        html_url: "https://example.invalid/releases/tag/dev",
+        id: 1,
+        node_id: "dev",
+        tag_name: "dev",
+        target_commitish: "main",
+        name: "dev",
+        draft: false,
+        prerelease: true,
+        created_at: "2024-01-01T00:00:00Z",
+        published_at: "2024-01-01T00:00:00Z",
+        assets,
+        tarball_url: "",
+        zipball_url: "",
+        body: Some(""),
+      }
+      let nativeAsset = makeAsset("als-dev-Agda-2.8.0-ubuntu.zip")
+      let nativeError = Connection__Download__Error.CannotDownloadALS(
+        Connection__Download__GitHub.Error.AlreadyDownloading,
+      )
+      let wasmError = Connection__Download__Error.CannotDownloadALS(
+        Connection__Download__GitHub.Error.CannotStatFile("/non-existent/als.wasm"),
+      )
+      let ubuntu2204: Connection__Download__Platform.host = {
+        os: "linux",
+        arch: "x64",
+        osRelease: Some({id: Some("ubuntu"), versionId: Some("22.04")}),
+      }
+
+      // a platform whose dev release is `release`, where every download fails
+      let makePlatform = (detected, resolve): Platform.t => {
+        module MockPlatform = {
+          let determinePlatform = async () => detected
+          let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
+          let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
+          let resolveDownloadChannel = (_channel, _useCache) =>
+            async (_memento, _globalStorageUri, platform) => resolve(platform)
+          let download = (
+            _globalStorageUri,
+            source,
+            ~trace as _=Connection__Download__Trace.noop,
+          ) =>
+            Promise.resolve(
+              Error(
+                switch source {
+                | Connection__Download__Source.FromGitHub(_, descriptor)
+                  if descriptor.asset.name->String.endsWith(".wasm") => wasmError
+                | _ => nativeError
+                },
+              ),
+            )
+          let findCommand = (_command, ~timeout as _timeout=1000) =>
+            Promise.resolve(Error(Connection__Command.Error.NotFound))
+        }
+        module(MockPlatform)
+      }
+      let devOrder = (release, platform) =>
+        Connection__Download__Channel.Dev.toDownloadOrder([release], platform)->Result.map(
+          descriptor => Connection__Download__Source.FromGitHub(
+            Connection__Download__Channel.DevALS,
+            descriptor,
+          ),
+        )
+
+      let downloadMessage = async platform => {
+        await Config.Connection.DownloadPolicy.set(Yes)
+        let message = ref(None)
+        await withStorage(async globalStorageUri =>
+          message :=
+            switch await Connection.fromDownloads(platform, Memento.make(None), globalStorageUri) {
+            | Error({download: Failed(error)}) => Some(Connection__Download__Error.toString(error))
+            | _ => None
+            }
+        )
+        message.contents
+      }
+
+      Async.it("a failed native download with no WASM build", async () => {
+        let release = makeDevRelease([nativeAsset])
+        let message = await downloadMessage(
+          makePlatform(Ok(Connection__Download__Platform.Ubuntu), platform =>
+            devOrder(release, platform)
+          ),
+        )
+        Assert.deepStrictEqual(
+          message,
+          Some(
+            "Failed to download the native Agda Language Server, and there is no WASM build to fall back to: " ++
+            Connection__Download__Error.toString(nativeError),
+          ),
+        )
+      })
+
+      Async.it("a failed native download whose WASM fallback download also fails", async () => {
+        let release = makeDevRelease([nativeAsset, makeAsset("als-dev-Agda-2.8.0-wasm.wasm")])
+        let message = await downloadMessage(
+          makePlatform(Ok(Connection__Download__Platform.Ubuntu), platform =>
+            devOrder(release, platform)
+          ),
+        )
+        Assert.deepStrictEqual(message, Some(Connection__Download__Error.toString(wasmError)))
+      })
+
+      Async.it("a host without a native ALS and no dev release", async () => {
+        let message = await downloadMessage(
+          makePlatform(Error(ubuntu2204), platform =>
+            Connection__Download__Channel.Dev.toDownloadOrder([], platform)->Result.map(
+              descriptor => Connection__Download__Source.FromGitHub(
+                Connection__Download__Channel.DevALS,
+                descriptor,
+              ),
+            )
+          ),
+        )
+        Assert.deepStrictEqual(
+          message,
+          Some("The dev release of the Agda Language Server was not found on GitHub."),
+        )
+      })
+
+      Async.it("a host without a native ALS whose release list cannot be fetched", async () => {
+        let fetchError = Connection__Download__Error.CannotFetchALSReleases(
+          Connection__Download__GitHub.Error.CannotReadReleasesCache("not JSON"),
+        )
+        let message = await downloadMessage(makePlatform(Error(ubuntu2204), _ => Error(fetchError)))
+        Assert.deepStrictEqual(message, Some(Connection__Download__Error.toString(fetchError)))
+      })
+    })
+
     Async.it(
       "should throw the `NoDownloadALS` error when the initial download policy is `No`",
       async () => {
