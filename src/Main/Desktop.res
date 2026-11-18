@@ -76,8 +76,7 @@ module Desktop: Platform.PlatformOps = {
     )
   }
 
-  let ensureWasmLoader = async () =>
-    VSCode.Extensions.getExtension("qbane.als-wasm-loader")->Option.isSome
+  let ensureWasmLoader = WASMLoader.ensureInstalled
 }
 
 // Create platform dependencies for desktop environment
