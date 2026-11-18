@@ -1039,6 +1039,7 @@ describe("Connection UI", () => {
         let platform: Platform.t = {
           module MockPlatform = {
             let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let ensureWasmLoader = async () => true
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
             let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
             let urlSource = Connection__Download__Source.FromURL(
@@ -1283,6 +1284,7 @@ describe("Connection UI", () => {
           let cannotFindMsg = Connection__Download__Error.toString(Mock.Platform.downloadFailure)
           module MockFailPlatform = {
             let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let ensureWasmLoader = async () => true
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
             let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
             let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
@@ -1353,6 +1355,7 @@ describe("Connection UI", () => {
             async (_, _, _) => Error(Connection__Download__Error.NoDevRelease)
           let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
             Promise.resolve(Error(Mock.Platform.downloadFailure))
+          let ensureWasmLoader = async () => true
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
@@ -1388,6 +1391,7 @@ describe("Connection UI", () => {
             async (_, _, _) => Error(Connection__Download__Error.NoDevRelease)
           let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
             Promise.resolve(Error(Mock.Platform.downloadFailure))
+          let ensureWasmLoader = async () => true
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
@@ -1425,6 +1429,7 @@ describe("Connection UI", () => {
             async (_, _, _) => Error(Connection__Download__Error.NoDevRelease)
           let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
             Promise.resolve(Error(Mock.Platform.downloadFailure))
+          let ensureWasmLoader = async () => true
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }
@@ -1470,6 +1475,7 @@ describe("Connection UI", () => {
             async (_, _, _) => Error(Connection__Download__Error.NoDevRelease)
           let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
             Promise.resolve(Error(Mock.Platform.downloadFailure))
+          let ensureWasmLoader = async () => true
           let askUserAboutDownloadPolicy = () =>
             Promise.resolve(Config.Connection.DownloadPolicy.Yes)
         }

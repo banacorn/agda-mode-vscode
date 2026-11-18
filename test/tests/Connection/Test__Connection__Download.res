@@ -490,6 +490,7 @@ describe("Download", () => {
       {
         module MockDevALSPlatform = {
           let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+          let ensureWasmLoader = async () => true
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
           let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
@@ -689,6 +690,7 @@ describe("Download", () => {
           let platform: Platform.t = {
             module MockWebDevALSPlatform = {
               let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
+              let ensureWasmLoader = async () => true
               let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
               let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
               let resolveDownloadChannel = (channel, _useCache) =>
@@ -746,6 +748,7 @@ describe("Download", () => {
           let platform: Platform.t = {
             module MockWebFromURLPlatform = {
               let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
+              let ensureWasmLoader = async () => true
               let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
               let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
               let resolveDownloadChannel = (_channel, _useCache) =>
@@ -1039,6 +1042,7 @@ describe("Download", () => {
           let platform: Platform.t = {
             module MockWebLatestALSPlatform = {
               let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
+              let ensureWasmLoader = async () => true
               let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
               let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
               let resolveDownloadChannel = (channel, _useCache) =>
@@ -1142,6 +1146,7 @@ describe("Download", () => {
     let makePlatform = (downloadPlatform, resolvedSource): Platform.t => {
       module MockFlowPlatform = {
         let determinePlatform = async () => Ok(downloadPlatform)
+        let ensureWasmLoader = async () => true
         let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
         let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
         let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_channel => Ok(resolvedSource))
@@ -1182,6 +1187,7 @@ describe("Download", () => {
             arch: "x64",
             osRelease: Some({id: Some("ubuntu"), versionId: Some("22.04")}),
           })
+          let ensureWasmLoader = async () => true
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
           let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = (_channel, _useCache) =>
@@ -2771,6 +2777,7 @@ describe("Download", () => {
           let platform: Platform.t = {
             module MockPlatform = {
               let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+              let ensureWasmLoader = async () => true
               let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
               let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
               let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_ =>
@@ -2848,6 +2855,7 @@ describe("Download", () => {
           let platform: Platform.t = {
             module MockPlatform = {
               let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+              let ensureWasmLoader = async () => true
               let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
               let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
               let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_ => Ok(urlSource))

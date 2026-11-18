@@ -29,6 +29,9 @@ module type PlatformOps = {
 
   // User interaction
   let askUserAboutDownloadPolicy: unit => promise<Config.Connection.DownloadPolicy.t>
+
+  // Whether the `qbane.als-wasm-loader` extension, which runs the WASM ALS, is ready
+  let ensureWasmLoader: unit => promise<bool>
 }
 // Type alias for platform dependencies to be used throughout the codebase
 type t = module(PlatformOps)

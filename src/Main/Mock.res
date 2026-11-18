@@ -109,6 +109,7 @@ module Platform = {
   // Basic mock platform that avoids all external interactions
   module Basic = {
     let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+    let ensureWasmLoader = async () => true
     let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
 
     let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
@@ -130,6 +131,7 @@ module Platform = {
   // Mock platform that simulates successful Agda discovery
   module WithAgda = {
     let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+    let ensureWasmLoader = async () => true
     let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
 
     let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
@@ -152,6 +154,7 @@ module Platform = {
   let makeWithDownloadPolicy = (policy: Config.Connection.DownloadPolicy.t): Platform.t => {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+      let ensureWasmLoader = async () => true
       let askUserAboutDownloadPolicy = async () => policy
       let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
       let resolveDownloadChannel = DownloadDescriptor.mockWith(_ => Error(
@@ -172,6 +175,7 @@ module Platform = {
   ): Platform.t => {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+      let ensureWasmLoader = async () => true
       let askUserAboutDownloadPolicy = async () => {
         counter := counter.contents + 1
         policy
@@ -192,6 +196,7 @@ module Platform = {
   let makeWithSuccessfulDownload = (downloadedPath: string): Platform.t => {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+      let ensureWasmLoader = async () => true
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
 
       let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
@@ -214,6 +219,7 @@ module Platform = {
   let makeWithPlatformError = (platform): Platform.t => {
     module MockPlatform = {
       let determinePlatform = () => Promise.resolve(Error(platform))
+      let ensureWasmLoader = async () => true
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
 
       let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
@@ -240,6 +246,7 @@ module Platform = {
   ): Platform.t => {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+      let ensureWasmLoader = async () => true
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
 
       let alreadyDownloaded = _globalStorageUri => {
@@ -268,6 +275,7 @@ module Platform = {
   let makeWithCachedDownloadAndFlag = (cachedPath: string, checkedFlag: ref<bool>): Platform.t => {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+      let ensureWasmLoader = async () => true
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
       let alreadyDownloaded = _globalStorageUri => {
         checkedFlag := true
@@ -295,6 +303,7 @@ module Platform = {
   ): Platform.t => {
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.Windows)
+      let ensureWasmLoader = async () => true
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
 
       let alreadyDownloaded = _globalStorageUri => {
@@ -355,6 +364,7 @@ module Platform = {
 
     module MockPlatform = {
       let determinePlatform = async () => Ok(Connection__Download__Platform.Ubuntu)
+      let ensureWasmLoader = async () => true
       let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
 
       let alreadyDownloaded = _globalStorageUri => {

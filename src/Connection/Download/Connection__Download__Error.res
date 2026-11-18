@@ -8,6 +8,7 @@ type rec t =
   | NoMatchingSelection(string, string) // version string, channel name
   | NoWasmFallback(t) // the native download's error
   | CannotDownloadFromURL(Connection__Download__GitHub.Error.t)
+  | WasmLoaderNotInstalled // the WASM ALS needs the `qbane.als-wasm-loader` extension
 
 // the host, like "ubuntu 22.04 on x64"
 let describeHost = (host: Connection__Download__Platform.host) => {
@@ -62,4 +63,6 @@ let rec toString = x =>
     Connection__Download__GitHub.Error.toString(e)
   | CannotDownloadFromURL(e) =>
     "Failed to download from URL: " ++ Connection__Download__GitHub.Error.toString(e)
+  | WasmLoaderNotInstalled =>
+    "The WASM build of the Agda Language Server needs the ALS WASM Loader extension (qbane.als-wasm-loader), which is not installed or is disabled."
   }

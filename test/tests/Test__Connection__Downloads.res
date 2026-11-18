@@ -141,6 +141,7 @@ describe("Connection Downloads", () => {
 
           module MockPlatform = {
             let determinePlatform = async () => Error(ubuntu2204)
+            let ensureWasmLoader = async () => true
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
             let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
             let resolveDownloadChannel = (channel, _useCache) =>
@@ -188,6 +189,7 @@ describe("Connection Downloads", () => {
 
           module MockPlatform = {
             let determinePlatform = async () => Error(ubuntu2204)
+            let ensureWasmLoader = async () => true
             let askUserAboutDownloadPolicy = async () => {
               asked := asked.contents + 1
               Config.Connection.DownloadPolicy.No
@@ -228,6 +230,7 @@ describe("Connection Downloads", () => {
 
           module MockPlatform = {
             let determinePlatform = async () => Error(ubuntu2204)
+            let ensureWasmLoader = async () => true
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
             let alreadyDownloaded = _globalStorageUri =>
               Promise.resolve(Some("/non-existent/als.wasm"))
@@ -317,6 +320,7 @@ describe("Connection Downloads", () => {
       let makePlatform = (detected, resolve): Platform.t => {
         module MockPlatform = {
           let determinePlatform = async () => detected
+          let ensureWasmLoader = async () => true
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
           let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = (_channel, _useCache) =>
@@ -545,6 +549,7 @@ describe("Connection Downloads", () => {
 
         module MockWebPlatform = {
           let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
+          let ensureWasmLoader = async () => true
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
           let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = (channel, _useCache) => {
@@ -598,6 +603,7 @@ describe("Connection Downloads", () => {
 
         module MockWebPlatform = {
           let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
+          let ensureWasmLoader = async () => true
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
           let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = (channel, _useCache) => {
@@ -649,6 +655,7 @@ describe("Connection Downloads", () => {
 
         module MockDesktopPlatform = {
           let determinePlatform = async () => Ok(Connection__Download__Platform.Ubuntu)
+          let ensureWasmLoader = async () => true
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
           let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = (channel, _useCache) => {
@@ -744,6 +751,7 @@ describe("Connection Downloads", () => {
 
         module MockDesktopResolveFailurePlatform = {
           let determinePlatform = async () => Ok(Connection__Download__Platform.Ubuntu)
+          let ensureWasmLoader = async () => true
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
           let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = (_channel, _useCache) => async (
@@ -844,6 +852,7 @@ describe("Connection Downloads", () => {
 
             module MockDesktopOrderPlatform = {
               let determinePlatform = async () => Ok(Connection__Download__Platform.Ubuntu)
+              let ensureWasmLoader = async () => true
               let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
               let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
               let resolveDownloadChannel = (_channel, _useCache) => async (
@@ -916,6 +925,7 @@ describe("Connection Downloads", () => {
 
             module MockWebOrderPlatform = {
               let determinePlatform = async () => Ok(Connection__Download__Platform.Web)
+              let ensureWasmLoader = async () => true
               let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
               let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
               let resolveDownloadChannel = (channel, _useCache) => async (

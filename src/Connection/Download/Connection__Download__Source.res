@@ -61,3 +61,9 @@ let toVersionString = source =>
     | None => Connection__Download__Channel.toDisplayString(abstractChannel)
     }
   }
+
+let isWasm = source =>
+  switch source {
+  | FromURL(_, url, _) => url->String.endsWith(".wasm")
+  | FromGitHub(_, descriptor) => descriptor.asset.name->String.includes("wasm")
+  }
