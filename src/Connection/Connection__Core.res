@@ -626,22 +626,33 @@ module Module: Module = {
           | Error(wasmError) => Error(wasmError)
           }
         let tryDownloadSource = async downloadSource =>
-          switch await PlatformOps.download(globalStorageUri, downloadSource) {
-          | Ok(path) => Ok(path)
-          | Error(error) =>
-            // For native downloads on any channel, retry once with WASM.
-            // This gives desktop a graceful fallback when native artifacts fail.
-            if Connection__Download__Source.isWasm(downloadSource) {
-              Error(error)
-            } else {
-              await fallBackToWasm(error)
+          if (
+            Connection__Download__Source.isWasm(downloadSource) &&
+            !(await PlatformOps.ensureWasmLoader())
+          ) {
+            Error(Connection__Download__Error.WasmLoaderNotInstalled)
+          } else {
+            switch await PlatformOps.download(globalStorageUri, downloadSource) {
+            | Ok(path) => Ok(path)
+            | Error(error) =>
+              // For native downloads on any channel, retry once with WASM.
+              // This gives desktop a graceful fallback when native artifacts fail.
+              if Connection__Download__Source.isWasm(downloadSource) {
+                Error(error)
+              } else {
+                await fallBackToWasm(error)
+              }
             }
           }
         // Get the downloaded path, download if not already done
         let downloadResult = switch await PlatformOps.alreadyDownloaded(globalStorageUri) {
         | Some(path) =>
           Util.log("[ debug ] fromDownloads: alreadyDownloaded = Some", path)
-          Ok((path, Error.Establish.FromManagedDownload))
+          if path->String.endsWith(".wasm") && !(await PlatformOps.ensureWasmLoader()) {
+            Error(Error.Establish.fromDownloadError(Connection__Download__Error.WasmLoaderNotInstalled))
+          } else {
+            Ok((path, Error.Establish.FromManagedDownload))
+          }
         | None =>
           Util.log("[ debug ] fromDownloads: alreadyDownloaded = None", "")
           switch await PlatformOps.resolveDownloadChannel(channel, true)(
