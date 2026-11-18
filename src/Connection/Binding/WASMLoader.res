@@ -176,3 +176,44 @@ let makeWithStdlibDownloader = async (extension, raw: Uint8Array.t, downloadStdl
 
 let make = (extension, raw: Uint8Array.t) =>
   makeWithStdlibDownloader(extension, raw, downloadStdlib)
+
+// Installing the loader extension, which agda-mode does not depend on
+let extensionId = "qbane.als-wasm-loader"
+
+let isInstalled = () => Extensions.getExtension(extensionId)->Option.isSome
+
+@module("vscode") @scope("commands")
+external executeCommand2: (string, 'arg0, 'arg1) => promise<'a> = "executeCommand"
+
+// Resolves once the loader is visible to this extension host, or with false after `timeout` ms
+let waitUntilInstalled = async (~timeout) =>
+  if isInstalled() {
+    true
+  } else {
+    let (promise, resolve, _) = Util.Promise_.pending()
+    let listener = Extensions.onDidChange(() => isInstalled() ? resolve(true) : ())
+    let timer = setTimeout(() => resolve(isInstalled()), timeout)
+    let installed = await promise
+    listener->Disposable.dispose->ignore
+    clearTimeout(timer)
+    installed
+  }
+
+// Whether the loader is ready, offering to install (or enable) it first when it is not.
+// VS Code shows its own "Install Extension" dialog because of `justification`.
+let ensureInstalled = async () =>
+  if isInstalled() {
+    true
+  } else {
+    switch await executeCommand2(
+      "workbench.extensions.installExtension",
+      extensionId,
+      {
+        "justification": "The WASM build of the Agda Language Server runs in the ALS WASM Loader extension.",
+        "enable": true,
+      },
+    ) {
+    | exception _ => false // cancelled, or the installation failed
+    | _ => await waitUntilInstalled(~timeout=10000)
+    }
+  }
