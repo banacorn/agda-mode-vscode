@@ -149,6 +149,13 @@ Downloaded binaries **MUST** be tried in order:
 - Desktop, WASM-only: [WASM]
 - Web: [WASM]
 
+A WASM artifact runs in the `qbane.als-wasm-loader` extension, which agda-mode does not depend on.
+Before downloading or falling back to a WASM artifact, agda-mode **MUST** check that the loader is installed and enabled, and **MUST** offer to install or enable it when it is not.
+If the loader is still missing:
+- the automatic download on a WASM-only host or the Web **MUST** fail with the missing loader as its error, without downloading
+- the WASM fallback **MUST** be skipped, and the native artifact's own error **MUST** stand
+- a manual UI-triggered WASM download **MUST NOT** download or change `connection.paths`, and **MUST** show the missing loader as its error
+
 On download success, the downloaded Candidate **MUST** be added to `connection.paths`.
 Automatic fallback downloads **MUST** be prepended (lowest priority).
 Manual UI-triggered downloads **MUST** be appended (highest priority).
