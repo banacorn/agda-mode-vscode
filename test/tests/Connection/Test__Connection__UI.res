@@ -979,6 +979,40 @@ describe("Connection UI", () => {
     )
 
     Async.it(
+      "handleDownload downloaded=true WASM should not add the path when the WASM loader is not ready",
+      async () =>
+        await withTempStorage("sv-wasm-no-loader-", async (tempDir, globalStorageUri) => {
+          let logChannel = Chan.make()
+          await Config.Connection.setAgdaPaths(logChannel, [])
+
+          let artifactDir = NodeJs.Path.join([tempDir, "releases", "dev", "als-dev-Agda-2.8.0-wasm"])
+          await NodeJs.Fs.mkdir(artifactDir, {recursive: true, mode: 0o777})
+          NodeJs.Fs.writeFileSync(
+            NodeJs.Path.join([artifactDir, "als.wasm"]),
+            NodeJs.Buffer.fromString("mock wasm"),
+          )
+
+          module MockPlatform = {
+            include Mock.Platform.Basic
+            let ensureWasmLoader = async () => false
+          }
+          let platform: Platform.t = module(MockPlatform)
+          let state = createTestStateWithPlatformAndStorage(platform, globalStorageUri)
+
+          await Connection__UI__Handlers.handleDownload(
+            state,
+            platform,
+            Connection__Download__DownloadArtifact.Platform.Wasm,
+            true,
+            "Agda v2.8.0 Language Server (dev build)",
+            ~channel=Connection__Download__Channel.DevALS,
+          )
+
+          Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), [])
+        }),
+    )
+
+    Async.it(
       "handleChannelSwitch should persist channel selection in memento",
       async () => {
         let state = createTestState()
@@ -1114,6 +1148,45 @@ describe("Connection UI", () => {
           Log.Connection.DownloadFlow.DownloadSucceeded(downloadedPath),
         ])
         Assert.deepStrictEqual(downloadedChannel.contents, Some(Connection__Download__Channel.DevALS))
+      },
+    )
+
+    Async.it(
+      "handleDownload should not download a WASM ALS when the WASM loader is not ready",
+      async () => {
+        let state = createTestState()
+        let existingPaths = ["/usr/bin/agda"]
+        await Config.Connection.setAgdaPaths(state.channels.log, existingPaths)
+
+        let platform: Platform.t = {
+          module MockPlatform = {
+            include Mock.Platform.Basic
+            let ensureWasmLoader = async () => false
+            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_channel =>
+              Ok(
+                Connection__Download__Source.FromURL(
+                  Connection__Download__Channel.DevALS,
+                  "https://example.invalid/dev-als.wasm",
+                  "dev-als",
+                ),
+              )
+            )
+            let download = async (_, _, ~trace as _=Connection__Download__Trace.noop) =>
+              failwith("Unexpected download")
+          }
+          module(MockPlatform)
+        }
+
+        await Connection__UI__Handlers.handleDownload(
+          state,
+          platform,
+          Connection__Download__DownloadArtifact.Platform.Wasm,
+          false,
+          "ALS vTest",
+          ~channel=Connection__Download__Channel.DevALS,
+        )
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), existingPaths)
       },
     )
 

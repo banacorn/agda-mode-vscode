@@ -1574,6 +1574,41 @@ describe("Download", () => {
         )
       },
     )
+
+    Async.it(
+      "handleDownload should not download a native selection that falls back to WASM when the WASM loader is not ready",
+      async () => {
+        let nativeAsset = makeAsset("als-dev-Agda-2.8.0-macos-arm64.zip")
+        let release = makeRelease("dev", [nativeAsset, makeAsset("als-dev-Agda-2.8.0-wasm.wasm")])
+
+        let platform: Platform.t = {
+          module MockPlatform = {
+            include Mock.Platform.Basic
+            let ensureWasmLoader = async () => false
+            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_channel =>
+              Ok(makeGitHubSource(Connection__Download__Channel.DevALS, release, nativeAsset, "dev-als"))
+            )
+            let download = async (_, _, ~trace as _=Connection__Download__Trace.noop) =>
+              failwith("Unexpected download")
+          }
+          module(MockPlatform)
+        }
+
+        let state = Mock.State.make(platform, Mock.Channels.make())
+        await Config.Connection.setAgdaPaths(state.channels.log, ["/usr/bin/agda"])
+
+        await Connection__UI__Handlers.handleDownload(
+          state,
+          platform,
+          Connection__Download__DownloadArtifact.Platform.MacOSArm64,
+          false,
+          "Agda v9.9.9 Language Server (dev build)",
+          ~channel=Connection__Download__Channel.DevALS,
+        )
+
+        Assert.deepStrictEqual(Config.Connection.getAgdaPaths(), ["/usr/bin/agda"])
+      },
+    )
   })
 
   describe("ManagedStorage.findAnyWasmDownloaded", () => {
