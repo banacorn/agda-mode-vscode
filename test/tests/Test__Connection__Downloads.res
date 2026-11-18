@@ -461,6 +461,48 @@ describe("Connection Downloads", () => {
         Assert.deepStrictEqual(message, Some(Connection__Download__Error.toString(wasmError)))
       })
 
+      Async.it(
+        "a failed native download does not fall back to the WASM ALS when the WASM loader is not ready",
+        async () => {
+          await Config.Connection.DownloadPolicy.set(Yes)
+          let release = makeDevRelease([nativeAsset, makeAsset("als-dev-Agda-2.8.0-wasm.wasm")])
+          let downloaded = []
+
+          module MockPlatform = {
+            include Mock.Platform.Basic
+            let determinePlatform = async () => Ok(Connection__Download__Platform.Ubuntu)
+            let ensureWasmLoader = async () => false
+            let resolveDownloadChannel = (_channel, _useCache) =>
+              async (_memento, _globalStorageUri, platform) => devOrder(release, platform)
+            let download = (
+              _globalStorageUri,
+              source,
+              ~trace as _=Connection__Download__Trace.noop,
+            ) => {
+              switch source {
+              | Connection__Download__Source.FromGitHub(_, descriptor) =>
+                downloaded->Array.push(descriptor.asset.name)
+              | Connection__Download__Source.FromURL(_, url, _) => downloaded->Array.push(url)
+              }
+              Promise.resolve(Error(nativeError))
+            }
+          }
+
+          let result = await Connection.fromDownloads(
+            module(MockPlatform),
+            Memento.make(None),
+            VSCode.Uri.file("/unused-storage"),
+          )
+          Assert.deepStrictEqual(
+            (downloaded, result),
+            (
+              ["als-dev-Agda-2.8.0-ubuntu.zip"],
+              Error(Connection.Error.Establish.fromDownloadError(nativeError)),
+            ),
+          )
+        },
+      )
+
       Async.it("a host without a native ALS and no dev release", async () => {
         let message = await downloadMessage(
           makePlatform(Error(ubuntu2204), platform =>
