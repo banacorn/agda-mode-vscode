@@ -42,25 +42,33 @@ let handleDownload = async (
         ),
       )
     | Some(downloadedPath) =>
-      state.channels.log->Chan.emit(
-        Log.Connection(
-          Log.Connection.DownloadFlow(
-            Log.Connection.DownloadFlow.ManagedHit(versionString, downloadedPath),
+      module PlatformOps = unpack(platformDeps)
+      if downloadedPath->String.endsWith(".wasm") && !(await PlatformOps.ensureWasmLoader()) {
+        VSCode.Window.showErrorMessage(
+          AgdaModeVscode.Connection__Download__Error.toString(WasmLoaderNotInstalled),
+          [],
+        )->Promise.done
+      } else {
+        state.channels.log->Chan.emit(
+          Log.Connection(
+            Log.Connection.DownloadFlow(
+              Log.Connection.DownloadFlow.ManagedHit(versionString, downloadedPath),
+            ),
           ),
-        ),
-      )
-      state.channels.log->Chan.emit(
-        Log.Connection(
-          Log.Connection.DownloadFlow(
-            Log.Connection.DownloadFlow.ReusedExistingArtifact(downloadedPath),
+        )
+        state.channels.log->Chan.emit(
+          Log.Connection(
+            Log.Connection.DownloadFlow(
+              Log.Connection.DownloadFlow.ReusedExistingArtifact(downloadedPath),
+            ),
           ),
-        ),
-      )
-      await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
-      VSCode.Window.showInformationMessage(
-        versionString ++ " is already downloaded",
-        [],
-      )->Promise.done
+        )
+        await Config.Connection.addAgdaPath(state.channels.log, downloadedPath)
+        VSCode.Window.showInformationMessage(
+          versionString ++ " is already downloaded",
+          [],
+        )->Promise.done
+      }
     }
   } else {
     module PlatformOps = unpack(platformDeps)
@@ -76,6 +84,14 @@ let handleDownload = async (
       ~versionString,
       ~onEvent=onFlowEvent,
     )
+    // a native selection may have resolved to WASM
+    let sourceResult = switch sourceResult {
+    | Ok(source) if Connection__Download__Source.isWasm(source) =>
+      (await PlatformOps.ensureWasmLoader())
+        ? Ok(source)
+        : Error(Connection__Download__Error.WasmLoaderNotInstalled)
+    | result => result
+    }
     switch sourceResult {
     | Error(error) =>
       VSCode.Window.showErrorMessage(
