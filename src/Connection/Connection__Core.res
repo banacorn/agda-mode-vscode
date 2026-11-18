@@ -598,31 +598,45 @@ module Module: Module = {
               )
           | Connection__Download__Source.FromURL(_, _, _) => ()
           }
-        // Ok(None) when there is no WASM to fall back to, Error when its download fails
+        // Ok(None) when there is no WASM to fall back to,
+        // Error(WasmLoaderNotInstalled) when the loader to run it is not ready,
+        // Error when its download fails
         let tryWasmFallback = async (~path, ~source) =>
           switch source {
           | Error.Establish.FromManagedDownload =>
-            Ok(
-              await Connection__Download__ManagedStorage.findWasmForManagedPath(
-                globalStorageUri,
-                path,
-              ),
-            )
+            switch await Connection__Download__ManagedStorage.findWasmForManagedPath(
+              globalStorageUri,
+              path,
+            ) {
+            | None => Ok(None)
+            | Some(wasmPath) =>
+              if await PlatformOps.ensureWasmLoader() {
+                Ok(Some(wasmPath))
+              } else {
+                Error(Connection__Download__Error.WasmLoaderNotInstalled)
+              }
+            }
           | _ =>
             switch wasmFallbackSource.contents {
             | None => Ok(None)
             | Some(wasmSource) =>
-              switch await PlatformOps.download(globalStorageUri, wasmSource) {
-              | Ok(path) => Ok(Some(path))
-              | Error(error) => Error(error)
+              if await PlatformOps.ensureWasmLoader() {
+                switch await PlatformOps.download(globalStorageUri, wasmSource) {
+                | Ok(path) => Ok(Some(path))
+                | Error(error) => Error(error)
+                }
+              } else {
+                Error(Connection__Download__Error.WasmLoaderNotInstalled)
               }
             }
           }
-        // after a failed native download, the WASM download, or why there is none
+        // after a failed native download, the WASM download, or why there is none;
+        // without the WASM loader, the native download's error stands
         let fallBackToWasm = async downloadError =>
           switch await tryWasmFallback(~path="", ~source=Error.Establish.FromDownload(channel)) {
           | Ok(Some(path)) => Ok(path)
           | Ok(None) => Error(Connection__Download__Error.NoWasmFallback(downloadError))
+          | Error(Connection__Download__Error.WasmLoaderNotInstalled) => Error(downloadError)
           | Error(wasmError) => Error(wasmError)
           }
         let tryDownloadSource = async downloadSource =>
