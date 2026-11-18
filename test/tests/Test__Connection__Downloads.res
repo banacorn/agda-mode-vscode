@@ -268,6 +268,76 @@ describe("Connection Downloads", () => {
           )
         },
       )
+
+      let unexpectedDownload = async (_, _, ~trace as _=Connection__Download__Trace.noop) =>
+        failwith("Unexpected download")
+
+      Async.it(
+        "should not download the WASM ALS when the WASM loader is not ready",
+        async () => {
+          await Config.Connection.DownloadPolicy.set(Yes)
+          module MockPlatform = {
+            include Mock.Platform.Basic
+            let determinePlatform = async () => Error(ubuntu2204)
+            let ensureWasmLoader = async () => false
+            let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(_ => Ok(wasmSource))
+            let download = unexpectedDownload
+          }
+          let result = await Connection.fromDownloads(
+            module(MockPlatform),
+            Memento.make(None),
+            VSCode.Uri.file("/unused-storage"),
+          )
+          Assert.deepStrictEqual(
+            result,
+            Error(Connection.Error.Establish.fromDownloadError(WasmLoaderNotInstalled)),
+          )
+        },
+      )
+
+      Async.it(
+        "should not connect a cached WASM ALS when the WASM loader is not ready",
+        async () => {
+          await Config.Connection.DownloadPolicy.set(Yes)
+          module MockPlatform = {
+            include Mock.Platform.Basic
+            let determinePlatform = async () => Error(ubuntu2204)
+            let ensureWasmLoader = async () => false
+            let alreadyDownloaded = _ => Promise.resolve(Some("/non-existent/als.wasm"))
+            let download = unexpectedDownload
+          }
+          let result = await Connection.fromDownloads(
+            module(MockPlatform),
+            Memento.make(None),
+            VSCode.Uri.file("/unused-storage"),
+          )
+          Assert.deepStrictEqual(
+            result,
+            Error(Connection.Error.Establish.fromDownloadError(WasmLoaderNotInstalled)),
+          )
+        },
+      )
+
+      Async.it(
+        "should report a resolution error without asking about the WASM loader",
+        async () => {
+          await Config.Connection.DownloadPolicy.set(Yes)
+          module MockPlatform = {
+            include Mock.Platform.Basic
+            let determinePlatform = async () => Error(ubuntu2204)
+            let ensureWasmLoader = async () => failwith("Unexpected loader prompt")
+          }
+          let result = await Connection.fromDownloads(
+            module(MockPlatform),
+            Memento.make(None),
+            VSCode.Uri.file("/unused-storage"),
+          )
+          Assert.deepStrictEqual(
+            result,
+            Error(Connection.Error.Establish.fromDownloadError(NoDevRelease)),
+          )
+        },
+      )
     })
 
     describe("download errors that name their cause", () => {
