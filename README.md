@@ -8,6 +8,8 @@ It's okay if you don't have Agda installed, we can also download and install [Ag
 
 On Linux, the native Agda Language Server is only offered on Ubuntu 24.04 or later on x86_64. Other Linux systems get the WASM build instead, or you can add a local Agda or ALS to `agdaMode.connection.paths`.
 
+The WASM build runs in the [ALS WASM Loader](https://marketplace.visualstudio.com/items?itemName=qbane.als-wasm-loader) extension. If it is not installed, agda-mode offers to install it before downloading the WASM build.
+
 You can install multiple versions of Agda or ALS by adding more paths to `agdaMode.connection.paths` in the settings, and switch between them with <kbd>C-c</kbd> <kbd>C-r</kbd>.
 
 ### Extension Activation
