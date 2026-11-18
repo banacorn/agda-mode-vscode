@@ -438,6 +438,7 @@ describe("Connection__Switch", () => {
         }
         module MockDevALS = {
           let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+          let ensureWasmLoader = async () => true
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
           let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
           let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
@@ -692,6 +693,7 @@ describe("Connection__Switch", () => {
 
           module MockLatestALSv6 = {
             let determinePlatform = async () => Ok(Connection__Download__Platform.Windows)
+            let ensureWasmLoader = async () => true
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
             let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
             let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(channel =>
@@ -1777,6 +1779,7 @@ describe("Connection__Switch", () => {
               async (_, _, _) => Error(Connection__Download__Error.NoDevRelease)
             let download = (_, _, ~trace as _=Connection__Download__Trace.noop) =>
               Promise.resolve(Error(Mock.Platform.downloadFailure))
+            let ensureWasmLoader = async () => true
             let askUserAboutDownloadPolicy = () =>
               Promise.resolve(Config.Connection.DownloadPolicy.Yes)
           }

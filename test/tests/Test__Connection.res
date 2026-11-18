@@ -1046,6 +1046,7 @@ describe("Connection", () => {
           async () => {
             module MockPlatform = {
               let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+              let ensureWasmLoader = async () => true
               let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
               let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
               let resolveDownloadChannel = (_target, _) => async (_, _, _) => Error(
@@ -1144,6 +1145,7 @@ describe("Connection", () => {
 
         module FailingPlatform = {
           let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+          let ensureWasmLoader = async () => true
           let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.No
           let alreadyDownloaded = _ => Promise.resolve(None)
           let resolveDownloadChannel = (_channel, _allowFallback) => async (
@@ -1360,6 +1362,7 @@ describe("Connection", () => {
         let platformDeps: Platform.t = {
           module MockPlatform = {
             let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let ensureWasmLoader = async () => true
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
             let alreadyDownloaded = _ => Promise.resolve(None)
             let resolveDownloadChannel = (_channel, _allowFallback) => async (
@@ -2005,6 +2008,7 @@ describe("Connection", () => {
         let platform: Platform.t = {
           module MockPlatform = {
             let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let ensureWasmLoader = async () => true
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
             let alreadyDownloaded = _globalStorageUri => Promise.resolve(None)
             let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(
@@ -2122,6 +2126,7 @@ describe("Connection", () => {
         let platform: Platform.t = {
           module MockPlatform = {
             let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let ensureWasmLoader = async () => true
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
             let alreadyDownloaded = _globalStorageUri => {
               // Simulate: native binary was already downloaded and cached
@@ -2204,6 +2209,7 @@ describe("Connection", () => {
         let platform: Platform.t = {
           module MockPlatform = {
             let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+            let ensureWasmLoader = async () => true
             let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
             let alreadyDownloaded = _globalStorageUri => Promise.resolve(Some(cachedNativePath))
             let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(
@@ -2309,6 +2315,7 @@ describe("Connection", () => {
             let platform: Platform.t = {
               module MockPlatform = {
                 let determinePlatform = async () => Ok(Connection__Download__Platform.MacOS_Arm)
+                let ensureWasmLoader = async () => true
                 let askUserAboutDownloadPolicy = async () => Config.Connection.DownloadPolicy.Yes
                 let alreadyDownloaded = _globalStorageUri => Promise.resolve(Some(cachedNativePath))
                 let resolveDownloadChannel = Mock.DownloadDescriptor.mockWith(

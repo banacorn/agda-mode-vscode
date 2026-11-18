@@ -631,19 +631,10 @@ module Module: Module = {
           | Error(error) =>
             // For native downloads on any channel, retry once with WASM.
             // This gives desktop a graceful fallback when native artifacts fail.
-            switch downloadSource {
-            | Connection__Download__Source.FromURL(_, url, _) =>
-              if url->String.endsWith(".wasm") {
-                Error(error)
-              } else {
-                await fallBackToWasm(error)
-              }
-            | Connection__Download__Source.FromGitHub(_, descriptor) =>
-              if descriptor.asset.name->String.includes("wasm") {
-                Error(error)
-              } else {
-                await fallBackToWasm(error)
-              }
+            if Connection__Download__Source.isWasm(downloadSource) {
+              Error(error)
+            } else {
+              await fallBackToWasm(error)
             }
           }
         // Get the downloaded path, download if not already done

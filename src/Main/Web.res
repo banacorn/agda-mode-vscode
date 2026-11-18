@@ -38,6 +38,9 @@ module Web: Platform.PlatformOps = {
 
   // Always download, because there are no alternatives in web environment
   let askUserAboutDownloadPolicy = () => Promise.resolve(Config.Connection.DownloadPolicy.Yes)
+
+  let ensureWasmLoader = async () =>
+    VSCode.Extensions.getExtension("qbane.als-wasm-loader")->Option.isSome
 }
 
 // Create platform dependencies for web environment
